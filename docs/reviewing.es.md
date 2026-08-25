@@ -3,7 +3,10 @@
 Cada operación es una acción con nombre: un elemento de menú con su
 equivalente de teclado nativo de macOS, reasignable a través del mapa
 `keys` de la [configuración](configuration.md). El ratón funciona en
-todas partes, pero nada lo exige.
+todas partes, pero nada lo exige. La barra de la ventana lleva las
+acciones comunes para los días de ratón, y ⇧⌘H vuelve a la pantalla de
+inicio; las hojas se confirman con ⌘↩ (Retorno escribe una línea nueva
+en el cuerpo).
 
 ## Navegación y vista
 

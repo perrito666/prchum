@@ -13,6 +13,9 @@ make app                        # un Prchum.app double-cliquable dans dist/
 make check                      # ce que la CI exécute : tests, smoke test, dérive de l'en-tête
 ```
 
+La commande de terminal `pr` s'installe depuis le menu de l'application
+(Prchum → Install pr Command…) ou avec `make install-cli`.
+
 La compilation demande une chaîne d'outils Rust et Xcode. La revue de
 pull requests demande le CLI de la forge installé et authentifié :
 [`gh`](https://cli.github.com) (`gh auth login`) pour GitHub,

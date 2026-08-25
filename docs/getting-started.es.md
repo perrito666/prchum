@@ -13,6 +13,9 @@ make app                    # un Prchum.app de doble clic en dist/
 make check                  # lo que ejecuta CI: tests, smoke test, deriva de la cabecera
 ```
 
+El comando de terminal `pr` se instala desde el menú de la aplicación
+(Prchum → Install pr Command…) o con `make install-cli`.
+
 Compilar requiere una cadena de herramientas de Rust y Xcode. Revisar
 pull requests requiere el CLI de la forja instalado y autenticado:
 [`gh`](https://cli.github.com) (`gh auth login`) para GitHub,

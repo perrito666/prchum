@@ -3,7 +3,9 @@
 Every operation is a named action: a menu item with a macOS-native key
 equivalent, rebindable through the `keys` map in
 [configuration](configuration.md). The mouse works everywhere, but
-nothing requires it.
+nothing requires it. The window's toolbar carries the common ones for
+mouse days, and ⇧⌘H returns to the home screen; sheets confirm with ⌘↩
+(Return types a newline in the body).
 
 ## Navigation and view
 

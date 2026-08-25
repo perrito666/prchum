@@ -466,6 +466,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ",")
         appMenu.addItem(.separator())
         appMenu.addItem(
+            withTitle: "Install pr Command…",
+            action: #selector(installCommandLineTool(_:)),
+            keyEquivalent: "")
+        appMenu.addItem(
+            withTitle: "Open Themes Folder",
+            action: #selector(openThemesFolder(_:)),
+            keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(
             withTitle: "Quit Prchum",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q")
@@ -563,6 +572,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             withTitle: "Minimize",
             action: #selector(NSWindow.performMiniaturize(_:)),
             keyEquivalent: "m")
+        let homeItem = NSMenuItem(
+            title: "Home",
+            action: #selector(showHome(_:)),
+            keyEquivalent: "h")
+        homeItem.keyEquivalentModifierMask = [.command, .shift]
+        windowMenu.addItem(homeItem)
         NSApp.windowsMenu = windowMenu
 
         NSApp.mainMenu = mainMenu

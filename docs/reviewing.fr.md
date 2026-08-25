@@ -3,7 +3,10 @@
 Chaque opération est une action nommée : un élément de menu avec son
 équivalent clavier natif de macOS, réassignable via la table `keys` de
 la [configuration](configuration.md). La souris fonctionne partout, mais
-rien ne l'exige.
+rien ne l'exige. La barre d'outils de la fenêtre porte les actions
+courantes pour les jours à la souris, et ⇧⌘H revient à l'écran
+d'accueil ; les feuilles se confirment avec ⌘↩ (Retour tape un saut de
+ligne dans le corps).
 
 ## Navigation et affichage
 

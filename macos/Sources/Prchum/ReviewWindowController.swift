@@ -10,7 +10,9 @@ import SwiftUI
 /// secondary path — click a file, click or drag in the diff to place and
 /// extend the selection.
 @MainActor
-final class ReviewWindowController: NSWindowController, NSWindowDelegate {
+final class ReviewWindowController: NSWindowController, NSWindowDelegate,
+    NSToolbarDelegate
+{
     private let session: CoreSession
     private let files: [DiffFile]
     private let sidebarModel: SidebarModel
@@ -31,6 +33,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     private var contextFiles: Set<Int> = []
     /// The fetched projections (content verified against the diff).
     private var contextCache: [Int: DiffFile] = [:]
+    /// Where the caret was, per file — switching back resumes there.
+    private var savedCarets: [Int: Int] = [:]
 
     /// A background operation (submit, context fetch) owns the session's
     /// lock; the UI keeps its hands off until it finishes.
@@ -92,6 +96,15 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             window.center()
         }
         window.setFrameAutosaveName("ReviewWindow")
+
+        let toolbar = NSToolbar(identifier: "review")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization = true
+        toolbar.autosavesConfiguration = true
+        window.toolbar = toolbar
+        window.toolbarStyle = .unified
+
         applyWrap()
         updateBadges()
         showFile(at: 0)
@@ -757,7 +770,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         summaryScroll.widthAnchor.constraint(equalToConstant: 420).isActive = true
         alert.accessoryView = accessory
 
-        alert.addButton(withTitle: "Submit")
+        let submitButton = alert.addButton(withTitle: "Submit")
+        submitButton.keyEquivalent = "\r"
+        submitButton.keyEquivalentModifierMask = [.command]
         alert.addButton(withTitle: "Cancel")
         alert.beginSheetModal(for: window) { [weak self] response in
             guard response == .alertFirstButtonReturn, let self else { return }
@@ -911,19 +926,35 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func updateBadges() {
-        var counts: [String: Int] = [:]
+        var draftCounts: [String: Int] = [:]
         for comment in comments {
-            counts[comment.location.path, default: 0] += 1
+            draftCounts[comment.location.path, default: 0] += 1
         }
-        sidebarModel.updateDraftCounts(counts)
+        var threadCounts: [String: Int] = [:]
+        for thread in threads {
+            threadCounts[thread.path, default: 0] += 1
+        }
+        sidebarModel.updateCounts(drafts: draftCounts, threads: threadCounts)
+        let total = comments.count
+        window?.title =
+            total == 0
+            ? session.title
+            : "\(session.title) — \(total) draft\(total == 1 ? "" : "s")"
     }
 
     private func showFile(at index: Int) {
         guard files.indices.contains(index) else { return }
+        savedCarets[sidebarModel.selected] = caret
         sidebarModel.selected = index
         renderCurrentFile()
-        diffTextView.setSelectedRange(NSRange(location: 0, length: 0))
-        diffTextView.scroll(.zero)
+        let length = diffTextView.textStorage?.length ?? 0
+        let resume = min(savedCarets[index] ?? 0, length)
+        diffTextView.setSelectedRange(NSRange(location: resume, length: 0))
+        if resume == 0 {
+            diffTextView.scroll(.zero)
+        } else {
+            diffTextView.scrollRangeToVisible(NSRange(location: resume, length: 0))
+        }
     }
 
     private func renderCurrentFile() {
@@ -1006,6 +1037,82 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         return view
     }
 
+    // MARK: - Toolbar
+
+    nonisolated private static let toolbarSpecs:
+        [NSToolbarItem.Identifier: (String, String, Selector)] = [
+            .init("comment"): (
+                "Comment", "plus.bubble",
+                #selector(ReviewWindowController.addComment(_:))
+            ),
+            .init("suggest"): (
+                "Suggest", "lightbulb",
+                #selector(ReviewWindowController.suggestChange(_:))
+            ),
+            .init("layout"): (
+                "Split View", "rectangle.split.2x1",
+                #selector(ReviewWindowController.toggleLayout(_:))
+            ),
+            .init("context"): (
+                "Full File", "doc.text.magnifyingglass",
+                #selector(ReviewWindowController.toggleContext(_:))
+            ),
+            .init("syntax"): (
+                "Coloring", "paintpalette",
+                #selector(ReviewWindowController.toggleSyntax(_:))
+            ),
+            .init("navigator"): (
+                "Navigator", "list.bullet.rectangle",
+                #selector(ReviewWindowController.showCommentList(_:))
+            ),
+            .init("conversation"): (
+                "Conversation", "bubble.left.and.bubble.right",
+                #selector(ReviewWindowController.showConversation(_:))
+            ),
+            .init("submit"): (
+                "Submit", "paperplane",
+                #selector(ReviewWindowController.submitReview(_:))
+            ),
+        ]
+
+    nonisolated private static let toolbarOrder: [NSToolbarItem.Identifier] = [
+        .init("comment"), .init("suggest"), .flexibleSpace,
+        .init("layout"), .init("context"), .init("syntax"), .flexibleSpace,
+        .init("navigator"), .init("conversation"), .init("submit"),
+    ]
+
+    nonisolated func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar)
+        -> [NSToolbarItem.Identifier]
+    {
+        Self.toolbarOrder
+    }
+
+    nonisolated func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar)
+        -> [NSToolbarItem.Identifier]
+    {
+        Self.toolbarOrder + [.space]
+    }
+
+    nonisolated func toolbar(
+        _ toolbar: NSToolbar,
+        itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+        willBeInsertedIntoToolbar flag: Bool
+    ) -> NSToolbarItem? {
+        MainActor.assumeIsolated {
+            guard let (label, symbol, action) = Self.toolbarSpecs[identifier] else {
+                return nil
+            }
+            let item = NSToolbarItem(itemIdentifier: identifier)
+            item.label = label
+            item.toolTip = label
+            item.image = NSImage(
+                systemSymbolName: symbol, accessibilityDescription: label)
+            item.target = nil
+            item.action = action
+            return item
+        }
+    }
+
     // MARK: - Sheets
 
     /// A one-field text sheet (comment editing) with Save/Cancel.
@@ -1026,7 +1133,10 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         textView.isRichText = false
         alert.accessoryView = scroll
         alert.window.initialFirstResponder = textView
-        alert.addButton(withTitle: button)
+        // Return types a newline in the body; cmd+return confirms.
+        let confirm = alert.addButton(withTitle: button)
+        confirm.keyEquivalent = "\r"
+        confirm.keyEquivalentModifierMask = [.command]
         alert.addButton(withTitle: "Cancel")
         alert.beginSheetModal(for: window) { response in
             guard response == .alertFirstButtonReturn else { return }
@@ -1111,6 +1221,7 @@ final class SidebarModel: ObservableObject {
         let added: Int
         let deleted: Int
         var drafts: Int = 0
+        var threads: Int = 0
     }
 
     @Published var rows: [Row]
@@ -1129,9 +1240,10 @@ final class SidebarModel: ObservableObject {
         selected = 0
     }
 
-    func updateDraftCounts(_ counts: [String: Int]) {
+    func updateCounts(drafts: [String: Int], threads: [String: Int]) {
         for index in rows.indices {
-            rows[index].drafts = counts[rows[index].path] ?? 0
+            rows[index].drafts = drafts[rows[index].path] ?? 0
+            rows[index].threads = threads[rows[index].path] ?? 0
         }
     }
 }
@@ -1155,6 +1267,11 @@ struct SidebarView: View {
                     Text("●\(row.drafts)")
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.orange)
+                }
+                if row.threads > 0 {
+                    Text("◆\(row.threads)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.purple)
                 }
                 if row.added > 0 {
                     Text("+\(row.added)")
