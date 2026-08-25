@@ -36,8 +36,6 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false)
         window.title = session.title
-        window.center()
-        window.setFrameAutosaveName("ReviewWindow")
         super.init(window: window)
         window.delegate = self
 
@@ -64,7 +62,21 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         content.view = diffScrollView
         split.addSplitViewItem(NSSplitViewItem(viewController: content))
 
+        // Setting contentViewController lets the split view impose its own
+        // (tiny) fitting size; restore a real size afterwards — the saved
+        // frame when there is one, the default otherwise.
         window.contentViewController = split
+        // A floor also repairs any tiny frame autosaved by earlier builds.
+        window.contentMinSize = NSSize(width: 700, height: 450)
+        window.setContentSize(NSSize(width: 1100, height: 720))
+        if !window.setFrameUsingName("ReviewWindow") {
+            window.center()
+        }
+        if window.frame.width < 700 || window.frame.height < 450 {
+            window.setContentSize(NSSize(width: 1100, height: 720))
+            window.center()
+        }
+        window.setFrameAutosaveName("ReviewWindow")
         applyWrap()
         updateBadges()
         showFile(at: 0)

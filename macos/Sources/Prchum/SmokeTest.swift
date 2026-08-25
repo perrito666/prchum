@@ -405,6 +405,22 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
+    // Clipboard prefill: PR-looking references only, never random text.
+    guard AppDelegate.looksLikePullRequestReference("https://github.com/o/r/pull/418"),
+        AppDelegate.looksLikePullRequestReference(
+            "https://gitlab.com/g/r/-/merge_requests/42"),
+        AppDelegate.looksLikePullRequestReference("owner/repo#7"),
+        AppDelegate.looksLikePullRequestReference("group/sub/repo!9"),
+        !AppDelegate.looksLikePullRequestReference("418"),
+        !AppDelegate.looksLikePullRequestReference("https://github.com/o/r"),
+        !AppDelegate.looksLikePullRequestReference("see issue #7 for details"),
+        !AppDelegate.looksLikePullRequestReference("a\nb#3")
+    else {
+        print("FAIL: PR-reference sniffing")
+        return 1
+    }
+    print("clipboard prefill sniffing ok")
+
     // Async event round trip: core dispatch thread → main queue.
     var receivedSequence: UInt64?
     let coreApp = CoreApp { event in

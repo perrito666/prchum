@@ -144,6 +144,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "A URL, owner/repo#N, or a bare number (repository inferred from the current directory)."
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 380, height: 24))
         field.placeholderString = "https://github.com/owner/repo/pull/418"
+        // A PR reference already on the clipboard is almost certainly what
+        // the user came here to paste; save them the keystroke.
+        if let pasted = NSPasteboard.general.string(forType: .string)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            Self.looksLikePullRequestReference(pasted)
+        {
+            field.stringValue = pasted
+        }
         alert.accessoryView = field
         alert.window.initialFirstResponder = field
         alert.addButton(withTitle: "Open")
@@ -158,6 +166,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         openPullRequest(reference: reference)
+    }
+
+    /// Does this text look like a pull/merge-request reference worth
+    /// prefilling? URLs with a request path, or explicit owner/repo#N /
+    /// group/repo!N — never bare numbers (too easy to false-positive on
+    /// an unrelated clipboard).
+    static func looksLikePullRequestReference(_ text: String) -> Bool {
+        guard !text.isEmpty, text.count < 300, !text.contains("\n") else { return false }
+        if text.hasPrefix("https://") || text.hasPrefix("http://") {
+            return text.contains("/pull/") || text.contains("/pulls/")
+                || text.contains("/-/merge_requests/")
+        }
+        for marker in ["#", "!"] {
+            if let range = text.range(of: marker, options: .backwards),
+                text[range.upperBound...].allSatisfy(\.isNumber),
+                !text[range.upperBound...].isEmpty,
+                text[..<range.lowerBound].contains("/"),
+                !text.contains(" ")
+            {
+                return true
+            }
+        }
+        return false
     }
 
     /// Fetches a PR reference off-main and opens it; a progress window
@@ -298,7 +329,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let editMenu = NSMenu(title: "Edit")
         editItem.submenu = editMenu
         editMenu.addItem(
+            withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(
+            withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(
+            withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(
             withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(
+            withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         editMenu.addItem(
             withTitle: "Select All",
             action: #selector(NSText.selectAll(_:)),
