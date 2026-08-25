@@ -5,18 +5,27 @@
 //! (when a store is attached) — quitting never loses a note.
 
 use crate::diff::{self, FileDiff, ParseError, Side, DEFAULT_TAB_WIDTH};
+use crate::exchange;
 use crate::export;
-use crate::location::{build_location, snippet};
-use crate::review::{DraftReview, DraftStore};
+use crate::location::{build_location, relocate, snippet, RelocateResult};
+use crate::review::{atomic_write, DraftReview, DraftState, DraftStore};
+use crate::source::{git_diff, GitSpec};
 use crate::util::fnv64_hex;
 
 pub struct Session {
     title: String,
     files: Vec<FileDiff>,
     source_key: String,
+    head_oid: String,
     author: String,
     draft: DraftReview,
     store: Option<DraftStore>,
+    /// When set, every save also rewrites this exchange document in place.
+    exchange_path: Option<String>,
+    /// The exchange document's patch lines, kept verbatim for writeback.
+    exchange_patch: Vec<String>,
+    /// Existing host threads (PR mode), opaque JSON for the shell.
+    threads_json: String,
 }
 
 impl Session {
@@ -29,11 +38,15 @@ impl Session {
 
     /// Opens a session over a patch file. The source key hashes the absolute
     /// path, so reviewing the file again — even from another directory —
-    /// resumes the same draft.
+    /// resumes the same draft. Exchange documents are detected by content,
+    /// never by filename.
     pub fn from_patch_file(path: &str) -> Result<Self, ParseError> {
         let text = std::fs::read_to_string(path).map_err(|error| ParseError {
             message: format!("could not read {path}: {error}"),
         })?;
+        if exchange::is_exchange(&text) {
+            return Self::from_exchange_file(path);
+        }
         let absolute = std::fs::canonicalize(path)
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| path.to_string());
@@ -60,10 +73,54 @@ impl Session {
             title: title.to_string(),
             files,
             source_key,
+            head_oid: String::new(),
             author: String::new(),
             draft,
             store: None,
+            exchange_path: None,
+            exchange_patch: Vec::new(),
+            threads_json: String::new(),
         })
+    }
+
+    /// Opens a session over a local git comparison.
+    pub fn from_git(repo: &str, spec: &GitSpec, context: u32) -> Result<Self, ParseError> {
+        let diff = git_diff(repo, spec, context).map_err(|message| ParseError { message })?;
+        let mut session = Self::from_patch_keyed(&diff.title, &diff.patch, diff.source_key)?;
+        session.head_oid = diff.head_oid;
+        Ok(session)
+    }
+
+    /// Opens a session over a review-exchange document. Every save rewrites
+    /// the file in place, so quitting leaves the conversation current.
+    pub fn from_exchange_file(path: &str) -> Result<Self, ParseError> {
+        let text = std::fs::read_to_string(path).map_err(|error| ParseError {
+            message: format!("could not read {path}: {error}"),
+        })?;
+        let doc = exchange::parse(&text).map_err(|message| ParseError { message })?;
+        let absolute = std::fs::canonicalize(path)
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| path.to_string());
+        let title = if doc.title.is_empty() {
+            std::path::Path::new(path)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| path.to_string())
+        } else {
+            doc.title.clone()
+        };
+        let key = format!("exchange-{}", fnv64_hex(absolute.as_bytes()));
+        let mut session = Self::from_patch_keyed(&title, &exchange::patch_text(&doc), key)?;
+        session.draft.comments = exchange::to_drafts(&doc, &session.files);
+        session.draft.summary = doc.summary.clone();
+        session.exchange_patch = doc.patch;
+        session.exchange_path = Some(absolute);
+        Ok(session)
+    }
+
+    /// Is this text an exchange document rather than a plain patch?
+    pub fn sniff_exchange(text: &str) -> bool {
+        exchange::is_exchange(text)
     }
 
     pub fn title(&self) -> &str {
@@ -92,22 +149,77 @@ impl Session {
 
     /// Attaches the persistence directory and loads any existing draft for
     /// this source. Returns a warning when the saved draft was unreadable
-    /// (the file is left in place; the session starts fresh).
+    /// (the file is left in place; the session starts fresh). An exchange
+    /// session skips the load — the exchange document is the truth.
     pub fn attach_store(&mut self, dir: &str) -> Option<String> {
         let store = DraftStore::new(dir);
-        let warning = match store.load(&self.source_key) {
-            Ok(Some(saved)) => {
-                self.draft = saved;
-                // The diff may not be the one the draft was made against.
-                self.draft.source_key = self.source_key.clone();
-                self.draft.title = self.title.clone();
-                None
+        let warning = if self.exchange_path.is_some() {
+            None
+        } else {
+            match store.load(&self.source_key) {
+                Ok(Some(saved)) => {
+                    self.draft = saved;
+                    // The diff may not be the one the draft was made against.
+                    self.draft.source_key = self.source_key.clone();
+                    self.draft.title = self.title.clone();
+                    None
+                }
+                Ok(None) => None,
+                Err(message) => Some(message),
             }
-            Ok(None) => None,
-            Err(message) => Some(message),
         };
         self.store = Some(store);
         warning
+    }
+
+    pub fn head_oid(&self) -> &str {
+        &self.head_oid
+    }
+
+    pub fn set_head_oid(&mut self, oid: &str) {
+        self.head_oid = oid.to_string();
+    }
+
+    pub fn threads_json(&self) -> &str {
+        &self.threads_json
+    }
+
+    pub fn set_threads_json(&mut self, json: String) {
+        self.threads_json = json;
+    }
+
+    /// Re-anchors saved drafts after the head moved: exact matches keep
+    /// their place, unique moves follow, everything else is orphaned (kept,
+    /// never submitted). Replies to host threads are keyed by comment
+    /// identity, not by line, and are skipped. Returns (moved, orphaned).
+    pub fn relocate_drafts(&mut self) -> (usize, usize) {
+        let mut moved = 0;
+        let mut orphaned = 0;
+        let files = std::mem::take(&mut self.files);
+        for comment in &mut self.draft.comments {
+            if comment.reply_to.is_some() || comment.state == DraftState::Dismissed {
+                continue;
+            }
+            let (location, result) = relocate(&files, &comment.location);
+            match result {
+                RelocateResult::Exact => {
+                    if comment.state == DraftState::Orphaned {
+                        comment.state = DraftState::Active;
+                    }
+                }
+                RelocateResult::Moved => {
+                    comment.location = location;
+                    comment.state = DraftState::Active;
+                    moved += 1;
+                }
+                RelocateResult::Orphaned => {
+                    comment.state = DraftState::Orphaned;
+                    orphaned += 1;
+                }
+            }
+        }
+        self.files = files;
+        (moved, orphaned)
     }
 
     /// Adds a comment on `side` lines `start..=end` of the file at
@@ -178,12 +290,22 @@ impl Session {
     }
 
     /// Persists the draft when a store is attached; a session without a
-    /// store (tests, previews) simply keeps state in memory.
+    /// store (tests, previews) simply keeps state in memory. An exchange
+    /// session also rewrites its document in place on every save.
     pub fn persist(&self) -> Result<(), String> {
-        match &self.store {
-            Some(store) => store.save(&self.draft),
-            None => Ok(()),
+        if let Some(store) = &self.store {
+            store.save(&self.draft)?;
         }
+        if let Some(path) = &self.exchange_path {
+            let doc = exchange::from_drafts(
+                &self.title,
+                &self.draft.summary,
+                self.exchange_patch.clone(),
+                &self.draft.comments,
+            );
+            atomic_write(std::path::Path::new(path), exchange::render(&doc).as_bytes())?;
+        }
+        Ok(())
     }
 }
 
@@ -238,6 +360,32 @@ mod tests {
             })
             .unwrap();
         assert!(empty.draft().comments.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn exchange_session_writes_back_in_place() {
+        let dir = std::env::temp_dir().join(format!("prchum-exch-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("loop.review.json");
+        std::fs::write(
+            &path,
+            r#"{"leanreview_review": 1, "title": "loop", "patch": ["--- a/x.rs", "+++ b/x.rs", "@@ -1,2 +1,2 @@", " context", "-a", "+b"], "comments": [{"id": "c1", "author": "assistant", "path": "x.rs", "side": "RIGHT", "start_line": 2, "end_line": 2, "body": "why b?", "state": "active"}]}"#,
+        )
+        .unwrap();
+
+        // Detection is by content: opened as a plain file, it still becomes
+        // an exchange session.
+        let mut session = Session::from_patch_file(&path.to_string_lossy()).unwrap();
+        assert_eq!(session.title(), "loop");
+        assert_eq!(session.draft().comments.len(), 1);
+
+        // Triaging rewrites the document in place.
+        session.set_author("me");
+        session.add_reply("c1", "because a was wrong".into()).unwrap();
+        let rewritten = std::fs::read_to_string(&path).unwrap();
+        assert!(rewritten.contains("because a was wrong"), "{rewritten}");
+        assert!(rewritten.starts_with("{\n  \"leanreview_review\": 1"), "{rewritten}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

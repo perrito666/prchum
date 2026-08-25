@@ -7,10 +7,12 @@
 pub mod app;
 pub mod config;
 pub mod diff;
+pub mod exchange;
 pub mod export;
 pub mod location;
 pub mod review;
 pub mod session;
+pub mod source;
 pub mod util;
 
 pub use app::{App, Event, EventSender};
