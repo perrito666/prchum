@@ -68,10 +68,22 @@ pub struct PcApp {
 
 /// A review session over one diff source. Create with one of the
 /// `pc_session_new_*` constructors, release with [`pc_session_free`].
+///
+/// The session is internally synchronized: calls may arrive from more
+/// than one thread (the shell runs slow operations — submission, the
+/// first context fetch — off its UI thread) and serialize on a mutex.
 pub struct PcSession {
-    inner: Session,
+    inner: std::sync::Mutex<Session>,
     /// Set for PR-mode sessions; submission targets it.
     pr: Option<PrContext>,
+}
+
+impl PcSession {
+    fn lock(&self) -> std::sync::MutexGuard<'_, Session> {
+        // A poisoned lock means a panic mid-operation; the data is still
+        // consistent enough to read, and refusing forever helps nobody.
+        self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
 }
 
 /// What submission needs to reach the same forge the session came from.
@@ -189,7 +201,10 @@ fn wrap_session(
     error_out: *mut *mut c_char,
 ) -> *mut PcSession {
     match result {
-        Ok(Ok(inner)) => Box::into_raw(Box::new(PcSession { inner, pr: None })),
+        Ok(Ok(inner)) => Box::into_raw(Box::new(PcSession {
+            inner: std::sync::Mutex::new(inner),
+            pr: None,
+        })),
         Ok(Err(error)) => {
             unsafe { write_error(error_out, &error.to_string()) };
             std::ptr::null_mut()
@@ -286,7 +301,10 @@ pub unsafe extern "C" fn pc_session_new_from_pr(
         build_pr_session(reference, repo_hint, config_path)
     }));
     match built {
-        Ok(Ok((inner, pr))) => Box::into_raw(Box::new(PcSession { inner, pr: Some(pr) })),
+        Ok(Ok((inner, pr))) => Box::into_raw(Box::new(PcSession {
+            inner: std::sync::Mutex::new(inner),
+            pr: Some(pr),
+        })),
         Ok(Err(message)) => {
             unsafe { write_error(error_out, &message) };
             std::ptr::null_mut()
@@ -402,8 +420,8 @@ pub unsafe extern "C" fn pc_session_context_file_json(
         return std::ptr::null_mut();
     };
     let result = catch_unwind(AssertUnwindSafe(|| {
-        session
-            .inner
+        let mut inner = session.lock();
+        inner
             .context_file(index)
             .and_then(|file| serde_json::to_string(file).map_err(|e| e.to_string()))
     }));
@@ -434,7 +452,7 @@ pub unsafe extern "C" fn pc_session_title(session: *const PcSession) -> *mut c_c
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    owned_c_string(session.inner.title().to_string())
+    owned_c_string(session.lock().title().to_string())
 }
 
 /// Number of changed files in the session.
@@ -443,7 +461,7 @@ pub unsafe extern "C" fn pc_session_file_count(session: *const PcSession) -> usi
     let Some(session) = (unsafe { session.as_ref() }) else {
         return 0;
     };
-    session.inner.files().len()
+    session.lock().files().len()
 }
 
 /// One changed file, hunks and lines included, as JSON:
@@ -458,7 +476,8 @@ pub unsafe extern "C" fn pc_session_file_json(
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    let Some(file) = session.inner.files().get(index) else {
+    let inner = session.lock();
+    let Some(file) = inner.files().get(index) else {
         return std::ptr::null_mut();
     };
     let result = catch_unwind(AssertUnwindSafe(|| serde_json::to_string(file)));
@@ -484,7 +503,7 @@ pub unsafe extern "C" fn pc_session_attach_store(
     let Some(dir) = (unsafe { str_from_raw(dir, dir_len) }) else {
         return owned_c_string("drafts directory is not valid UTF-8".to_string());
     };
-    let result = catch_unwind(AssertUnwindSafe(|| session.inner.attach_store(dir)));
+    let result = catch_unwind(AssertUnwindSafe(|| session.lock().attach_store(dir)));
     match result {
         Ok(Some(warning)) => owned_c_string(warning),
         _ => std::ptr::null_mut(),
@@ -504,7 +523,7 @@ pub unsafe extern "C" fn pc_session_set_author(
     let Some(author) = (unsafe { str_from_raw(author, author_len) }) else {
         return;
     };
-    session.inner.set_author(author);
+    session.lock().set_author(author);
 }
 
 /// Side values crossing the boundary.
@@ -543,7 +562,7 @@ pub unsafe extern "C" fn pc_session_add_comment(
         return std::ptr::null_mut();
     };
     let result = catch_unwind(AssertUnwindSafe(|| {
-        let id = session.inner.add_comment(
+        let id = session.lock().add_comment(
             file_index,
             side_from(side),
             start_line,
@@ -551,10 +570,10 @@ pub unsafe extern "C" fn pc_session_add_comment(
             body.to_string(),
         )?;
         if reply_to != 0 {
-            if let Some(comment) = session.inner.draft_mut().comment_mut(&id) {
+            if let Some(comment) = session.lock().draft_mut().comment_mut(&id) {
                 comment.reply_to = Some(reply_to);
             }
-            session.inner.persist()?;
+            session.lock().persist()?;
         }
         Ok::<String, String>(id)
     }));
@@ -584,7 +603,7 @@ pub unsafe extern "C" fn pc_session_update_comment(
         let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
             return false;
         };
-        session.inner.update_comment(id, body.to_string()).is_ok()
+        session.lock().update_comment(id, body.to_string()).is_ok()
     })
 }
 
@@ -596,7 +615,7 @@ pub unsafe extern "C" fn pc_session_delete_comment(
     local_id_len: usize,
 ) -> bool {
     with_comment_id(session, local_id, local_id_len, |session, id| {
-        session.inner.delete_comment(id).is_ok()
+        session.lock().delete_comment(id).is_ok()
     })
 }
 
@@ -609,7 +628,7 @@ pub unsafe extern "C" fn pc_session_toggle_dismiss(
     local_id_len: usize,
 ) -> bool {
     with_comment_id(session, local_id, local_id_len, |session, id| {
-        session.inner.toggle_dismiss(id).is_ok()
+        session.lock().toggle_dismiss(id).is_ok()
     })
 }
 
@@ -626,7 +645,7 @@ pub unsafe extern "C" fn pc_session_add_reply(
         let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
             return false;
         };
-        session.inner.add_reply(id, body.to_string()).is_ok()
+        session.lock().add_reply(id, body.to_string()).is_ok()
     })
 }
 
@@ -644,7 +663,7 @@ pub unsafe extern "C" fn pc_session_update_reply(
         let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
             return false;
         };
-        session.inner.update_reply(id, index, body.to_string()).is_ok()
+        session.lock().update_reply(id, index, body.to_string()).is_ok()
     })
 }
 
@@ -657,7 +676,7 @@ pub unsafe extern "C" fn pc_session_delete_reply(
     index: usize,
 ) -> bool {
     with_comment_id(session, local_id, local_id_len, |session, id| {
-        session.inner.delete_reply(id, index).is_ok()
+        session.lock().delete_reply(id, index).is_ok()
     })
 }
 
@@ -683,7 +702,7 @@ pub unsafe extern "C" fn pc_session_comments_json(session: *const PcSession) -> 
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    owned_c_string(session.inner.comments_json())
+    owned_c_string(session.lock().comments_json())
 }
 
 /// Existing host review threads as a JSON array (empty string outside PR
@@ -693,7 +712,7 @@ pub unsafe extern "C" fn pc_session_threads_json(session: *const PcSession) -> *
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    owned_c_string(session.inner.threads_json().to_string())
+    owned_c_string(session.lock().threads_json().to_string())
 }
 
 /// Pull-request metadata as JSON (empty string outside PR mode). Release
@@ -703,7 +722,7 @@ pub unsafe extern "C" fn pc_session_pr_json(session: *const PcSession) -> *mut c
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    owned_c_string(session.inner.pr_json().to_string())
+    owned_c_string(session.lock().pr_json().to_string())
 }
 
 /// The review summary.
@@ -712,7 +731,7 @@ pub unsafe extern "C" fn pc_session_summary(session: *const PcSession) -> *mut c
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    owned_c_string(session.inner.draft().summary.clone())
+    owned_c_string(session.lock().draft().summary.clone())
 }
 
 /// Sets the review summary (persisted immediately).
@@ -729,7 +748,7 @@ pub unsafe extern "C" fn pc_session_set_summary(
         return false;
     };
     catch_unwind(AssertUnwindSafe(|| {
-        session.inner.set_summary(summary.to_string()).is_ok()
+        session.lock().set_summary(summary.to_string()).is_ok()
     }))
     .unwrap_or(false)
 }
@@ -745,12 +764,12 @@ pub unsafe extern "C" fn pc_session_set_event(session: *mut PcSession, event: u3
     let Some(session) = (unsafe { session.as_mut() }) else {
         return;
     };
-    session.inner.draft_mut().event = match event {
+    session.lock().draft_mut().event = match event {
         PC_EVENT_REVIEW_APPROVE => ReviewEvent::Approve,
         PC_EVENT_REVIEW_REQUEST_CHANGES => ReviewEvent::RequestChanges,
         _ => ReviewEvent::Comment,
     };
-    let _ = session.inner.persist();
+    let _ = session.lock().persist();
 }
 
 /// Exports the review to `path`: `.json` writes a review-exchange
@@ -769,7 +788,7 @@ pub unsafe extern "C" fn pc_session_export_to_file(
         unsafe { write_error(error_out, "path is not valid UTF-8") };
         return false;
     };
-    match catch_unwind(AssertUnwindSafe(|| session.inner.export_to_file(path))) {
+    match catch_unwind(AssertUnwindSafe(|| session.lock().export_to_file(path))) {
         Ok(Ok(())) => true,
         Ok(Err(message)) => {
             unsafe { write_error(error_out, &message) };
@@ -801,13 +820,17 @@ pub unsafe extern "C" fn pc_session_submit(session: *mut PcSession) -> *mut c_ch
     let forge = context.forge();
     let pr = context.reference.clone();
     let result = catch_unwind(AssertUnwindSafe(|| {
-        let plan = submit::plan(session.inner.draft());
-        let outcome = submit::execute(forge.as_ref(), &pr, session.inner.draft(), &plan);
+        // One guard across the whole submission: the session is
+        // consistent for its duration, and any concurrent access simply
+        // waits (the shell keeps its UI thread away meanwhile).
+        let mut inner = session.lock();
+        let plan = submit::plan(inner.draft());
+        let outcome = submit::execute(forge.as_ref(), &pr, inner.draft(), &plan);
 
         // Retry safety: whatever the host accepted leaves the draft now,
         // even when a later step failed.
         let accepted = &outcome.accepted;
-        let draft = session.inner.draft_mut();
+        let draft = inner.draft_mut();
         draft.comments.retain(|c| !accepted.contains(&c.local_id));
         draft.general.retain(|g| !accepted.contains(&g.local_id));
         if outcome.error.is_none() {
@@ -815,7 +838,7 @@ pub unsafe extern "C" fn pc_session_submit(session: *mut PcSession) -> *mut c_ch
             draft.event = ReviewEvent::Comment;
         }
         let remaining = draft.comments.len() + draft.general.len();
-        let _ = session.inner.persist();
+        let _ = inner.persist();
 
         serde_json::json!({
             "posted": accepted.len(),
@@ -956,7 +979,7 @@ pub unsafe extern "C" fn pc_session_general_json(session: *const PcSession) -> *
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    owned_c_string(session.inner.general_json().to_string())
+    owned_c_string(session.lock().general_json().to_string())
 }
 
 /// The staged conversation comments as a JSON array. Release with
@@ -968,7 +991,7 @@ pub unsafe extern "C" fn pc_session_general_drafts_json(
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    owned_c_string(session.inner.general_drafts_json())
+    owned_c_string(session.lock().general_drafts_json())
 }
 
 /// Stages a conversation-level comment (posts on submit). Returns its
@@ -985,7 +1008,7 @@ pub unsafe extern "C" fn pc_session_add_general(
     let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
         return std::ptr::null_mut();
     };
-    match catch_unwind(AssertUnwindSafe(|| session.inner.add_general(body.to_string()))) {
+    match catch_unwind(AssertUnwindSafe(|| session.lock().add_general(body.to_string()))) {
         Ok(Ok(id)) => owned_c_string(id),
         _ => std::ptr::null_mut(),
     }
@@ -1004,7 +1027,7 @@ pub unsafe extern "C" fn pc_session_delete_general(
     let Some(id) = (unsafe { str_from_raw(local_id, local_id_len) }) else {
         return false;
     };
-    catch_unwind(AssertUnwindSafe(|| session.inner.delete_general(id).is_ok()))
+    catch_unwind(AssertUnwindSafe(|| session.lock().delete_general(id).is_ok()))
         .unwrap_or(false)
 }
 
@@ -1024,7 +1047,7 @@ pub unsafe extern "C" fn pc_session_record_history(
         return false;
     };
     catch_unwind(AssertUnwindSafe(|| {
-        let inner = &session.inner;
+        let inner = session.lock();
         let display = match inner.kind() {
             "pr" => session
                 .pr
@@ -1231,7 +1254,8 @@ pub unsafe extern "C" fn pc_session_file_highlights_json(
     let Some(session) = (unsafe { session.as_ref() }) else {
         return std::ptr::null_mut();
     };
-    let Some(file) = session.inner.files().get(index) else {
+    let inner = session.lock();
+    let Some(file) = inner.files().get(index) else {
         return std::ptr::null_mut();
     };
     let result = catch_unwind(AssertUnwindSafe(|| {

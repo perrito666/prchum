@@ -242,9 +242,13 @@ public enum GitComparison {
 /// A review session owned by the core.
 ///
 /// The diff under review is immutable; the mutable part is the draft
-/// review, and every mutation persists it. Not thread-safe: after
-/// creation, use from a single thread (in the app, the main thread).
-public final class CoreSession {
+/// review, and every mutation persists it. Calls serialize on the core's
+/// internal lock, so slow operations (submission, the first context
+/// fetch) may run off the main thread while the UI stays hands-off.
+public final class CoreSession: @unchecked Sendable {
+    // Unchecked because safety lives on the other side of the boundary:
+    // the core handle is internally synchronized (every FFI call locks),
+    // so cross-thread use serializes there.
     let handle: OpaquePointer
 
     /// The default persistence directory for drafts.

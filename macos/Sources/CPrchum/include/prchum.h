@@ -65,6 +65,10 @@ typedef struct PcConfig PcConfig;
 /**
  * A review session over one diff source. Create with one of the
  * `pc_session_new_*` constructors, release with [`pc_session_free`].
+ *
+ * The session is internally synchronized: calls may arrive from more
+ * than one thread (the shell runs slow operations — submission, the
+ * first context fetch — off its UI thread) and serialize on a mutex.
  */
 typedef struct PcSession PcSession;
 

@@ -32,6 +32,10 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     /// The fetched projections (content verified against the diff).
     private var contextCache: [Int: DiffFile] = [:]
 
+    /// A background operation (submit, context fetch) owns the session's
+    /// lock; the UI keeps its hands off until it finishes.
+    private var busy = false
+
     var onClose: ((ReviewWindowController) -> Void)?
 
     init(session: CoreSession) {
@@ -144,15 +148,28 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             contextFiles.remove(index)
         } else {
             if contextCache[index] == nil {
-                do {
-                    contextCache[index] = try session.contextFile(at: index)
-                } catch {
-                    presentInfo("\(error)")
-                    return
+                // The first fetch can be a network call (PR sessions);
+                // run it off-main behind the busy guard.
+                runBusy(message: "Fetching the file…") {
+                    Result { try self.session.contextFile(at: index) }
+                } then: { outcome in
+                    switch outcome {
+                    case .success(let file):
+                        self.contextCache[index] = file
+                        self.contextFiles.insert(index)
+                        self.finishContextToggle(target: target)
+                    case .failure(let error):
+                        self.presentInfo("\(error)")
+                    }
                 }
+                return
             }
             contextFiles.insert(index)
         }
+        finishContextToggle(target: target)
+    }
+
+    private func finishContextToggle(target: (side: DiffSide, line: Int)?) {
         refreshReviewState()
         if let target, let rendered {
             let match = rendered.lineRefs.first {
@@ -163,6 +180,39 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
                 diffTextView.setSelectedRange(
                     NSRange(location: match.range.location, length: 0))
                 diffTextView.scrollRangeToVisible(match.range)
+            }
+        }
+    }
+
+    /// Runs `work` on a background queue behind a small progress sheet;
+    /// `then` lands back on the main thread. The session's internal lock
+    /// makes the overlap safe; `busy` keeps the UI polite about it.
+    private func runBusy<T: Sendable>(
+        message: String,
+        _ work: @escaping @Sendable () -> T,
+        then: @escaping (T) -> Void
+    ) {
+        guard let window else { return }
+        busy = true
+        let sheet = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 64),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false)
+        let spinner = NSProgressIndicator(frame: NSRect(x: 20, y: 22, width: 20, height: 20))
+        spinner.style = .spinning
+        spinner.startAnimation(nil)
+        let label = NSTextField(labelWithString: message)
+        label.frame = NSRect(x: 52, y: 24, width: 230, height: 18)
+        sheet.contentView?.addSubview(spinner)
+        sheet.contentView?.addSubview(label)
+        window.beginSheet(sheet)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let value = work()
+            DispatchQueue.main.async {
+                window.endSheet(sheet)
+                self.busy = false
+                then(value)
             }
         }
     }
@@ -385,7 +435,7 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
                     }
                 },
                 onReply: { [weak self] body in
-                    try? session.addComment(
+                    _ = try? session.addComment(
                         fileIndex: fileIndex,
                         side: thread.side,
                         startLine: thread.line ?? thread.originalLine ?? 1,
@@ -705,26 +755,35 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             self.session.summary = summaryView.string
             let events: [ReviewSubmitEvent] = [.comment, .approve, .requestChanges]
             self.session.setEvent(events[eventPicker.indexOfSelectedItem])
-            do {
-                let result = try self.session.submit()
-                self.refreshReviewState()
-                if let error = result.error {
-                    self.presentInfo(
-                        "Posted \(result.posted); \(result.remaining) kept as drafts.\n\(error)")
-                } else {
-                    // Submitted: stamp the history and land back home.
-                    self.session.recordHistory(submitted: true)
-                    self.presentInfo(
-                        "Review submitted (\(result.posted) item\(result.posted == 1 ? "" : "s") posted)."
-                    ) { self.close() }
+            // Off the main thread: the session's lock serializes access,
+            // and `busy` keeps the UI's hands off meanwhile.
+            self.runBusy(message: "Submitting the review…") {
+                Result { try self.session.submit() }
+            } then: { outcome in
+                switch outcome {
+                case .success(let result):
+                    self.refreshReviewState()
+                    if let error = result.error {
+                        self.presentInfo(
+                            "Posted \(result.posted); \(result.remaining) kept as drafts.\n\(error)")
+                    } else {
+                        // Submitted: stamp the history and land back home.
+                        self.session.recordHistory(submitted: true)
+                        self.presentInfo(
+                            "Review submitted (\(result.posted) item\(result.posted == 1 ? "" : "s") posted)."
+                        ) { self.close() }
+                    }
+                case .failure(let error):
+                    self.presentInfo("\(error)")
                 }
-            } catch {
-                self.presentInfo("\(error)")
             }
         }
     }
 
     @objc func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if busy {
+            return false
+        }
         switch item.action {
         case #selector(nextChange(_:)), #selector(previousChange(_:)):
             return !(rendered?.changeRanges.isEmpty ?? true)
