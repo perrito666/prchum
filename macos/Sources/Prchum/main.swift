@@ -1,6 +1,11 @@
 import AppKit
 import PrchumKit
 
+// Apps launched from Finder inherit the minimal system PATH, which is
+// missing Homebrew, cargo, and friends — exactly where gh, glab, and fj
+// live. Merge the login shell's PATH before anything spawns a process.
+adoptLoginShellPath()
+
 // `--smoke-test` exercises the full Swift ↔ core round trip headlessly and
 // exits; it is what CI runs, and a quick sanity check for humans.
 if CommandLine.arguments.contains("--smoke-test") {

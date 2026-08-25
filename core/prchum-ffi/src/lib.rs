@@ -303,9 +303,17 @@ fn build_pr_session(
 ) -> Result<(Session, PrContext), String> {
     let mut pr_ref =
         parse_ref(reference).ok_or_else(|| format!("not a pull-request reference: {reference}"))?;
-    if !pr_ref.is_resolved() {
+    // Origin inference is only for bare numbers; an explicit owner/repo#N
+    // without a host defaults to github.com rather than requiring the
+    // current directory to be a checkout of anything.
+    if pr_ref.owner.is_empty() || pr_ref.repo.is_empty() {
         let hint = if repo_hint.is_empty() { "." } else { repo_hint };
-        resolve_from_origin(&mut pr_ref, hint)?;
+        resolve_from_origin(&mut pr_ref, hint).map_err(|error| {
+            format!(
+                "{error} — a bare number needs to run from inside the repository's \
+                 checkout; otherwise use owner/repo#N or the full URL"
+            )
+        })?;
     }
     if pr_ref.host.is_empty() {
         pr_ref.host = "github.com".to_string();

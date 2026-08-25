@@ -10,6 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var launched = false
     private let config = CoreConfig()
     private var keymap = Keymap(overrides: [:])
+    /// Sessions being fetched (PR opens run off-main). While one is in
+    /// flight the app has no window, and closing the last dialog must not
+    /// quit it out from under the fetch.
+    private var pendingOpens = 0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         keymap = Keymap(overrides: config.keyOverrides)
@@ -26,7 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // PR reference (`418`, `owner/repo#418`, a URL). A file on disk
         // always wins over a PR interpretation of the same argument.
         let cliTargets = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
-        let targets = pendingPaths + cliTargets
+        // AppKit also hands CLI arguments to application(_:openFile:), so
+        // the same target arrives twice; keep first occurrences only.
+        var seen = Set<String>()
+        let targets = (pendingPaths + cliTargets).filter { seen.insert($0).inserted }
         pendingPaths = []
         if targets.isEmpty {
             showWelcomeChooser()
@@ -79,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        pendingOpens == 0
     }
 
     // MARK: - Actions
@@ -153,17 +160,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         openPullRequest(reference: reference)
     }
 
-    /// Fetches a PR reference off-main and opens it; failures report and
-    /// fall back to the chooser when nothing else is open.
+    /// Fetches a PR reference off-main and opens it; a progress window
+    /// covers the wait, and failures report and fall back to the chooser
+    /// when nothing else is open.
     private func openPullRequest(reference: String) {
+        pendingOpens += 1
+        let progress = makeProgressWindow(text: "Opening \(reference)…")
+        progress.makeKeyAndOrderFront(nil)
         let hint = FileManager.default.currentDirectoryPath
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 // Built off-main, then confined to the main thread forever.
                 let session = try CoreSession(pullRequest: reference, repoHint: hint)
-                DispatchQueue.main.async { self.adopt(session: session) }
+                DispatchQueue.main.async {
+                    self.pendingOpens -= 1
+                    progress.orderOut(nil)
+                    self.adopt(session: session)
+                }
             } catch {
                 DispatchQueue.main.async {
+                    self.pendingOpens -= 1
+                    progress.orderOut(nil)
                     let failure = NSAlert()
                     failure.messageText = "Could not open \(reference)"
                     failure.informativeText = "\(error)"
@@ -172,6 +189,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+    }
+
+    private func makeProgressWindow(text: String) -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 64),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false)
+        window.title = "Prchum"
+        window.isReleasedWhenClosed = false
+        window.center()
+        let spinner = NSProgressIndicator(frame: NSRect(x: 20, y: 22, width: 20, height: 20))
+        spinner.style = .spinning
+        spinner.startAnimation(nil)
+        let label = NSTextField(labelWithString: text)
+        label.frame = NSRect(x: 52, y: 24, width: 250, height: 18)
+        label.lineBreakMode = .byTruncatingMiddle
+        window.contentView?.addSubview(spinner)
+        window.contentView?.addSubview(label)
+        return window
     }
 
     /// Review a local repository: pick the folder, then the comparison.
