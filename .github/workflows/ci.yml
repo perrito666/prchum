@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  # Core tests and header drift run on Linux: the core is portable and
+  # Linux minutes are cheap.
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Tests
+        run: cargo test --manifest-path core/Cargo.toml
+      - name: Header drift
+        run: |
+          cargo build --release --manifest-path core/Cargo.toml
+          git diff --exit-code macos/Sources/CPrchum/include/prchum.h
+
+  # The Swift ↔ core boundary is exercised headlessly on a macOS runner.
+  smoke:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Smoke test
+        run: make smoke
