@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PrchumKit
 
@@ -76,6 +77,101 @@ func runSmokeTest() -> Int32 {
         print("input validation ok (\(error.message))")
     } catch {
         print("FAIL: unexpected error type: \(error)")
+        return 1
+    }
+
+    // Configuration: missing file = defaults, overrides load, broken file
+    // warns and never aborts — all through the C boundary.
+    do {
+        let configDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-cfg-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
+        let configPath = configDir.appendingPathComponent("config.json").path
+
+        let fresh = CoreConfig(path: configPath)
+        guard fresh.loadWarning == nil, fresh.keyOverrides.isEmpty else {
+            print("FAIL: missing config was not clean defaults")
+            return 1
+        }
+
+        try #"{"keys": {"next-hunk": "cmd+alt+n", "toggle-wrap": ""}, "future": 1}"#
+            .write(toFile: configPath, atomically: true, encoding: .utf8)
+        let loaded = CoreConfig(path: configPath)
+        guard loaded.loadWarning == nil,
+            loaded.keyOverrides == ["next-hunk": "cmd+alt+n", "toggle-wrap": ""]
+        else {
+            print("FAIL: overrides did not load: \(String(describing: loaded.loadWarning))")
+            return 1
+        }
+
+        try "{ broken".write(toFile: configPath, atomically: true, encoding: .utf8)
+        let broken = CoreConfig(path: configPath)
+        guard broken.loadWarning != nil, broken.keyOverrides.isEmpty else {
+            print("FAIL: broken config not detected or defaults not applied")
+            return 1
+        }
+        print("configuration ok (defaults, overrides, breakage recovery)")
+        try? FileManager.default.removeItem(at: configDir)
+    } catch {
+        print("FAIL: configuration: \(error)")
+        return 1
+    }
+
+    // Keymap: chord parsing, override resolution, unbinding, bad specs.
+    guard KeyChord.parse("cmd+alt+down")
+        == KeyChord(
+            keyEquivalent: String(Character(UnicodeScalar(NSDownArrowFunctionKey)!)),
+            modifiers: [.command, .option]),
+        KeyChord.parse("shift+cmd+s")
+            == KeyChord(keyEquivalent: "s", modifiers: [.shift, .command]),
+        KeyChord.parse("meta+x") == nil,
+        KeyChord.parse("cmd+nosuchkey") == nil
+    else {
+        print("FAIL: key chord parsing")
+        return 1
+    }
+    let keymap = Keymap(overrides: [
+        "next-hunk": "cmd+alt+n",
+        "toggle-wrap": "",
+        "no-such-action": "cmd+z",
+        "next-file": "cmd+???",
+    ])
+    guard keymap.chord(for: .nextHunk) == KeyChord.parse("cmd+alt+n"),
+        keymap.chord(for: .toggleWrap) == nil,
+        keymap.chord(for: .nextFile) == ActionID.nextFile.defaultChord,
+        keymap.problems.count == 2
+    else {
+        print("FAIL: keymap resolution: \(keymap.problems)")
+        return 1
+    }
+    guard keymap.menuItem(for: .nextHunk).keyEquivalent == "n" else {
+        print("FAIL: menu item did not adopt the override")
+        return 1
+    }
+    print("keymap ok (overrides, unbind, defaults kept on bad specs)")
+
+    // Rendering: navigable block ranges line up with the model.
+    do {
+        let session = try CoreSession(title: "blocks", patch: patch)
+        let rendered = DiffRenderer.render(file: try session.file(at: 0))
+        // One hunk; two change runs would merge — here the -/+/+ run is one.
+        guard rendered.hunkRanges.count == 1, rendered.changeRanges.count == 1 else {
+            print(
+                "FAIL: block ranges: \(rendered.hunkRanges.count) hunks, \(rendered.changeRanges.count) changes"
+            )
+            return 1
+        }
+        let text = rendered.text.string as NSString
+        let change = text.substring(with: rendered.changeRanges[0])
+        guard change.contains("-    old();"), change.contains("+    extra();"),
+            !change.contains("fn main")
+        else {
+            print("FAIL: change block content: \(change.debugDescription)")
+            return 1
+        }
+        print("block ranges ok (hunks and change runs)")
+    } catch {
+        print("FAIL: block ranges: \(error)")
         return 1
     }
 

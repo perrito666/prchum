@@ -8,8 +8,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Files handed to us (Finder, `open`) before the app finished launching.
     private var pendingPaths: [String] = []
     private var launched = false
+    private let config = CoreConfig()
+    private var keymap = Keymap(overrides: [:])
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        keymap = Keymap(overrides: config.keyOverrides)
+        if let warning = config.loadWarning {
+            NSLog("config: %@ — defaults are in effect", warning)
+        }
+        for problem in keymap.problems {
+            NSLog("config: %@ — the default binding stays", problem)
+        }
         buildMainMenu()
         launched = true
 
@@ -101,14 +110,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(fileItem)
         let fileMenu = NSMenu(title: "File")
         fileItem.submenu = fileMenu
-        fileMenu.addItem(
-            withTitle: "Open…",
-            action: #selector(openDocument(_:)),
-            keyEquivalent: "o")
+        fileMenu.addItem(keymap.menuItem(for: .open))
         fileMenu.addItem(
             withTitle: "Close",
             action: #selector(NSWindow.performClose(_:)),
             keyEquivalent: "w")
+
+        // Edit exists so the standard selection/copy machinery works in the
+        // diff view (mouse selection is supported, but secondary).
+        let editItem = NSMenuItem()
+        mainMenu.addItem(editItem)
+        let editMenu = NSMenu(title: "Edit")
+        editItem.submenu = editMenu
+        editMenu.addItem(
+            withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(
+            withTitle: "Select All",
+            action: #selector(NSText.selectAll(_:)),
+            keyEquivalent: "a")
+
+        let viewItem = NSMenuItem()
+        mainMenu.addItem(viewItem)
+        let viewMenu = NSMenu(title: "View")
+        viewItem.submenu = viewMenu
+        viewMenu.addItem(keymap.menuItem(for: .toggleSidebar))
+        viewMenu.addItem(keymap.menuItem(for: .toggleWrap))
+
+        let goItem = NSMenuItem()
+        mainMenu.addItem(goItem)
+        let goMenu = NSMenu(title: "Go")
+        goItem.submenu = goMenu
+        goMenu.addItem(keymap.menuItem(for: .nextChange))
+        goMenu.addItem(keymap.menuItem(for: .previousChange))
+        goMenu.addItem(.separator())
+        goMenu.addItem(keymap.menuItem(for: .nextHunk))
+        goMenu.addItem(keymap.menuItem(for: .previousHunk))
+        goMenu.addItem(.separator())
+        goMenu.addItem(keymap.menuItem(for: .nextFile))
+        goMenu.addItem(keymap.menuItem(for: .previousFile))
 
         let windowItem = NSMenuItem()
         mainMenu.addItem(windowItem)
