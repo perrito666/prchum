@@ -13,6 +13,7 @@ pub mod location;
 pub mod review;
 pub mod session;
 pub mod source;
+pub mod syntax;
 pub mod util;
 
 pub use app::{App, Event, EventSender};

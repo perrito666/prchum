@@ -340,6 +340,21 @@ char *pc_config_load_warning(const struct PcConfig *config);
 char *pc_config_keys_json(const struct PcConfig *config);
 
 /**
+ * The syntax style table as a JSON array of `{light, dark, flags}`
+ * (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
+ * Style ids in highlight spans index this table. Release with
+ * [`pc_string_free`].
+ */
+char *pc_style_table_json(void);
+
+/**
+ * Syntax highlights for one file: JSON `[hunk][line][ [start, end,
+ * style], … ]` with byte offsets into each line's display text. Null when
+ * the file's language is unknown. Release with [`pc_string_free`].
+ */
+char *pc_session_file_highlights_json(const struct PcSession *session, uintptr_t index);
+
+/**
  * Releases a string returned by this API.
  */
 void pc_string_free(char *text);

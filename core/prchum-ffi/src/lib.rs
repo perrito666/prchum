@@ -785,6 +785,40 @@ pub unsafe extern "C" fn pc_config_keys_json(config: *const PcConfig) -> *mut c_
     owned_c_string(config.inner.keys_json())
 }
 
+/// The syntax style table as a JSON array of `{light, dark, flags}`
+/// (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
+/// Style ids in highlight spans index this table. Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub extern "C" fn pc_style_table_json() -> *mut c_char {
+    let json = serde_json::to_string(prchum_core::syntax::STYLES).unwrap_or_default();
+    owned_c_string(json)
+}
+
+/// Syntax highlights for one file: JSON `[hunk][line][ [start, end,
+/// style], … ]` with byte offsets into each line's display text. Null when
+/// the file's language is unknown. Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_file_highlights_json(
+    session: *const PcSession,
+    index: usize,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(file) = session.inner.files().get(index) else {
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        prchum_core::syntax::highlight_file(file)
+            .and_then(|spans| serde_json::to_string(&spans).ok())
+    }));
+    match result {
+        Ok(Some(json)) => owned_c_string(json),
+        _ => std::ptr::null_mut(),
+    }
+}
+
 /// Releases a string returned by this API.
 #[no_mangle]
 pub unsafe extern "C" fn pc_string_free(text: *mut c_char) {
