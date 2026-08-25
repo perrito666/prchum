@@ -483,6 +483,57 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
+    // Split layout: paired rows, per-panel line refs, sides preserved.
+    do {
+        let session = try CoreSession(title: "split", patch: patch)
+        let file = try session.file(at: 0)
+        let split = DiffRenderer.render(file: file, layout: .split)
+        guard split.text.string.contains("│") else {
+            print("FAIL: no split divider")
+            return 1
+        }
+        // First hunk: ctx, -old, +new, +extra, ctx → rows: ctx, (-old|+new),
+        // (blank|+extra), ctx. Refs: 2 per full row, 1 for the half row.
+        let hunkRefs = split.lineRefs.filter {
+            split.hunkRanges[0].contains($0.range.location)
+        }
+        guard hunkRefs.count == 7 else {
+            print("FAIL: split refs: \(hunkRefs.count)")
+            return 1
+        }
+        let deletions = hunkRefs.filter { $0.kind == .deletion }
+        let additions = hunkRefs.filter { $0.kind == .addition }
+        guard deletions.count == 1, additions.count == 2 else {
+            print("FAIL: split pairing")
+            return 1
+        }
+        // The deletion's ref sits left of its paired addition's.
+        guard deletions[0].range.location < additions[0].range.location,
+            additions[0].range.location < deletions[0].range.location + 200
+        else {
+            print("FAIL: split panel geometry")
+            return 1
+        }
+        // A caret in the deletion half resolves LEFT; in the addition
+        // half, RIGHT.
+        guard case .success(let leftHit) = SelectionResolver.resolve(
+            lineRefs: split.lineRefs,
+            selection: NSRange(location: deletions[0].range.location + 3, length: 0)),
+            leftHit.side == .left, leftHit.startLine == 2,
+            case .success(let rightHit) = SelectionResolver.resolve(
+                lineRefs: split.lineRefs,
+                selection: NSRange(location: additions[0].range.location + 3, length: 0)),
+            rightHit.side == .right, rightHit.startLine == 2
+        else {
+            print("FAIL: split side resolution")
+            return 1
+        }
+        print("split layout ok (pairing, per-panel refs, side resolution)")
+    } catch {
+        print("FAIL: split layout: \(error)")
+        return 1
+    }
+
     // Clipboard prefill: PR-looking references only, never random text.
     guard AppDelegate.looksLikePullRequestReference("https://github.com/o/r/pull/418"),
         AppDelegate.looksLikePullRequestReference(

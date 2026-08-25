@@ -41,8 +41,12 @@ exists so the transport can follow whatever CLI your instance
 standardizes on (the JSON body arrives on stdin; prchum never stores a
 token itself).
 
-Not yet: syntax highlighting, split view, folding, context view, themes,
-GitLab, discovery. See [`PLAN.md`](PLAN.md).
+Also in: tree-sitter syntax highlighting on both sides of a change
+(cmd+alt+s cycles the mode), split view (cmd+alt+t), hunk folding
+(cmd+alt+left), and the review queue (File → My Review Queue) listing
+the requests waiting on you via gh or Forgejo. Not yet: context view,
+themes, suggestion fences, images in comments, GitLab. See
+[`PLAN.md`](PLAN.md).
 
 ## Build
 

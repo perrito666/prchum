@@ -417,6 +417,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let viewMenu = NSMenu(title: "View")
         viewItem.submenu = viewMenu
         viewMenu.addItem(keymap.menuItem(for: .toggleSidebar))
+        viewMenu.addItem(keymap.menuItem(for: .toggleLayout))
         viewMenu.addItem(keymap.menuItem(for: .toggleWrap))
         viewMenu.addItem(keymap.menuItem(for: .toggleSyntax))
         viewMenu.addItem(.separator())

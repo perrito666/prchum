@@ -21,6 +21,7 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     private var threads: [ReviewThread] = []
     private var wrapEnabled = true
     private var syntaxMode: SyntaxMode = .syntax
+    private var layout: DiffLayout = .unified
     /// Per-file highlight cache; an entry exists once computed (nil inside
     /// means the language is unknown).
     private var highlightCache: [Int: [[[HighlightSpan]]]?] = [:]
@@ -126,6 +127,26 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     @objc func toggleWrap(_ sender: Any?) {
         wrapEnabled.toggle()
         applyWrap()
+    }
+
+    /// Unified ↔ split. The caret's semantic (side, line) survives the
+    /// projection change; the rendered position does not.
+    @objc func toggleLayout(_ sender: Any?) {
+        let target = caretTarget()
+        layout = layout == .unified ? .split : .unified
+        refreshReviewState()
+        if let target, let rendered {
+            let match = rendered.lineRefs.first {
+                target.side == .left
+                    ? $0.oldLine == target.line
+                    : $0.newLine == target.line
+            }
+            if let match {
+                diffTextView.setSelectedRange(
+                    NSRange(location: match.range.location, length: 0))
+                diffTextView.scrollRangeToVisible(match.range)
+            }
+        }
     }
 
     /// Folds ↔ unfolds the hunk at the caret.
@@ -537,7 +558,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             threads: threads.filter { $0.path == path },
             highlights: highlights,
             mode: syntaxMode,
-            foldedHunks: foldedHunks[index] ?? [])
+            foldedHunks: foldedHunks[index] ?? [],
+            layout: layout)
         self.rendered = rendered
         diffTextView.textStorage?.setAttributedString(rendered.text)
     }
@@ -789,6 +811,12 @@ enum SyntaxMode {
     case plain
 }
 
+/// One document interleaved, or the two sides in parallel columns.
+enum DiffLayout {
+    case unified
+    case split
+}
+
 /// The style table as appearance-aware NSColors, resolved at draw time.
 enum SyntaxPalette {
     static let colors: [NSColor] = CoreSyntax.styles.map { style in
@@ -830,7 +858,8 @@ enum DiffRenderer {
         threads: [ReviewThread] = [],
         highlights: [[[HighlightSpan]]]? = nil,
         mode: SyntaxMode = .syntax,
-        foldedHunks: Set<Int> = []
+        foldedHunks: Set<Int> = [],
+        layout: DiffLayout = .unified
     ) -> RenderedDiff {
         let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         let boldFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
@@ -949,6 +978,134 @@ enum DiffRenderer {
             }
             append("▾ \(hunk.header)\n", color: .secondaryLabelColor,
                    background: NSColor.separatorColor.withAlphaComponent(0.25))
+            if layout == .split {
+                // Pair the sides: context lines face themselves; a run of
+                // deletions faces the run of additions that follows it,
+                // index by index, blanks filling the shorter side.
+                var pairs: [(left: Int?, right: Int?)] = []
+                var cursor = 0
+                while cursor < hunk.lines.count {
+                    let line = hunk.lines[cursor]
+                    switch line.kind {
+                    case .context, .meta:
+                        pairs.append((cursor, cursor))
+                        cursor += 1
+                    case .deletion, .addition:
+                        var deletions: [Int] = []
+                        var additions: [Int] = []
+                        while cursor < hunk.lines.count,
+                            hunk.lines[cursor].kind == .deletion
+                        {
+                            deletions.append(cursor)
+                            cursor += 1
+                        }
+                        while cursor < hunk.lines.count,
+                            hunk.lines[cursor].kind == .addition
+                        {
+                            additions.append(cursor)
+                            cursor += 1
+                        }
+                        for pair in 0..<max(deletions.count, additions.count) {
+                            pairs.append((
+                                pair < deletions.count ? deletions[pair] : nil,
+                                pair < additions.count ? additions[pair] : nil
+                            ))
+                        }
+                    }
+                }
+
+                let codeWidth = 60
+                for (leftIndex, rightIndex) in pairs {
+                    let left = leftIndex.map { hunk.lines[$0] }
+                    let right = rightIndex.map { hunk.lines[$0] }
+                    if left?.kind == .meta {
+                        append("          \(left?.text ?? "")\n", color: .tertiaryLabelColor)
+                        continue
+                    }
+                    let rowStart = result.length
+                    let isChange = left?.kind == .deletion || right?.kind == .addition
+                    if isChange, changeStart == nil {
+                        changeStart = result.length
+                    } else if !isChange {
+                        closeChangeBlock()
+                    }
+
+                    func half(
+                        _ line: DiffLine?, number: Int?, sign: String,
+                        lineIndex: Int?, background: NSColor?
+                    ) {
+                        let halfStart = result.length
+                        let markText = marker(
+                            oldLine: line?.oldLine, newLine: line?.newLine)
+                        append("\(markText) ", color: .systemOrange)
+                        append("\(pad(number)) ", color: .tertiaryLabelColor)
+                        let code = String((line?.text ?? "").prefix(codeWidth))
+                        let padded = code.padding(
+                            toLength: codeWidth, withPad: " ", startingAt: 0)
+                        let codeStart = result.length + 1  // after the sign
+                        append("\(sign)\(padded)", color: .labelColor,
+                               background: line == nil ? nil : background)
+                        if mode == .syntax, let lineIndex,
+                            let spans = highlights?[safe: hunkIndex]?[safe: lineIndex],
+                            let fullText = line?.text
+                        {
+                            let clippedBytes = code.utf8.count
+                            for span in spans where span.startByte < clippedBytes {
+                                guard
+                                    let range = utf16Range(
+                                        ofUTF8: span.startByte..<min(span.endByte, clippedBytes),
+                                        in: fullText),
+                                    span.styleIndex < SyntaxPalette.colors.count
+                                else { continue }
+                                result.addAttribute(
+                                    .foregroundColor,
+                                    value: SyntaxPalette.colors[span.styleIndex],
+                                    range: NSRange(
+                                        location: codeStart + range.location,
+                                        length: range.length))
+                            }
+                        }
+                        // Each half is its own line ref, so the caret's
+                        // panel decides the side it targets.
+                        if let line {
+                            lineRefs.append(
+                                LineRef(
+                                    range: NSRange(
+                                        location: halfStart,
+                                        length: result.length - halfStart),
+                                    kind: line.kind,
+                                    oldLine: line.oldLine,
+                                    newLine: line.newLine))
+                        }
+                    }
+
+                    half(
+                        left, number: left?.oldLine, sign: left?.kind == .deletion ? "-" : " ",
+                        lineIndex: leftIndex,
+                        background: left?.kind == .deletion && tinted
+                            ? NSColor.systemRed.withAlphaComponent(0.16) : nil)
+                    append(" │ ", color: .separatorColor)
+                    half(
+                        right, number: right?.newLine, sign: right?.kind == .addition ? "+" : " ",
+                        lineIndex: rightIndex,
+                        background: right?.kind == .addition && tinted
+                            ? NSColor.systemGreen.withAlphaComponent(0.16) : nil)
+                    append("\n", color: .labelColor)
+                    _ = rowStart
+
+                    if let right, let newLine = right.newLine {
+                        appendAnnotations(side: .right, line: newLine)
+                    }
+                    if let left, left.kind == .deletion, let oldLine = left.oldLine {
+                        appendAnnotations(side: .left, line: oldLine)
+                    }
+                }
+                closeChangeBlock()
+                hunkRanges.append(
+                    NSRange(location: hunkStart, length: result.length - hunkStart))
+                append("\n", color: .labelColor)
+                continue
+            }
             for (lineIndex, line) in hunk.lines.enumerated() {
                 if line.kind == .meta {
                     closeChangeBlock()

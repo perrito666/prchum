@@ -80,6 +80,7 @@ enum ActionID: String, CaseIterable {
     case previousFile = "prev-file"
     case toggleSidebar = "toggle-sidebar"
     case toggleWrap = "toggle-wrap"
+    case toggleLayout = "toggle-layout"
     case toggleSyntax = "toggle-syntax"
     case toggleFold = "toggle-fold"
     case expandAll = "expand-all"
@@ -108,6 +109,7 @@ enum ActionID: String, CaseIterable {
         case .previousFile: return "Previous File"
         case .toggleSidebar: return "Toggle Sidebar"
         case .toggleWrap: return "Wrap Lines"
+        case .toggleLayout: return "Toggle Split View"
         case .toggleSyntax: return "Cycle Syntax Coloring"
         case .toggleFold: return "Fold / Unfold Hunk"
         case .expandAll: return "Expand All Hunks"
@@ -140,6 +142,7 @@ enum ActionID: String, CaseIterable {
         case .previousFile: return #selector(ReviewWindowController.previousFile(_:))
         case .toggleSidebar: return #selector(NSSplitViewController.toggleSidebar(_:))
         case .toggleWrap: return #selector(ReviewWindowController.toggleWrap(_:))
+        case .toggleLayout: return #selector(ReviewWindowController.toggleLayout(_:))
         case .toggleSyntax: return #selector(ReviewWindowController.toggleSyntax(_:))
         case .toggleFold: return #selector(ReviewWindowController.toggleFold(_:))
         case .expandAll: return #selector(ReviewWindowController.expandAllHunks(_:))
@@ -170,6 +173,7 @@ enum ActionID: String, CaseIterable {
         case .previousFile: return KeyChord.parse("cmd+shift+up")
         case .toggleSidebar: return KeyChord.parse("cmd+ctrl+s")
         case .toggleWrap: return KeyChord.parse("cmd+alt+w")
+        case .toggleLayout: return KeyChord.parse("cmd+alt+t")
         case .toggleSyntax: return KeyChord.parse("cmd+alt+s")
         case .toggleFold: return KeyChord.parse("cmd+alt+left")
         case .expandAll: return KeyChord.parse("cmd+alt+shift+right")
