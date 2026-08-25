@@ -318,8 +318,33 @@ func runSmokeTest() -> Int32 {
             print("FAIL: git session shape: \(session.title)")
             return 1
         }
+
+        // The context view: the whole file with the hunks overlaid, gap
+        // lines carrying both numbers, content verified against the diff.
+        try "zero\none\nchanged\ntail\n".write(
+            to: dir.appendingPathComponent("f.txt"), atomically: true, encoding: .utf8)
+        let fresh = try CoreSession(gitRepo: dir.path, comparison: .workingTree)
+        let context = try fresh.contextFile(at: 0)
+        let allLines = context.hunks.flatMap(\.lines)
+        guard allLines.contains(where: { $0.text == "zero" }),
+            allLines.contains(where: { $0.text == "tail" }),
+            allLines.contains(where: { $0.kind == .deletion })
+        else {
+            print("FAIL: context projection: \(allLines.map(\.text))")
+            return 1
+        }
+
+        // A patch session has no content to fetch — a plain error, not a
+        // crash.
+        let patchOnly = try CoreSession(title: "p", patch: patch)
+        do {
+            _ = try patchOnly.contextFile(at: 0)
+            print("FAIL: patch session offered a context view")
+            return 1
+        } catch {}
+
         try? FileManager.default.removeItem(at: dir)
-        print("git session ok (worktree comparison through the core)")
+        print("git session ok (worktree comparison, context projection)")
     } catch {
         print("FAIL: git session: \(error)")
         return 1

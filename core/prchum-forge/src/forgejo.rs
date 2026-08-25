@@ -205,6 +205,12 @@ impl<R: Runner> Forge for ForgejoForge<R> {
         self.create_review(pr, "COMMENT", "", &[comment])
     }
 
+    fn file_content(&self, pr: &PullRequestRef, path: &str, rev: &str) -> Result<String, String> {
+        // Gitea's raw endpoint serves the file body as-is.
+        let api_path = format!("/repos/{}/{}/raw/{path}?ref={rev}", pr.owner, pr.repo);
+        self.request(pr, "GET", &api_path, None)
+    }
+
     fn add_general_comment(&self, pr: &PullRequestRef, body: &str) -> Result<(), String> {
         let path = format!("/repos/{}/{}/issues/{}/comments", pr.owner, pr.repo, pr.number);
         self.request(pr, "POST", &path, Some(&json!({ "body": body })))?;

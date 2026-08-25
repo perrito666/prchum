@@ -52,9 +52,10 @@ token itself).
 Also in: tree-sitter syntax highlighting on both sides of a change
 (cmd+alt+s cycles the mode), split view (cmd+alt+t), hunk folding
 (cmd+alt+left), and the review queue (File → My Review Queue) listing
-the requests waiting on you via gh or Forgejo. Not yet: context view,
-themes, suggestion fences, images in comments, GitLab. See
-[`PLAN.md`](PLAN.md).
+the requests waiting on you via gh or Forgejo; suggestion fences
+(cmd+alt+return), the review navigator (cmd+l), and the full-file
+context view (cmd+alt+c). Not yet: themes, images in comments, the
+general-comments screen, GitLab. See [`PLAN.md`](PLAN.md).
 
 ## Build
 

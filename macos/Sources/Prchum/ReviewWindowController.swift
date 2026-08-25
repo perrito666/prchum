@@ -27,6 +27,10 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     private var highlightCache: [Int: [[[HighlightSpan]]]?] = [:]
     /// Folded hunk indexes, per file index — folds survive file switches.
     private var foldedHunks: [Int: Set<Int>] = [:]
+    /// Files shown as their whole-file context projection.
+    private var contextFiles: Set<Int> = []
+    /// The fetched projections (content verified against the diff).
+    private var contextCache: [Int: DiffFile] = [:]
 
     var onClose: ((ReviewWindowController) -> Void)?
 
@@ -127,6 +131,40 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     @objc func toggleWrap(_ sender: Any?) {
         wrapEnabled.toggle()
         applyWrap()
+    }
+
+    /// The context view: the whole file with the hunks overlaid — an
+    /// unbounded -U. Content is fetched on first use and verified against
+    /// the diff; gap lines are not part of the diff, so commenting on one
+    /// is rejected (hosts anchor to diff positions).
+    @objc func toggleContext(_ sender: Any?) {
+        let index = sidebarModel.selected
+        let target = caretTarget()
+        if contextFiles.contains(index) {
+            contextFiles.remove(index)
+        } else {
+            if contextCache[index] == nil {
+                do {
+                    contextCache[index] = try session.contextFile(at: index)
+                } catch {
+                    presentInfo("\(error)")
+                    return
+                }
+            }
+            contextFiles.insert(index)
+        }
+        refreshReviewState()
+        if let target, let rendered {
+            let match = rendered.lineRefs.first {
+                target.side == .left
+                    ? $0.oldLine == target.line : $0.newLine == target.line
+            }
+            if let match {
+                diffTextView.setSelectedRange(
+                    NSRange(location: match.range.location, length: 0))
+                diffTextView.scrollRangeToVisible(match.range)
+            }
+        }
     }
 
     /// Unified ↔ split. The caret's semantic (side, line) survives the
@@ -659,10 +697,13 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
 
     private func renderCurrentFile() {
         let index = sidebarModel.selected
-        let file = files[index]
+        let inContext = contextFiles.contains(index)
+        let file = inContext ? (contextCache[index] ?? files[index]) : files[index]
         let path = file.displayPath
         let highlights: [[[HighlightSpan]]]?
-        if syntaxMode == .syntax {
+        // Highlight spans index the real diff's hunks; the context
+        // projection has different ones, so syntax is skipped there.
+        if syntaxMode == .syntax && !inContext {
             if let cached = highlightCache[index] {
                 highlights = cached
             } else {
@@ -679,7 +720,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             threads: threads.filter { $0.path == path },
             highlights: highlights,
             mode: syntaxMode,
-            foldedHunks: foldedHunks[index] ?? [],
+            // Fold indexes belong to the real diff's hunks, not the
+            // projection's; folding sits out of context mode.
+            foldedHunks: inContext ? [] : (foldedHunks[index] ?? []),
             layout: layout)
         self.rendered = rendered
         diffTextView.textStorage?.setAttributedString(rendered.text)

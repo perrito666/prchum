@@ -87,6 +87,8 @@ pub trait Forge {
     ) -> Result<(), String>;
     /// A reply into an existing thread, by root comment id.
     fn reply(&self, pr: &PullRequestRef, comment_id: i64, body: &str) -> Result<(), String>;
+    /// A file's raw content at a revision (the context view uses the head).
+    fn file_content(&self, pr: &PullRequestRef, path: &str, rev: &str) -> Result<String, String>;
     fn add_general_comment(&self, pr: &PullRequestRef, body: &str) -> Result<(), String>;
 }
 

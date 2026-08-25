@@ -31,6 +31,10 @@ pub struct Session {
     threads_json: String,
     /// Pull-request metadata (PR mode), opaque JSON for the shell.
     pr_json: String,
+    /// Fetches a file's new-side content by path, for the context view.
+    content_provider: Option<Box<dyn Fn(&str) -> Result<String, String> + Send>>,
+    /// Context projections, built once per file.
+    context_cache: std::collections::HashMap<usize, FileDiff>,
 }
 
 impl Session {
@@ -87,6 +91,8 @@ impl Session {
             exchange_patch: Vec::new(),
             threads_json: String::new(),
             pr_json: String::new(),
+            content_provider: None,
+            context_cache: std::collections::HashMap::new(),
         })
     }
 
@@ -95,6 +101,11 @@ impl Session {
         let diff = git_diff(repo, spec, context).map_err(|message| ParseError { message })?;
         let mut session = Self::from_patch_keyed(&diff.title, &diff.patch, diff.source_key)?;
         session.head_oid = diff.head_oid;
+        let root = diff.repo_root;
+        let new_rev = diff.new_rev;
+        session.content_provider = Some(Box::new(move |path| {
+            crate::source::git_file_content(&root, &new_rev, path)
+        }));
         Ok(session)
     }
 
@@ -223,6 +234,40 @@ impl Session {
 
     pub fn raw_patch(&self) -> &str {
         &self.raw_patch
+    }
+
+    /// Installs the function the context view fetches new-side file
+    /// content with (PR sessions get a forge-backed one from the shell
+    /// boundary; git sessions install their own).
+    pub fn set_content_provider(
+        &mut self,
+        provider: Box<dyn Fn(&str) -> Result<String, String> + Send>,
+    ) {
+        self.content_provider = Some(provider);
+    }
+
+    /// The whole-file projection of one file: content fetched through the
+    /// provider (once — cached), verified against the diff, hunks
+    /// overlaid. See [`crate::context`].
+    pub fn context_file(&mut self, file_index: usize) -> Result<&FileDiff, String> {
+        if !self.context_cache.contains_key(&file_index) {
+            let file = self
+                .files
+                .get(file_index)
+                .ok_or_else(|| "no such file".to_string())?;
+            if file.status == crate::diff::FileStatus::Deleted {
+                return Err("a deleted file has no new side to show".to_string());
+            }
+            let provider = self.content_provider.as_ref().ok_or_else(|| {
+                "this source has no file content to fetch (patch files carry only the diff)"
+                    .to_string()
+            })?;
+            let content = provider(file.display_path())?;
+            let projection =
+                crate::context::context_file(file, &content, crate::diff::DEFAULT_TAB_WIDTH)?;
+            self.context_cache.insert(file_index, projection);
+        }
+        Ok(&self.context_cache[&file_index])
     }
 
     /// Exports to `path`: a `.json` extension writes a review-exchange

@@ -250,6 +250,9 @@ mod tests {
         fn reply(&self, _: &PullRequestRef, _: i64, _: &str) -> Result<(), String> {
             self.take()
         }
+        fn file_content(&self, _: &PullRequestRef, _: &str, _: &str) -> Result<String, String> {
+            unreachable!()
+        }
         fn add_general_comment(&self, _: &PullRequestRef, _: &str) -> Result<(), String> {
             self.take()
         }

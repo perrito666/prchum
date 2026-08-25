@@ -55,6 +55,19 @@ pub struct GitDiff {
     pub source_key: String,
     pub head_oid: String,
     pub repo_root: String,
+    /// The revision holding the comparison's new side: a ref, `:0` for
+    /// the index, or empty for the working tree.
+    pub new_rev: String,
+}
+
+/// Reads a file's new-side content for a comparison.
+pub fn git_file_content(repo_root: &str, new_rev: &str, path: &str) -> Result<String, String> {
+    if new_rev.is_empty() {
+        let full = std::path::Path::new(repo_root).join(path);
+        return std::fs::read_to_string(&full)
+            .map_err(|error| format!("could not read {}: {error}", full.display()));
+    }
+    git_in(repo_root, &["show", &format!("{new_rev}:{path}")])
 }
 
 /// Runs the comparison in `repo` (any path inside the repository).
@@ -81,6 +94,12 @@ pub fn git_diff(repo: &str, spec: &GitSpec, context: u32) -> Result<GitDiff, Str
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| repo_root.clone());
     let spec_title = spec.title();
+    let new_rev = match spec {
+        GitSpec::WorkingTree => String::new(),
+        GitSpec::Staged => ":0".to_string(),
+        GitSpec::Base(_) => "HEAD".to_string(),
+        GitSpec::Range(_, b) => b.clone(),
+    };
     Ok(GitDiff {
         title: format!("{root_name}: {spec_title}"),
         patch,
@@ -91,6 +110,7 @@ pub fn git_diff(repo: &str, spec: &GitSpec, context: u32) -> Result<GitDiff, Str
         ),
         head_oid,
         repo_root,
+        new_rev,
     })
 }
 

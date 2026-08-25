@@ -190,6 +190,16 @@ impl<R: Runner> Forge for GhForge<R> {
         Ok(())
     }
 
+    fn file_content(&self, pr: &PullRequestRef, path: &str, rev: &str) -> Result<String, String> {
+        let escaped: String = path
+            .split('/')
+            .map(|segment| segment.replace('%', "%25").replace('#', "%23").replace('?', "%3F"))
+            .collect::<Vec<_>>()
+            .join("/");
+        let api_path = Self::repo_path(pr, &format!("contents/{escaped}?ref={rev}"));
+        self.api(pr, &[&api_path, "-H", "Accept: application/vnd.github.raw"], None)
+    }
+
     fn add_general_comment(&self, pr: &PullRequestRef, body: &str) -> Result<(), String> {
         let path = Self::repo_path(pr, &format!("issues/{}/comments", pr.number));
         let payload = json!({ "body": body });

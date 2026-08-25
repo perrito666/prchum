@@ -177,6 +177,16 @@ struct PcSession *pc_session_new_from_pr(const char *reference,
                                          char **error_out);
 
 /**
+ * The whole-file projection of one file — the context view: content
+ * fetched through the source (blocking for PR sessions; run off the UI
+ * thread on first use), verified against the diff, hunks overlaid. Same
+ * JSON shape as [`pc_session_file_json`]. Null with `error_out` set when
+ * the source has no content (plain patches), the file is deleted, or the
+ * content does not match the diff.
+ */
+char *pc_session_context_file_json(struct PcSession *session, uintptr_t index, char **error_out);
+
+/**
  * Releases a session handle.
  */
 void pc_session_free(struct PcSession *session);

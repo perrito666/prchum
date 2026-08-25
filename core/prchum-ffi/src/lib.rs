@@ -353,7 +353,57 @@ fn build_pr_session(
     session.set_head_oid(&metadata.head_oid);
     session.set_pr_json(serde_json::to_string(&metadata).unwrap_or_default());
     session.set_threads_json(serde_json::to_string(&threads).unwrap_or_default());
+
+    // The context view fetches new-side content at the head revision.
+    let provider_ref = pr_ref.clone();
+    let provider_kind = kind;
+    let provider_template = config.forgejo_api_command().to_string();
+    let head = metadata.head_oid.clone();
+    session.set_content_provider(Box::new(move |path| {
+        let forge: Box<dyn Forge> = match provider_kind {
+            ForgeKind::Forgejo => Box::new(ForgejoForge::with_runner(
+                ProcessRunner,
+                &provider_template,
+            )),
+            _ => Box::new(GhForge::new()),
+        };
+        forge.file_content(&provider_ref, path, &head)
+    }));
     Ok((session, context))
+}
+
+/// The whole-file projection of one file — the context view: content
+/// fetched through the source (blocking for PR sessions; run off the UI
+/// thread on first use), verified against the diff, hunks overlaid. Same
+/// JSON shape as [`pc_session_file_json`]. Null with `error_out` set when
+/// the source has no content (plain patches), the file is deleted, or the
+/// content does not match the diff.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_context_file_json(
+    session: *mut PcSession,
+    index: usize,
+    error_out: *mut *mut c_char,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        session
+            .inner
+            .context_file(index)
+            .and_then(|file| serde_json::to_string(file).map_err(|e| e.to_string()))
+    }));
+    match result {
+        Ok(Ok(json)) => owned_c_string(json),
+        Ok(Err(message)) => {
+            unsafe { write_error(error_out, &message) };
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            unsafe { write_error(error_out, "internal error building the context view") };
+            std::ptr::null_mut()
+        }
+    }
 }
 
 /// Releases a session handle.

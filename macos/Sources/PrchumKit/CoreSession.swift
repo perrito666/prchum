@@ -356,6 +356,21 @@ public final class CoreSession {
         try (0..<fileCount).map { try file(at: $0) }
     }
 
+    /// The whole-file projection of one file — the context view. Content
+    /// is fetched on first use (a network call in PR mode), verified
+    /// against the diff, and cached; hunks come back overlaid on the full
+    /// file, gap lines carrying both line numbers.
+    public func contextFile(at index: Int) throws -> DiffFile {
+        var errorOut: UnsafeMutablePointer<CChar>?
+        guard
+            let json = takeString(
+                pc_session_context_file_json(handle, UInt(index), &errorOut))
+        else {
+            throw CoreError(message: takeString(errorOut) ?? "no context available")
+        }
+        return try decode(DiffFile.self, from: json)
+    }
+
     /// Attaches persistence: loads any saved draft (re-anchored if the head
     /// moved) and saves every later change. Returns a warning when the
     /// saved draft was unreadable.
