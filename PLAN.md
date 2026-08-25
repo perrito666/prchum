@@ -196,11 +196,19 @@ comes through the same seam with a content-addressed disk cache
 - **Main window**: changed-files sidebar (status glyph, path, `●N` draft
   badge) as an `NSSplitViewItem`, diff view center, toolbar with layout
   toggle (unified/split), context toggle, syntax mode, and submit.
-- **Keyboard-first**: leanreview's grammar is the spec — j/k/J/K, ]c/[c,
-  ]f/[f, gg/G, counts, v/V selection, c comment, e edit, dd delete,
-  x dismiss, za/zR/zM folds, / search, t layout, T context, i previews,
-  s submit — implemented as key equivalents over the diff view, with
-  every action also in the menu bar (discoverable, rebindable later).
+- **Keyboard-first, the textchum way — not leanreview's vim grammar.**
+  Modal keys, counts, and two-key sequences fight the platform; a native
+  app has menus and modifier chords instead. Every operation is a named
+  action in a registry, exposed as a menu item with a macOS-native key
+  equivalent, and rebindable through the `keys` map in config.json (the
+  same design as textchum's `keys` registry). Defaults follow platform
+  conventions: block navigation on ⌘-arrow chords (next/previous change
+  ⌘↓/⌘↑, hunk ⌥⌘↓/⌥⌘↑, file ⇧⌘↓/⇧⌘↑), toggles on standard chords
+  (sidebar ⌃⌘S, wrap ⌥⌘W), find ⌘F, comment ⌘↩. leanreview's *feature
+  list* is the spec; its key grammar is not.
+- **Mouse works, but is secondary**: click a file in the sidebar, click a
+  line to place the cursor, drag to select a range, scroll — every one of
+  these has a keyboard path, and nothing requires the mouse.
 - **Comments**: inline boxes under their anchor line (drafts `●`, host
   threads `◆`, replies indented, `[state]` tags), native Markdown
   rendering with real images (`AttributedString`; attachments fetched by
@@ -284,8 +292,10 @@ Each phase ends with something usable.
   `make check` green from a clean checkout.
 
 ### Phase 1 — A real patch reviewer
-- Cursor + keyboard grammar (j/k/J/K, hunks, files, counts, gg/G).
-- Selection (v/V, one-side-one-range validation), draft comments with the
+- Action registry + menus with default key equivalents; block navigation
+  (change/hunk/file) and toggles; `keys` overrides from core config.
+- Selection (mouse drag or ⇧-arrows, one-side-one-range validation),
+  draft comments with the
   inline editor, gutter markers, inline preview boxes, edit/delete/dismiss.
 - Draft persistence per source key, atomic; Markdown export.
 - Folding, search, unified↔split with semantic cursor re-anchoring.
