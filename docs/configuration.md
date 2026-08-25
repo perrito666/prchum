@@ -42,7 +42,8 @@ Action names: `open`, `open-pr`, `open-git`, `review-queue`, `export`,
 `prev-file`, `toggle-sidebar`, `toggle-layout`, `toggle-wrap`,
 `toggle-syntax`, `toggle-fold`, `expand-all`, `collapse-all`, `find`,
 `comment`, `edit-comment`, `delete-comment`, `dismiss-comment`,
-`reply`, `pr-info`, `submit`.
+`reply`, `pr-info`, `submit`, `open-at-caret`, `suggest`, `comments`,
+`general`, `toggle-context` — every menu item names its action.
 
 ## Forges
 
