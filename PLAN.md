@@ -281,6 +281,13 @@ integration layer.
 
 Each phase ends with something usable.
 
+**Status (2026-08-25):** Phase 0 done. Phase 1 largely done (commenting,
+selection, persistence, export, navigation; split view and folding
+pending). Phase 2: git sources and exchange interop done; context view
+pending. Phase 3: gh adapter, threads, replies, relocation, retry-safe
+submit done; GitLab adapter and discovery list pending. Phase 4 not
+started (syntax highlighting, themes, suggestions, images, icon).
+
 ### Phase 0 — Walking skeleton
 - Repo scaffolding, Makefile, this plan committed.
 - Core: diff model + unified parser; `pc_version()`; session over a patch

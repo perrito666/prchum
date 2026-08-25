@@ -14,10 +14,16 @@ and the review state; the shell owns the platform. It is a review client,
 not a git client: the installed `git`, `gh`, and `glab` handle repository
 and forge semantics.
 
-**Status: early.** The walking skeleton is in place — the core parses
-unified diffs into the canonical model and a native window renders them
-(changed-files sidebar, line-number gutters, add/delete tinting). See
-[`PLAN.md`](PLAN.md) for where this is going.
+**Status: early but reviewing.** Working today: patch-file, git
+(worktree/staged/base/range), GitHub PR, and review-exchange sessions;
+draft comments anchored to semantic locations with conservative
+relocation when the head moves; inline previews (`●` drafts, `◆` host
+threads), replies, dismiss-not-delete; per-source draft persistence and
+exchange writeback; Markdown/exchange export; and submission as one
+atomic review with retry-safe accounting. Keyboard-first via menus with
+rebindable keys (`keys` in config.json); mouse works but is secondary.
+Not yet: syntax highlighting, split view, folding, context view, themes,
+GitLab, discovery. See [`PLAN.md`](PLAN.md).
 
 ## Build
 
