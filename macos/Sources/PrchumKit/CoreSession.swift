@@ -179,6 +179,18 @@ public struct ReviewThread: Codable, Sendable {
     }
 }
 
+/// A staged conversation-level comment.
+public struct GeneralDraft: Codable, Sendable {
+    public let localID: String
+    public let body: String
+    public let at: String
+
+    enum CodingKeys: String, CodingKey {
+        case body, at
+        case localID = "local_id"
+    }
+}
+
 public struct PullRequestInfo: Codable, Sendable {
     public let number: UInt64
     public let title: String
@@ -456,6 +468,34 @@ public final class CoreSession {
             return []
         }
         return (try? decode([ReviewThread].self, from: json)) ?? []
+    }
+
+    /// The host's conversation-level comments (PR mode).
+    public func generalComments() -> [HostComment] {
+        guard let json = takeString(pc_session_general_json(handle)), !json.isEmpty else {
+            return []
+        }
+        return (try? decode([HostComment].self, from: json)) ?? []
+    }
+
+    /// The staged conversation comments (post on submit).
+    public func generalDrafts() -> [GeneralDraft] {
+        guard let json = takeString(pc_session_general_drafts_json(handle)) else { return [] }
+        return (try? decode([GeneralDraft].self, from: json)) ?? []
+    }
+
+    /// Stages a conversation-level comment; returns its local id.
+    @discardableResult
+    public func addGeneral(body: String) -> String? {
+        withUTF8Pointer(body) { pointer, length in
+            takeString(pc_session_add_general(handle, pointer, UInt(length)))
+        }
+    }
+
+    public func deleteGeneral(localID: String) -> Bool {
+        withUTF8Pointer(localID) { pointer, length in
+            pc_session_delete_general(handle, pointer, UInt(length))
+        }
     }
 
     /// Pull-request metadata (PR mode).

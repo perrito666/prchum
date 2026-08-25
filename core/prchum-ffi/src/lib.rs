@@ -338,6 +338,9 @@ fn build_pr_session(
     let metadata = forge.pull_request(&pr_ref)?;
     let diff = forge.diff(&pr_ref)?;
     let threads = forge.threads(&pr_ref)?;
+    // Conversation comments are display data; failure to fetch them must
+    // not block the review.
+    let generals = forge.general_comments(&pr_ref).unwrap_or_default();
 
     let prefix = if kind == ForgeKind::Forgejo { "fj" } else { "gh" };
     let key = format!(
@@ -353,6 +356,7 @@ fn build_pr_session(
     session.set_head_oid(&metadata.head_oid);
     session.set_pr_json(serde_json::to_string(&metadata).unwrap_or_default());
     session.set_threads_json(serde_json::to_string(&threads).unwrap_or_default());
+    session.set_general_json(serde_json::to_string(&generals).unwrap_or_default());
     let reopen = if metadata.url.is_empty() {
         pr_ref.web_url(kind)
     } else {
@@ -885,6 +889,65 @@ pub unsafe extern "C" fn pc_list_requests(
             std::ptr::null_mut()
         }
     }
+}
+
+/// Host conversation-level comments (PR mode) as a JSON array (empty
+/// string otherwise). Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_general_json(session: *const PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(session.inner.general_json().to_string())
+}
+
+/// The staged conversation comments as a JSON array. Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_general_drafts_json(
+    session: *const PcSession,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(session.inner.general_drafts_json())
+}
+
+/// Stages a conversation-level comment (posts on submit). Returns its
+/// local id, or null. Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_add_general(
+    session: *mut PcSession,
+    body: *const c_char,
+    body_len: usize,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
+        return std::ptr::null_mut();
+    };
+    match catch_unwind(AssertUnwindSafe(|| session.inner.add_general(body.to_string()))) {
+        Ok(Ok(id)) => owned_c_string(id),
+        _ => std::ptr::null_mut(),
+    }
+}
+
+/// Deletes a staged conversation comment by local id.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_delete_general(
+    session: *mut PcSession,
+    local_id: *const c_char,
+    local_id_len: usize,
+) -> bool {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return false;
+    };
+    let Some(id) = (unsafe { str_from_raw(local_id, local_id_len) }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| session.inner.delete_general(id).is_ok()))
+        .unwrap_or(false)
 }
 
 /// Records (or refreshes) this session in the review history at `dir`.

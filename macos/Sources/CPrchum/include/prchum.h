@@ -359,6 +359,31 @@ char *pc_config_keys_json(const struct PcConfig *config);
 char *pc_list_requests(const char *config_path, uintptr_t config_path_len, char **error_out);
 
 /**
+ * Host conversation-level comments (PR mode) as a JSON array (empty
+ * string otherwise). Release with [`pc_string_free`].
+ */
+char *pc_session_general_json(const struct PcSession *session);
+
+/**
+ * The staged conversation comments as a JSON array. Release with
+ * [`pc_string_free`].
+ */
+char *pc_session_general_drafts_json(const struct PcSession *session);
+
+/**
+ * Stages a conversation-level comment (posts on submit). Returns its
+ * local id, or null. Release with [`pc_string_free`].
+ */
+char *pc_session_add_general(struct PcSession *session, const char *body, uintptr_t body_len);
+
+/**
+ * Deletes a staged conversation comment by local id.
+ */
+bool pc_session_delete_general(struct PcSession *session,
+                               const char *local_id,
+                               uintptr_t local_id_len);
+
+/**
  * Records (or refreshes) this session in the review history at `dir`.
  * `submitted` also stamps the submission time. `false` on failure.
  */

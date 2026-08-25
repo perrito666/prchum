@@ -483,26 +483,86 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    private var infoWindow: NSWindowController?
+
+    /// PR info: title, refs, and the description rendered as Markdown.
     @objc func showPRInfo(_ sender: Any?) {
         guard let info = session.pullRequestInfo else {
             presentInfo("This session is not a pull request.")
             return
         }
-        let alert = NSAlert()
-        alert.messageText = info.title
-        var details = "@\(info.author)  \(info.baseRef) ← \(info.headRef)\n\(info.url)"
-        if !info.body.isEmpty {
-            details += "\n\n" + info.body.prefix(2000)
+        let panel = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false)
+        panel.title = info.title
+
+        let open = NSButton(
+            title: "Open in Browser", target: nil,
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)))
+        open.bezelStyle = .rounded
+        open.target = self
+        open.action = #selector(openPRInBrowser(_:))
+
+        let scroll = NSTextView.scrollableTextView()
+        let textView = scroll.documentView as! NSTextView
+        textView.isEditable = false
+        textView.textContainerInset = NSSize(width: 10, height: 10)
+        scroll.hasVerticalScroller = true
+        textView.textStorage?.setAttributedString(
+            MarkdownRenderer.render(
+                markdown: info.body.isEmpty ? "_no description_" : info.body,
+                header: "@\(info.author)  \(info.baseRef) ← \(info.headRef)\n\(info.url)"))
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        stack.addArrangedSubview(open)
+        stack.addArrangedSubview(scroll)
+        panel.contentView = stack
+        panel.center()
+        let controller = NSWindowController(window: panel)
+        infoWindow = controller
+        controller.showWindow(nil)
+    }
+
+    @objc private func openPRInBrowser(_ sender: Any?) {
+        if let info = session.pullRequestInfo, let url = URL(string: info.url) {
+            NSWorkspace.shared.open(url)
         }
-        alert.informativeText = details
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Open in Browser")
-        guard let window else { return }
-        alert.beginSheetModal(for: window) { response in
-            if response == .alertSecondButtonReturn, let url = URL(string: info.url) {
-                NSWorkspace.shared.open(url)
-            }
+    }
+
+    private var conversation: ConversationWindowController?
+
+    /// The conversation screen: host comments plus staged drafts.
+    @objc func showConversation(_ sender: Any?) {
+        guard session.isPullRequest else {
+            presentInfo("The conversation lives on a pull request.")
+            return
         }
+        let session = self.session
+        let controller = ConversationWindowController(
+            title: "Conversation — \(session.title)",
+            reload: {
+                var items = session.generalComments().map {
+                    ConversationWindowController.Item(
+                        author: $0.author, date: $0.createdAt, body: $0.body, draftID: nil)
+                }
+                items += session.generalDrafts().map {
+                    ConversationWindowController.Item(
+                        author: NSUserName(), date: $0.at, body: $0.body,
+                        draftID: $0.localID)
+                }
+                return items
+            },
+            onAdd: { body in session.addGeneral(body: body) },
+            onDelete: { id in _ = session.deleteGeneral(localID: id) })
+        controller.onClose = { [weak self] in self?.conversation = nil }
+        conversation = controller
+        controller.showWindow(nil)
     }
 
     /// The submit sheet: counts, event, summary — nothing is sent before

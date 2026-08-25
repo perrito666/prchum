@@ -31,6 +31,8 @@ pub struct Session {
     threads_json: String,
     /// Pull-request metadata (PR mode), opaque JSON for the shell.
     pr_json: String,
+    /// Host conversation-level comments (PR mode), opaque JSON.
+    general_json: String,
     /// How the home screen reopens this session: a URL, a path, or a git
     /// spec. Empty for stdin-style sources that cannot reopen.
     reopen_hint: String,
@@ -96,6 +98,7 @@ impl Session {
             exchange_patch: Vec::new(),
             threads_json: String::new(),
             pr_json: String::new(),
+            general_json: String::new(),
             reopen_hint: String::new(),
             content_provider: None,
             context_cache: std::collections::HashMap::new(),
@@ -246,6 +249,33 @@ impl Session {
 
     pub fn set_pr_json(&mut self, json: String) {
         self.pr_json = json;
+    }
+
+    pub fn general_json(&self) -> &str {
+        &self.general_json
+    }
+
+    pub fn set_general_json(&mut self, json: String) {
+        self.general_json = json;
+    }
+
+    /// Stages a conversation-level comment (posts on submit); persists.
+    pub fn add_general(&mut self, body: String) -> Result<String, String> {
+        let id = self.draft.add_general(body);
+        self.persist()?;
+        Ok(id)
+    }
+
+    pub fn delete_general(&mut self, local_id: &str) -> Result<(), String> {
+        if !self.draft.delete_general(local_id) {
+            return Err("no such staged comment".to_string());
+        }
+        self.persist()
+    }
+
+    /// The staged conversation comments as JSON.
+    pub fn general_drafts_json(&self) -> String {
+        serde_json::to_string(&self.draft.general).unwrap_or_else(|_| "[]".to_string())
     }
 
     pub fn raw_patch(&self) -> &str {
