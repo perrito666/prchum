@@ -4,6 +4,7 @@
 //! token storage, and enterprise hosts stay the CLI's already-configured
 //! problem. Prchum never manages a forge credential.
 
+pub mod forgejo;
 pub mod ghcli;
 pub mod refs;
 pub mod submit;
@@ -88,10 +89,20 @@ pub trait Forge {
     fn add_general_comment(&self, pr: &PullRequestRef, body: &str) -> Result<(), String>;
 }
 
-/// Picks the adapter for a ref. Anything that smells of GitLab goes to
-/// glab; everything else (github.com and GHE) to gh.
-pub fn kind_for_host(host: &str) -> ForgeKind {
-    if host.contains("gitlab") {
+/// Picks the adapter for a host. A configured override wins (self-hosted
+/// instances rarely say what they are in their hostname); then heuristics:
+/// codeberg/forgejo/gitea → Forgejo, gitlab → GitLab, everything else
+/// (github.com and GHE) → GitHub.
+pub fn kind_for_host(host: &str, configured: Option<&str>) -> ForgeKind {
+    match configured {
+        Some("forgejo") | Some("gitea") => return ForgeKind::Forgejo,
+        Some("gitlab") => return ForgeKind::GitLab,
+        Some("github") => return ForgeKind::GitHub,
+        _ => {}
+    }
+    if host == "codeberg.org" || host.contains("forgejo") || host.contains("gitea") {
+        ForgeKind::Forgejo
+    } else if host.contains("gitlab") {
         ForgeKind::GitLab
     } else {
         ForgeKind::GitHub

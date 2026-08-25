@@ -161,6 +161,8 @@ struct PcSession *pc_session_new_from_git(const char *repo,
  * Opens a session over a pull request. `reference` accepts every spelling
  * (URL, `owner/repo#N`, bare number); `repo_hint` is a local checkout used
  * to infer host/owner/repo for underspecified references (may be empty).
+ * `config_path` locates config.json for forge-kind overrides and the
+ * Forgejo transport template (may be empty).
  *
  * Fetches the host's canonical diff, metadata, and review threads through
  * the forge CLI — a blocking call; run it off the UI thread and hand the
@@ -170,6 +172,8 @@ struct PcSession *pc_session_new_from_pr(const char *reference,
                                          uintptr_t reference_len,
                                          const char *repo_hint,
                                          uintptr_t repo_hint_len,
+                                         const char *config_path,
+                                         uintptr_t config_path_len,
                                          char **error_out);
 
 /**

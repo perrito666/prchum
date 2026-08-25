@@ -21,7 +21,8 @@ use prchum_core::diff::Side;
 use prchum_core::review::ReviewEvent;
 use prchum_core::source::GitSpec;
 use prchum_core::{App, Config, Event, Session};
-use prchum_forge::ghcli::GhForge;
+use prchum_forge::forgejo::ForgejoForge;
+use prchum_forge::ghcli::{GhForge, ProcessRunner};
 use prchum_forge::refs::{parse_ref, resolve_from_origin};
 use prchum_forge::{kind_for_host, submit, Forge, ForgeKind, PullRequestRef};
 
@@ -69,7 +70,27 @@ pub struct PcApp {
 pub struct PcSession {
     inner: Session,
     /// Set for PR-mode sessions; submission targets it.
-    pr: Option<PullRequestRef>,
+    pr: Option<PrContext>,
+}
+
+/// What submission needs to reach the same forge the session came from.
+struct PrContext {
+    reference: PullRequestRef,
+    kind: ForgeKind,
+    /// Forgejo transport template (empty = the built-in default).
+    forgejo_template: String,
+}
+
+impl PrContext {
+    fn forge(&self) -> Box<dyn Forge> {
+        match self.kind {
+            ForgeKind::Forgejo => Box::new(ForgejoForge::with_runner(
+                ProcessRunner,
+                &self.forgejo_template,
+            )),
+            _ => Box::new(GhForge::new()),
+        }
+    }
 }
 
 /// The user configuration. Create with [`pc_config_new`], release with
@@ -236,6 +257,8 @@ pub unsafe extern "C" fn pc_session_new_from_git(
 /// Opens a session over a pull request. `reference` accepts every spelling
 /// (URL, `owner/repo#N`, bare number); `repo_hint` is a local checkout used
 /// to infer host/owner/repo for underspecified references (may be empty).
+/// `config_path` locates config.json for forge-kind overrides and the
+/// Forgejo transport template (may be empty).
 ///
 /// Fetches the host's canonical diff, metadata, and review threads through
 /// the forge CLI — a blocking call; run it off the UI thread and hand the
@@ -246,6 +269,8 @@ pub unsafe extern "C" fn pc_session_new_from_pr(
     reference_len: usize,
     repo_hint: *const c_char,
     repo_hint_len: usize,
+    config_path: *const c_char,
+    config_path_len: usize,
     error_out: *mut *mut c_char,
 ) -> *mut PcSession {
     let Some(reference) = (unsafe { str_from_raw(reference, reference_len) }) else {
@@ -253,8 +278,11 @@ pub unsafe extern "C" fn pc_session_new_from_pr(
         return std::ptr::null_mut();
     };
     let repo_hint = unsafe { str_from_raw(repo_hint, repo_hint_len) }.unwrap_or_default();
+    let config_path = unsafe { str_from_raw(config_path, config_path_len) }.unwrap_or_default();
 
-    let built = catch_unwind(AssertUnwindSafe(|| build_pr_session(reference, repo_hint)));
+    let built = catch_unwind(AssertUnwindSafe(|| {
+        build_pr_session(reference, repo_hint, config_path)
+    }));
     match built {
         Ok(Ok((inner, pr))) => Box::into_raw(Box::new(PcSession { inner, pr: Some(pr) })),
         Ok(Err(message)) => {
@@ -268,7 +296,11 @@ pub unsafe extern "C" fn pc_session_new_from_pr(
     }
 }
 
-fn build_pr_session(reference: &str, repo_hint: &str) -> Result<(Session, PullRequestRef), String> {
+fn build_pr_session(
+    reference: &str,
+    repo_hint: &str,
+    config_path: &str,
+) -> Result<(Session, PrContext), String> {
     let mut pr_ref =
         parse_ref(reference).ok_or_else(|| format!("not a pull-request reference: {reference}"))?;
     if !pr_ref.is_resolved() {
@@ -278,17 +310,30 @@ fn build_pr_session(reference: &str, repo_hint: &str) -> Result<(Session, PullRe
     if pr_ref.host.is_empty() {
         pr_ref.host = "github.com".to_string();
     }
-    if kind_for_host(&pr_ref.host) == ForgeKind::GitLab {
+
+    let config = if config_path.is_empty() {
+        Config::default()
+    } else {
+        Config::load(std::path::Path::new(config_path))
+    };
+    let kind = kind_for_host(&pr_ref.host, config.forge_for_host(&pr_ref.host));
+    if kind == ForgeKind::GitLab {
         return Err("GitLab merge requests are not supported yet".to_string());
     }
+    let context = PrContext {
+        reference: pr_ref.clone(),
+        kind,
+        forgejo_template: config.forgejo_api_command().to_string(),
+    };
 
-    let forge = GhForge::new();
+    let forge = context.forge();
     let metadata = forge.pull_request(&pr_ref)?;
     let diff = forge.diff(&pr_ref)?;
     let threads = forge.threads(&pr_ref)?;
 
+    let prefix = if kind == ForgeKind::Forgejo { "fj" } else { "gh" };
     let key = format!(
-        "gh-{}-{}-{}-pr{}",
+        "{prefix}-{}-{}-{}-pr{}",
         pr_ref.host,
         pr_ref.owner.replace('/', "-"),
         pr_ref.repo,
@@ -300,7 +345,7 @@ fn build_pr_session(reference: &str, repo_hint: &str) -> Result<(Session, PullRe
     session.set_head_oid(&metadata.head_oid);
     session.set_pr_json(serde_json::to_string(&metadata).unwrap_or_default());
     session.set_threads_json(serde_json::to_string(&threads).unwrap_or_default());
-    Ok((session, pr_ref))
+    Ok((session, context))
 }
 
 /// Releases a session handle.
@@ -647,13 +692,14 @@ pub unsafe extern "C" fn pc_session_submit(session: *mut PcSession) -> *mut c_ch
     let Some(session) = (unsafe { session.as_mut() }) else {
         return std::ptr::null_mut();
     };
-    let Some(pr) = session.pr.clone() else {
+    let Some(context) = session.pr.as_ref() else {
         return std::ptr::null_mut();
     };
+    let forge = context.forge();
+    let pr = context.reference.clone();
     let result = catch_unwind(AssertUnwindSafe(|| {
         let plan = submit::plan(session.inner.draft());
-        let forge = GhForge::new();
-        let outcome = submit::execute(&forge, &pr, session.inner.draft(), &plan);
+        let outcome = submit::execute(forge.as_ref(), &pr, session.inner.draft(), &plan);
 
         // Retry safety: whatever the host accepted leaves the draft now,
         // even when a later step failed.

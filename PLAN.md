@@ -124,7 +124,9 @@ grammar set.
 
 ### Forge integration
 
-Kept exactly as leanreview does it: **shell out to `gh api` / `glab api`**
+Three forges: GitHub, GitLab, and **Forgejo** (Gitea-compatible API —
+Codeberg and self-hosted instances). Kept exactly as leanreview does it:
+**shell out to `gh api` / `glab api`**
 from the core (subprocesses are portable Rust; `std::process` + the same
 argument shapes). Auth, token storage, and enterprise hosts remain the
 CLI's already-solved problem. The `Forge` trait mirrors leanreview's
@@ -135,6 +137,21 @@ with the ranged-suggestion rewrite. One subtlety to carry over: apps
 launched from Finder inherit a minimal PATH — adopt the login shell's PATH
 before spawning anything (textchum's `adoptLoginShellPath()` exists for
 exactly this).
+
+**Forgejo** speaks the Gitea-compatible v1 REST API directly, through a
+configurable command template (`forgejo_api_command` in config.json, with
+`{host}`/`{method}`/`{path}` placeholders and the JSON body on stdin).
+The default targets the `fj` CLI (forgejo-contrib), which owns auth the
+way gh does; the template override adapts to whatever tooling an instance
+standardizes on — prchum still never manages a token. Self-hosted
+instances with opaque hostnames declare their kind in the config's
+`forges` map (`{"git.corp.example": "forgejo"}`); codeberg.org and
+hosts containing "forgejo"/"gitea"/"gitlab" are recognized without it.
+API mapping: reviews post with `APPROVED`/`REQUEST_CHANGES`/`COMMENT`
+events and `new_position`/`old_position` line comments; there is no
+per-comment reply endpoint, so a reply becomes a positioned comment in a
+fresh `COMMENT` review at the thread's location; the `.diff` endpoint
+serves the canonical patch.
 
 ## 3. Subsystem designs
 
@@ -285,7 +302,8 @@ Each phase ends with something usable.
 selection, persistence, export, navigation; split view and folding
 pending). Phase 2: git sources and exchange interop done; context view
 pending. Phase 3: gh adapter, threads, replies, relocation, retry-safe
-submit done; GitLab adapter and discovery list pending. Phase 4 not
+submit done; Forgejo adapter done (template transport, fj default);
+GitLab adapter and discovery list pending. Phase 4 not
 started (syntax highlighting, themes, suggestions, images, icon).
 
 ### Phase 0 — Walking skeleton

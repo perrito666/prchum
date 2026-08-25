@@ -15,6 +15,13 @@ pub struct Config {
     /// Action name → key spec overrides (e.g. `"next-hunk": "cmd+alt+down"`).
     /// An empty string unbinds the action's default.
     keys: BTreeMap<String, String>,
+    /// Host → forge kind (`github` | `gitlab` | `forgejo`) for self-hosted
+    /// instances heuristics can't classify (e.g. `git.example.com`).
+    forges: BTreeMap<String, String>,
+    /// Command template for Forgejo API calls, with `{host}`, `{method}`,
+    /// and `{path}` placeholders; the JSON body arrives on stdin. Empty
+    /// means the built-in default (the `fj` CLI).
+    forgejo_api_command: String,
     load_warning: Option<String>,
 }
 
@@ -46,35 +53,49 @@ impl Config {
             return Self::warned("config must be a JSON object".to_string());
         };
         let mut config = Self::default();
-        if let Some(keys) = object.get("keys") {
-            match keys.as_object() {
-                Some(map) => {
-                    for (action, spec) in map {
-                        match spec.as_str() {
-                            Some(spec) => {
-                                config.keys.insert(action.clone(), spec.to_string());
-                            }
-                            None => {
-                                config.load_warning = Some(format!(
-                                    "keys.{action} must be a string; ignored"
-                                ));
-                            }
-                        }
-                    }
-                }
+        Self::read_string_map(object, "keys", &mut config.keys, &mut config.load_warning);
+        Self::read_string_map(object, "forges", &mut config.forges, &mut config.load_warning);
+        if let Some(command) = object.get("forgejo_api_command") {
+            match command.as_str() {
+                Some(command) => config.forgejo_api_command = command.to_string(),
                 None => {
                     config.load_warning =
-                        Some("keys must be an object of action → key spec".to_string());
+                        Some("forgejo_api_command must be a string; ignored".to_string());
                 }
             }
         }
         config
     }
 
+    fn read_string_map(
+        object: &serde_json::Map<String, serde_json::Value>,
+        name: &str,
+        into: &mut BTreeMap<String, String>,
+        warning: &mut Option<String>,
+    ) {
+        let Some(value) = object.get(name) else {
+            return;
+        };
+        let Some(map) = value.as_object() else {
+            *warning = Some(format!("{name} must be an object of string → string"));
+            return;
+        };
+        for (key, entry) in map {
+            match entry.as_str() {
+                Some(text) => {
+                    into.insert(key.clone(), text.to_string());
+                }
+                None => {
+                    *warning = Some(format!("{name}.{key} must be a string; ignored"));
+                }
+            }
+        }
+    }
+
     fn warned(message: String) -> Self {
         Self {
-            keys: BTreeMap::new(),
             load_warning: Some(message),
+            ..Default::default()
         }
     }
 
@@ -88,12 +109,24 @@ impl Config {
     pub fn keys_json(&self) -> String {
         serde_json::to_string(&self.keys).unwrap_or_else(|_| "{}".to_string())
     }
+
+    /// The configured forge kind for `host`, if any.
+    pub fn forge_for_host(&self, host: &str) -> Option<&str> {
+        self.forges.get(host).map(String::as_str)
+    }
+
+    /// The Forgejo API command template; empty means the built-in default.
+    pub fn forgejo_api_command(&self) -> &str {
+        &self.forgejo_api_command
+    }
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             keys: BTreeMap::new(),
+            forges: BTreeMap::new(),
+            forgejo_api_command: String::new(),
             load_warning: None,
         }
     }
@@ -137,6 +170,19 @@ mod tests {
 
         let config = Config::from_json(r#"{"keys": []}"#);
         assert!(config.load_warning().is_some());
+    }
+
+    #[test]
+    fn forge_settings_load() {
+        let config = Config::from_json(
+            r#"{"forges": {"git.corp.example": "forgejo"},
+                "forgejo_api_command": "curl -sf https://{host}/api/v1{path}"}"#,
+        );
+        assert!(config.load_warning().is_none());
+        assert_eq!(config.forge_for_host("git.corp.example"), Some("forgejo"));
+        assert_eq!(config.forge_for_host("elsewhere"), None);
+        assert!(config.forgejo_api_command().starts_with("curl"));
+        assert!(Config::default().forgejo_api_command().is_empty());
     }
 
     #[test]

@@ -307,12 +307,21 @@ public final class CoreSession {
 
     /// Opens a session over a pull request — a blocking network call
     /// through the forge CLI; create off the main thread, then hand over.
-    public init(pullRequest reference: String, repoHint: String = "") throws {
+    /// `configPath` supplies forge-kind overrides and the Forgejo transport
+    /// template for self-hosted instances.
+    public init(
+        pullRequest reference: String,
+        repoHint: String = "",
+        configPath: String = CoreConfig.defaultPath
+    ) throws {
         var errorOut: UnsafeMutablePointer<CChar>?
         let handle = withUTF8Pointer(reference) { refPtr, refLen in
             withUTF8Pointer(repoHint) { hintPtr, hintLen in
-                pc_session_new_from_pr(
-                    refPtr, UInt(refLen), hintPtr, UInt(hintLen), &errorOut)
+                withUTF8Pointer(configPath) { cfgPtr, cfgLen in
+                    pc_session_new_from_pr(
+                        refPtr, UInt(refLen), hintPtr, UInt(hintLen),
+                        cfgPtr, UInt(cfgLen), &errorOut)
+                }
             }
         }
         guard let handle else {

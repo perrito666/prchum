@@ -6,6 +6,7 @@ use prchum_core::source::git_in;
 pub enum ForgeKind {
     GitHub,
     GitLab,
+    Forgejo,
 }
 
 /// A fully or partially resolved request reference. Empty host/owner/repo
@@ -32,6 +33,10 @@ impl PullRequestRef {
             ),
             ForgeKind::GitLab => format!(
                 "https://{}/{}/{}/-/merge_requests/{}",
+                self.host, self.owner, self.repo, self.number
+            ),
+            ForgeKind::Forgejo => format!(
+                "https://{}/{}/{}/pulls/{}",
                 self.host, self.owner, self.repo, self.number
             ),
         }
@@ -215,9 +220,22 @@ mod tests {
 
     #[test]
     fn host_dispatch() {
-        assert_eq!(crate::kind_for_host("github.com"), ForgeKind::GitHub);
-        assert_eq!(crate::kind_for_host("github.corp.example"), ForgeKind::GitHub);
-        assert_eq!(crate::kind_for_host("gitlab.com"), ForgeKind::GitLab);
-        assert_eq!(crate::kind_for_host("gitlab.corp.example"), ForgeKind::GitLab);
+        use crate::kind_for_host;
+        assert_eq!(kind_for_host("github.com", None), ForgeKind::GitHub);
+        assert_eq!(kind_for_host("github.corp.example", None), ForgeKind::GitHub);
+        assert_eq!(kind_for_host("gitlab.com", None), ForgeKind::GitLab);
+        assert_eq!(kind_for_host("gitlab.corp.example", None), ForgeKind::GitLab);
+        assert_eq!(kind_for_host("codeberg.org", None), ForgeKind::Forgejo);
+        assert_eq!(kind_for_host("forgejo.corp.example", None), ForgeKind::Forgejo);
+        // Self-hosted instances with opaque names need the config override.
+        assert_eq!(kind_for_host("git.corp.example", None), ForgeKind::GitHub);
+        assert_eq!(
+            kind_for_host("git.corp.example", Some("forgejo")),
+            ForgeKind::Forgejo
+        );
+        assert_eq!(
+            kind_for_host("git.corp.example", Some("gitlab")),
+            ForgeKind::GitLab
+        );
     }
 }

@@ -15,13 +15,32 @@ not a git client: the installed `git`, `gh`, and `glab` handle repository
 and forge semantics.
 
 **Status: early but reviewing.** Working today: patch-file, git
-(worktree/staged/base/range), GitHub PR, and review-exchange sessions;
+(worktree/staged/base/range), GitHub and Forgejo PR, and review-exchange
+sessions;
 draft comments anchored to semantic locations with conservative
 relocation when the head moves; inline previews (`●` drafts, `◆` host
 threads), replies, dismiss-not-delete; per-source draft persistence and
 exchange writeback; Markdown/exchange export; and submission as one
 atomic review with retry-safe accounting. Keyboard-first via menus with
 rebindable keys (`keys` in config.json); mouse works but is secondary.
+**Forgejo**: PRs on Codeberg or a self-hosted instance work through the
+[`fj` CLI](https://codeberg.org/forgejo-contrib/forgejo-cli) (`fj -H
+<host> auth …` once, like `gh auth login`). A host that doesn't say what
+it is in its name gets declared in `~/Library/Application
+Support/Prchum/config.json`:
+
+```json
+{
+  "forges": { "git.example.com": "forgejo" },
+  "forgejo_api_command": "fj -H {host} api {method} {path}"
+}
+```
+
+`forgejo_api_command` is optional — the default above targets `fj` — and
+exists so the transport can follow whatever CLI your instance
+standardizes on (the JSON body arrives on stdin; prchum never stores a
+token itself).
+
 Not yet: syntax highlighting, split view, folding, context view, themes,
 GitLab, discovery. See [`PLAN.md`](PLAN.md).
 
