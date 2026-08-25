@@ -164,15 +164,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async {
                     self.pendingOpens -= 1
                     progress.orderOut(nil)
-                    guard !requests.isEmpty else {
-                        let empty = NSAlert()
-                        empty.messageText = "Nothing waiting on you"
-                        empty.informativeText =
-                            "The queue filter found no open requests. list_filter in config.json adjusts it."
-                        empty.runModal()
-                        self.returnToHomeIfEmpty()
-                        return
-                    }
+                    // An empty result still opens the queue: the filter
+                    // picker inside is how you look somewhere else.
                     let controller = ReviewQueueWindowController(requests: requests) {
                         request in
                         self.openPullRequest(reference: request.url)

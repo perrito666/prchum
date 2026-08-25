@@ -25,13 +25,19 @@ public struct ListedRequest: Codable, Sendable {
 
 public enum CoreDiscovery {
     /// The open requests waiting for the user's review, through the
-    /// config-selected engine. Blocking — call off the main thread.
+    /// config-selected engine. `filter` overrides the config's fallback
+    /// (empty = use it). Blocking — call off the main thread.
     public static func listRequests(
-        configPath: String = CoreConfig.defaultPath
+        configPath: String = CoreConfig.defaultPath,
+        filter: String = ""
     ) throws -> [ListedRequest] {
         var errorOut: UnsafeMutablePointer<CChar>?
         let json = withUTF8Pointer(configPath) { pointer, length in
-            takeString(pc_list_requests(pointer, UInt(length), &errorOut))
+            withUTF8Pointer(filter) { filterPtr, filterLen in
+                takeString(
+                    pc_list_requests(
+                        pointer, UInt(length), filterPtr, UInt(filterLen), &errorOut))
+            }
         }
         guard let json else {
             throw CoreError(message: takeString(errorOut) ?? "could not list requests")

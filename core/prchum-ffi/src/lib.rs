@@ -911,6 +911,64 @@ pub unsafe extern "C" fn pc_config_keymap(
     owned_c_string(name)
 }
 
+/// The named discovery filters as a JSON object (`{name: filter}`).
+/// Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_list_filters_json(config: *const PcConfig) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(config.inner.list_filters_json())
+}
+
+/// The fallback discovery filter (empty = the engine's default).
+/// Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_list_filter(config: *const PcConfig) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(config.inner.list_filter().to_string())
+}
+
+/// Writes one entry of a top-level map setting (`list_filters`, `keys`,
+/// `forges`…) into config.json, preserving everything else. An empty
+/// value removes the entry; a broken file is left untouched.
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_set_map_entry(
+    config_path: *const c_char,
+    config_path_len: usize,
+    map_key: *const c_char,
+    map_key_len: usize,
+    entry_key: *const c_char,
+    entry_key_len: usize,
+    value: *const c_char,
+    value_len: usize,
+) -> bool {
+    let Some(config_path) = (unsafe { str_from_raw(config_path, config_path_len) }) else {
+        return false;
+    };
+    let Some(map_key) = (unsafe { str_from_raw(map_key, map_key_len) }) else {
+        return false;
+    };
+    let Some(entry_key) = (unsafe { str_from_raw(entry_key, entry_key_len) }) else {
+        return false;
+    };
+    let Some(value) = (unsafe { str_from_raw(value, value_len) }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| {
+        prchum_core::config::set_map_entry(
+            std::path::Path::new(config_path),
+            map_key,
+            entry_key,
+            value,
+        )
+        .is_ok()
+    }))
+    .unwrap_or(false)
+}
+
 /// The configured appearance: 0 = system, 1 = light, 2 = dark.
 #[no_mangle]
 pub unsafe extern "C" fn pc_config_appearance(config: *const PcConfig) -> u32 {
@@ -946,21 +1004,30 @@ pub unsafe extern "C" fn pc_config_keys_json(config: *const PcConfig) -> *mut c_
 
 /// Lists the open requests waiting for the user's review, through the
 /// engine the config selects (`list_engine`: `gh` default, or `forgejo`
-/// with `list_host`). Blocking — run off the UI thread. Returns a JSON
+/// with `list_host`). `filter` overrides the config's `list_filter`
+/// (empty = use it). Blocking — run off the UI thread. Returns a JSON
 /// array of `{host, owner, repo, number, title, author, updated_at, url}`
 /// or null with `error_out` set. Release with [`pc_string_free`].
 #[no_mangle]
 pub unsafe extern "C" fn pc_list_requests(
     config_path: *const c_char,
     config_path_len: usize,
+    filter: *const c_char,
+    filter_len: usize,
     error_out: *mut *mut c_char,
 ) -> *mut c_char {
     let config_path = unsafe { str_from_raw(config_path, config_path_len) }.unwrap_or_default();
+    let filter = unsafe { str_from_raw(filter, filter_len) }.unwrap_or_default();
     let result = catch_unwind(AssertUnwindSafe(|| {
         let config = if config_path.is_empty() {
             Config::default()
         } else {
             Config::load(std::path::Path::new(config_path))
+        };
+        let effective = if filter.is_empty() {
+            config.list_filter()
+        } else {
+            filter
         };
         match config.list_engine() {
             "forgejo" => {
@@ -972,9 +1039,9 @@ pub unsafe extern "C" fn pc_list_requests(
                 }
                 let forge =
                     ForgejoForge::with_runner(ProcessRunner, config.forgejo_api_command());
-                prchum_forge::list::list_forgejo(&forge, host, config.list_filter())
+                prchum_forge::list::list_forgejo(&forge, host, effective)
             }
-            _ => prchum_forge::list::list_github(&ProcessRunner, config.list_filter()),
+            _ => prchum_forge::list::list_github(&ProcessRunner, effective),
         }
     }));
     match result {

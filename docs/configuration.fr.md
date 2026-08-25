@@ -71,6 +71,9 @@ lives in the Keymap source.
 - `list_filter` — une requête de recherche GitHub, ou des qualificatifs
   de query string Forgejo ; vide = le défaut du moteur
   (`is:open review-requested:@me`).
+- `list_filters` — des filtres nommés (`{"bugs": "is:open label:bug"}`),
+  choisis dans le menu de la file de revue ; Settings (⌘,) les gère, et
+  la file accepte aussi un filtre ponctuel.
 - `list_host` — l'hôte Forgejo que la file interroge (requis avec le
   moteur `forgejo`).
 

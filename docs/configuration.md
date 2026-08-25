@@ -66,6 +66,9 @@ Action names: `open`, `open-pr`, `open-git`, `review-queue`, `export`,
 - `list_filter` — a GitHub search query, or Forgejo query-string
   qualifiers; empty means the engine's default
   (`is:open review-requested:@me`).
+- `list_filters` — named filters (`{"bugs": "is:open label:bug"}`),
+  pickable in the review queue's dropdown; Settings (⌘,) manages them,
+  and the queue also takes a one-off custom filter.
 - `list_host` — the Forgejo host the queue searches (required for the
   `forgejo` engine).
 

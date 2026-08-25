@@ -634,6 +634,34 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
+    // Discovery filters: named filters load, map entries write through
+    // preserving the rest of the file, removal works.
+    do {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-flt-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let path = dir.appendingPathComponent("config.json").path
+        try #"{"future": 1, "list_filter": "is:open review-requested:@me"}"#
+            .write(toFile: path, atomically: true, encoding: .utf8)
+
+        _ = CoreConfig.setMapEntry("list_filters", "bugs", "is:open label:bug", path: path)
+        _ = CoreConfig.setMapEntry("list_filters", "gone", "x", path: path)
+        _ = CoreConfig.setMapEntry("list_filters", "gone", "", path: path)
+        let config = CoreConfig(path: path)
+        guard config.listFilters == ["bugs": "is:open label:bug"],
+            config.listFilter == "is:open review-requested:@me",
+            try String(contentsOfFile: path, encoding: .utf8).contains("future")
+        else {
+            print("FAIL: filter config round trip: \(config.listFilters)")
+            return 1
+        }
+        try? FileManager.default.removeItem(at: dir)
+        print("discovery filters ok (named, default, removal, preservation)")
+    } catch {
+        print("FAIL: discovery filters: \(error)")
+        return 1
+    }
+
     // Async event round trip: core dispatch thread → main queue.
     var receivedSequence: UInt64?
     let coreApp = CoreApp { event in

@@ -373,6 +373,32 @@ char *pc_config_load_warning(const struct PcConfig *config);
 char *pc_config_keymap(const struct PcConfig *config, bool *exists_out);
 
 /**
+ * The named discovery filters as a JSON object (`{name: filter}`).
+ * Release with [`pc_string_free`].
+ */
+char *pc_config_list_filters_json(const struct PcConfig *config);
+
+/**
+ * The fallback discovery filter (empty = the engine's default).
+ * Release with [`pc_string_free`].
+ */
+char *pc_config_list_filter(const struct PcConfig *config);
+
+/**
+ * Writes one entry of a top-level map setting (`list_filters`, `keys`,
+ * `forges`…) into config.json, preserving everything else. An empty
+ * value removes the entry; a broken file is left untouched.
+ */
+bool pc_config_set_map_entry(const char *config_path,
+                             uintptr_t config_path_len,
+                             const char *map_key,
+                             uintptr_t map_key_len,
+                             const char *entry_key,
+                             uintptr_t entry_key_len,
+                             const char *value,
+                             uintptr_t value_len);
+
+/**
  * The configured appearance: 0 = system, 1 = light, 2 = dark.
  */
 uint32_t pc_config_appearance(const struct PcConfig *config);
@@ -392,11 +418,16 @@ char *pc_config_keys_json(const struct PcConfig *config);
 /**
  * Lists the open requests waiting for the user's review, through the
  * engine the config selects (`list_engine`: `gh` default, or `forgejo`
- * with `list_host`). Blocking — run off the UI thread. Returns a JSON
+ * with `list_host`). `filter` overrides the config's `list_filter`
+ * (empty = use it). Blocking — run off the UI thread. Returns a JSON
  * array of `{host, owner, repo, number, title, author, updated_at, url}`
  * or null with `error_out` set. Release with [`pc_string_free`].
  */
-char *pc_list_requests(const char *config_path, uintptr_t config_path_len, char **error_out);
+char *pc_list_requests(const char *config_path,
+                       uintptr_t config_path_len,
+                       const char *filter,
+                       uintptr_t filter_len,
+                       char **error_out);
 
 /**
  * Host conversation-level comments (PR mode) as a JSON array (empty

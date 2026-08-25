@@ -71,6 +71,9 @@ lives in the Keymap source.
 - `list_filter` — una consulta de búsqueda de GitHub, o calificadores
   de query string de Forgejo; vacío significa el valor por defecto del
   motor (`is:open review-requested:@me`).
+- `list_filters` — filtros con nombre (`{"bugs": "is:open label:bug"}`),
+  elegibles en el desplegable de la cola de revisión; Settings (⌘,) los
+  gestiona, y la cola acepta además un filtro puntual.
 - `list_host` — el servidor Forgejo donde busca la cola (obligatorio
   con el motor `forgejo`).
 

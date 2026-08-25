@@ -1,15 +1,25 @@
 import AppKit
 import PrchumKit
 
-/// The review queue: the open requests waiting on the user, one row each.
-/// Return or a double-click opens the selected request.
+/// The review queue: the open requests a filter finds, one row each.
+/// The filter picker offers the default and every named filter from
+/// config.json, plus a one-off custom filter typed on the spot. Return
+/// or a double-click opens the selected request.
 @MainActor
 final class ReviewQueueWindowController: NSWindowController, NSWindowDelegate,
     NSTableViewDataSource, NSTableViewDelegate
 {
-    private let requests: [ListedRequest]
+    private var requests: [ListedRequest] = []
     private let onOpen: (ListedRequest) -> Void
     private let table = NSTableView()
+    private let filterPicker = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let statusLabel = NSTextField(labelWithString: "")
+    private let spinner = NSProgressIndicator()
+    /// Named filters from config, in menu order.
+    private var filterNames: [String] = []
+    /// The last one-off filter typed, kept in the menu for the session.
+    private var customFilter: String?
+    private var loading = false
 
     var onClose: (() -> Void)?
 
@@ -18,13 +28,31 @@ final class ReviewQueueWindowController: NSWindowController, NSWindowDelegate,
         self.onOpen = onOpen
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 720, height: 380),
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 420),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false)
         window.title = "Review Queue"
         super.init(window: window)
         window.delegate = self
+
+        filterPicker.target = self
+        filterPicker.action = #selector(filterChanged(_:))
+        rebuildFilterMenu()
+
+        spinner.style = .spinning
+        spinner.controlSize = .small
+        spinner.isDisplayedWhenStopped = false
+        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+
+        let bar = NSStackView()
+        bar.orientation = .horizontal
+        bar.spacing = 8
+        bar.addArrangedSubview(NSTextField(labelWithString: "Filter:"))
+        bar.addArrangedSubview(filterPicker)
+        bar.addArrangedSubview(spinner)
+        bar.addArrangedSubview(statusLabel)
 
         let columns: [(String, String, CGFloat)] = [
             ("request", "Request", 180),
@@ -49,8 +77,16 @@ final class ReviewQueueWindowController: NSWindowController, NSWindowDelegate,
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.documentView = table
-        window.contentView = scroll
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
+        stack.addArrangedSubview(bar)
+        stack.addArrangedSubview(scroll)
+        window.contentView = stack
         window.center()
+        updateStatus()
         if !requests.isEmpty {
             table.selectRowIndexes([0], byExtendingSelection: false)
         }
@@ -65,6 +101,116 @@ final class ReviewQueueWindowController: NSWindowController, NSWindowDelegate,
         onClose?()
     }
 
+    // MARK: - Filters
+
+    /// Menu: Default (the config's fallback or the engine's), each named
+    /// filter, the session's last custom one, and "Custom…".
+    private func rebuildFilterMenu(keepSelection: String? = nil) {
+        let config = CoreConfig()
+        let fallback = config.listFilter
+        filterNames = config.listFilters.keys.sorted()
+        filterPicker.removeAllItems()
+        filterPicker.addItem(
+            withTitle: "Default" + (fallback.isEmpty ? "" : " — \(fallback)"))
+        for name in filterNames {
+            filterPicker.addItem(withTitle: name)
+        }
+        if let customFilter {
+            filterPicker.addItem(withTitle: "Custom — \(customFilter)")
+        }
+        filterPicker.menu?.addItem(.separator())
+        filterPicker.addItem(withTitle: "Custom…")
+        if let keepSelection {
+            filterPicker.selectItem(withTitle: keepSelection)
+        }
+    }
+
+    /// The filter string the current selection stands for ("" = default).
+    private var selectedFilter: String {
+        let index = filterPicker.indexOfSelectedItem
+        if index == 0 {
+            return ""
+        }
+        let namedEnd = filterNames.count
+        if index - 1 < namedEnd {
+            return CoreConfig().listFilters[filterNames[index - 1]] ?? ""
+        }
+        return customFilter ?? ""
+    }
+
+    @objc private func filterChanged(_ sender: Any?) {
+        let title = filterPicker.titleOfSelectedItem ?? ""
+        if title == "Custom…" {
+            promptForCustomFilter()
+            return
+        }
+        reload()
+    }
+
+    private func promptForCustomFilter() {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.messageText = "Custom filter"
+        alert.informativeText =
+            "A GitHub search query (gh engine) or query-string qualifiers (forgejo). "
+            + "Save it for good in Settings."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 380, height: 24))
+        field.placeholderString = "is:open label:bug review-requested:@me"
+        field.stringValue = customFilter ?? ""
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        alert.addButton(withTitle: "Search")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard let self else { return }
+            let filter = field.stringValue.trimmingCharacters(in: .whitespaces)
+            guard response == .alertFirstButtonReturn, !filter.isEmpty else {
+                self.filterPicker.selectItem(at: 0)
+                return
+            }
+            self.customFilter = filter
+            self.rebuildFilterMenu(keepSelection: "Custom — \(filter)")
+            self.reload()
+        }
+    }
+
+    /// Refetches with the selected filter, off-main behind the spinner.
+    private func reload() {
+        guard !loading else { return }
+        loading = true
+        spinner.startAnimation(nil)
+        statusLabel.stringValue = "Searching…"
+        let filter = selectedFilter
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let outcome = Result { try CoreDiscovery.listRequests(filter: filter) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.loading = false
+                self.spinner.stopAnimation(nil)
+                switch outcome {
+                case .success(let found):
+                    self.requests = found
+                    self.table.reloadData()
+                    if !found.isEmpty {
+                        self.table.selectRowIndexes([0], byExtendingSelection: false)
+                    }
+                    self.updateStatus()
+                case .failure(let error):
+                    self.statusLabel.stringValue = "\(error)"
+                }
+            }
+        }
+    }
+
+    private func updateStatus() {
+        statusLabel.stringValue =
+            requests.isEmpty
+            ? "Nothing matches this filter."
+            : "\(requests.count) request\(requests.count == 1 ? "" : "s")"
+    }
+
+    // MARK: - Opening
+
     @objc func openSelected(_ sender: Any?) {
         let row = table.selectedRow
         guard requests.indices.contains(row) else { return }
@@ -72,8 +218,6 @@ final class ReviewQueueWindowController: NSWindowController, NSWindowDelegate,
         onOpen(requests[row])
     }
 
-    // Return opens; the table is the window's whole content, so plain key
-    // handling on the window works.
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 /* return */ {
             openSelected(nil)

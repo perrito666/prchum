@@ -30,6 +30,8 @@ pub struct Config {
     /// The Forgejo host discovery searches (the `forgejo` engine needs
     /// one; requests are host-scoped).
     list_host: String,
+    /// Named discovery filters, pickable in the review queue.
+    list_filters: BTreeMap<String, String>,
     /// The named keymap `keys` overlays (from `keymaps`).
     keymap: String,
     /// User-defined named keymaps: name → {action → key spec}.
@@ -108,6 +110,12 @@ impl Config {
             }
         }
         Self::read_string_map(object, "forges", &mut config.forges, &mut config.load_warning);
+        Self::read_string_map(
+            object,
+            "list_filters",
+            &mut config.list_filters,
+            &mut config.load_warning,
+        );
         for (key, target) in [
             ("forgejo_api_command", 0usize),
             ("list_engine", 1),
@@ -220,6 +228,11 @@ impl Config {
         &self.list_host
     }
 
+    /// The named discovery filters as a JSON object string.
+    pub fn list_filters_json(&self) -> String {
+        serde_json::to_string(&self.list_filters).unwrap_or_else(|_| "{}".to_string())
+    }
+
     pub fn theme(&self) -> &str {
         &self.theme
     }
@@ -234,34 +247,67 @@ impl Config {
     }
 }
 
-/// Writes one string setting into the config file, preserving everything
-/// else — unknown keys included. A file that is not a JSON object (or is
-/// broken) is left untouched, matching the never-clobber rule; a missing
-/// file starts fresh.
-pub fn set_string(path: &Path, key: &str, value: &str) -> Result<(), String> {
-    let mut root = match std::fs::read_to_string(path) {
+/// Writes one entry of a top-level map setting (`list_filters`,
+/// `forges`, `keys`…), preserving everything else in the file. An empty
+/// `value` removes the entry. Same never-clobber rules as [`set_string`].
+pub fn set_map_entry(
+    path: &Path,
+    map_key: &str,
+    entry_key: &str,
+    value: &str,
+) -> Result<(), String> {
+    let mut root = read_object(path)?;
+    if !root[map_key].is_object() {
+        root[map_key] = serde_json::Value::Object(Default::default());
+    }
+    let map = root[map_key].as_object_mut().expect("just ensured");
+    if value.is_empty() {
+        map.remove(entry_key);
+    } else {
+        map.insert(
+            entry_key.to_string(),
+            serde_json::Value::String(value.to_string()),
+        );
+    }
+    write_object(path, &root)
+}
+
+fn read_object(path: &Path) -> Result<serde_json::Value, String> {
+    match std::fs::read_to_string(path) {
         Ok(text) => {
             let parsed: serde_json::Value = serde_json::from_str(&text)
                 .map_err(|e| format!("config is not valid JSON, not touching it: {e}"))?;
             if !parsed.is_object() {
                 return Err("config is not a JSON object, not touching it".to_string());
             }
-            parsed
+            Ok(parsed)
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            serde_json::Value::Object(Default::default())
+            Ok(serde_json::Value::Object(Default::default()))
         }
-        Err(error) => return Err(format!("could not read {}: {error}", path.display())),
-    };
-    root[key] = serde_json::Value::String(value.to_string());
+        Err(error) => Err(format!("could not read {}: {error}", path.display())),
+    }
+}
+
+fn write_object(path: &Path, root: &serde_json::Value) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)
             .map_err(|error| format!("could not create {}: {error}", dir.display()))?;
     }
-    let mut text = serde_json::to_string_pretty(&root)
+    let mut text = serde_json::to_string_pretty(root)
         .map_err(|error| format!("could not encode config: {error}"))?;
     text.push('\n');
     crate::review::atomic_write(path, text.as_bytes())
+}
+
+/// Writes one string setting into the config file, preserving everything
+/// else — unknown keys included. A file that is not a JSON object (or is
+/// broken) is left untouched, matching the never-clobber rule; a missing
+/// file starts fresh.
+pub fn set_string(path: &Path, key: &str, value: &str) -> Result<(), String> {
+    let mut root = read_object(path)?;
+    root[key] = serde_json::Value::String(value.to_string());
+    write_object(path, &root)
 }
 
 impl Default for Config {
@@ -275,6 +321,7 @@ impl Default for Config {
             list_engine: String::new(),
             list_filter: String::new(),
             list_host: String::new(),
+            list_filters: BTreeMap::new(),
             theme: String::new(),
             appearance: String::new(),
             load_warning: None,
@@ -320,6 +367,31 @@ mod tests {
 
         let config = Config::from_json(r#"{"keys": []}"#);
         assert!(config.load_warning().is_some());
+    }
+
+    #[test]
+    fn named_filters_and_map_entries() {
+        let config = Config::from_json(
+            r#"{"list_filters": {"bugs": "is:open label:bug", "team": "is:open team-review-requested:x/y"}}"#,
+        );
+        assert!(config.load_warning().is_none());
+        assert!(config.list_filters_json().contains("label:bug"));
+
+        let dir = std::env::temp_dir().join(format!("prchum-flt-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path, r#"{"future": 1}"#).unwrap();
+        set_map_entry(&path, "list_filters", "bugs", "is:open label:bug").unwrap();
+        set_map_entry(&path, "list_filters", "old", "x").unwrap();
+        set_map_entry(&path, "list_filters", "old", "").unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("future"), "{text}");
+        let loaded = Config::from_json(&text);
+        assert_eq!(
+            loaded.list_filters_json(),
+            r#"{"bugs":"is:open label:bug"}"#
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

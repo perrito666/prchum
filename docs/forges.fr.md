@@ -57,7 +57,9 @@ File → My Review Queue (⇧⌘L) liste les demandes ouvertes qui vous
 attendent — Retour ou un double-clic en ouvre une. Le moteur suit la
 configuration : `gh search prs` avec `is:open review-requested:@me` par
 défaut, ou la recherche d'issues de Forgejo avec
-`list_engine: "forgejo"` et un `list_host`.
+`list_engine: "forgejo"` et un `list_host`. Le menu de la file propose
+le filtre par défaut, chaque filtre nommé de `list_filters` et un
+filtre ponctuel saisi sur place.
 
 ## GitLab
 

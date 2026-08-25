@@ -52,6 +52,8 @@ File → My Review Queue (⇧⌘L) lists the open requests waiting on you —
 Return or a double-click opens one. The engine follows configuration:
 `gh search prs` with `is:open review-requested:@me` by default, or
 Forgejo's issue search with `list_engine: "forgejo"` plus a `list_host`.
+The queue's dropdown offers the default, every named filter from
+`list_filters`, and a one-off custom filter typed on the spot.
 
 ## GitLab
 

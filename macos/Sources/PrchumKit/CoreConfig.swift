@@ -38,6 +38,40 @@ public final class CoreConfig {
         takeString(pc_config_load_warning(handle))
     }
 
+    /// Named discovery filters: name → filter.
+    public var listFilters: [String: String] {
+        guard let json = takeString(pc_config_list_filters_json(handle)),
+            let data = json.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode([String: String].self, from: data)
+        else { return [:] }
+        return decoded
+    }
+
+    /// The fallback discovery filter (empty = the engine's default).
+    public var listFilter: String {
+        takeString(pc_config_list_filter(handle)) ?? ""
+    }
+
+    /// Writes one entry of a top-level map setting (`list_filters`,
+    /// `keys`, `forges`…); an empty value removes the entry.
+    @discardableResult
+    public static func setMapEntry(
+        _ mapKey: String, _ entryKey: String, _ value: String,
+        path: String = defaultPath
+    ) -> Bool {
+        withUTF8Pointer(path) { pathPtr, pathLen in
+            withUTF8Pointer(mapKey) { mapPtr, mapLen in
+                withUTF8Pointer(entryKey) { keyPtr, keyLen in
+                    withUTF8Pointer(value) { valuePtr, valueLen in
+                        pc_config_set_map_entry(
+                            pathPtr, UInt(pathLen), mapPtr, UInt(mapLen),
+                            keyPtr, UInt(keyLen), valuePtr, UInt(valueLen))
+                    }
+                }
+            }
+        }
+    }
+
     /// The selected named keymap and whether `keymaps` defines it.
     public var keymapSelection: (name: String, exists: Bool) {
         var exists = false
