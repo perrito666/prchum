@@ -14,6 +14,7 @@ rien ne l'exige.
 | ⇧⌘↓ / ⇧⌘↑ | fichier suivant / précédent |
 | ⌘F | rechercher dans le diff (la barre de recherche native) |
 | ⌥⌘T | vue unifiée ↔ scindée |
+| ⌥⌘C | contexte complet : le fichier entier avec les hunks superposés |
 | ⌥⌘← | plier / déplier le hunk courant |
 | ⇧⌥⌘← / ⇧⌥⌘→ | plier / déplier tous les hunks |
 | ⌥⌘S | cycler la coloration : syntaxe + teintes → teintes seules → brut |
@@ -35,7 +36,9 @@ panneau où se trouve le curseur décide du côté que vise un commentaire.
 | ⌘E | modifier le brouillon sous le curseur |
 | ⌘⌫ | supprimer le brouillon sous le curseur |
 | ⇧⌘X | écarter ↔ restaurer (conservé ; jamais soumis tant qu'écarté) |
+| ⌥⌘↩ | suggérer un changement : le code sélectionné prérempli dans un bloc ```suggestion |
 | ⌘R | répondre — au fil du serveur ou à la conversation du brouillon |
+| ⌘L | le navigateur de revue : chaque brouillon et fil ; Retour saute |
 
 Une sélection doit tenir sur un seul côté, à la façon de GitHub : un
 bloc de changements s'ancre à DROITE (les suppressions ne font

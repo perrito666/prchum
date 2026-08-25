@@ -14,6 +14,7 @@ nothing requires it.
 | ⇧⌘↓ / ⇧⌘↑ | next / previous file |
 | ⌘F | find in the diff (the native find bar) |
 | ⌥⌘T | unified ↔ split view |
+| ⌥⌘C | full-file context: the whole file with the hunks overlaid |
 | ⌥⌘← | fold / unfold the current hunk |
 | ⇧⌥⌘← / ⇧⌥⌘→ | collapse / expand all hunks |
 | ⌥⌘S | cycle syntax coloring: syntax + tints → tints only → plain |
@@ -35,7 +36,9 @@ is in decides which side a comment targets.
 | ⌘E | edit the draft under the caret |
 | ⌘⌫ | delete the draft under the caret |
 | ⇧⌘X | dismiss ↔ restore (kept, never submitted while dismissed) |
+| ⌥⌘↩ | suggest a change: the selection's code prefilled in a ```suggestion fence |
 | ⌘R | reply — to the host thread or the draft conversation at the caret |
+| ⌘L | the review navigator: every draft and thread, Return jumps |
 
 A selection must map onto one side, GitHub-style: a changed block
 anchors RIGHT (the deletions are simply not part of that side), a

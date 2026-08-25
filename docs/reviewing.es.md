@@ -14,6 +14,7 @@ todas partes, pero nada lo exige.
 | ⇧⌘↓ / ⇧⌘↑ | archivo siguiente / anterior |
 | ⌘F | buscar en el diff (la barra de búsqueda nativa) |
 | ⌥⌘T | vista unificada ↔ dividida |
+| ⌥⌘C | contexto completo: el archivo entero con los hunks superpuestos |
 | ⌥⌘← | plegar / desplegar el hunk actual |
 | ⇧⌥⌘← / ⇧⌥⌘→ | plegar / desplegar todos los hunks |
 | ⌥⌘S | ciclar el coloreado: sintaxis + tintes → solo tintes → plano |
@@ -35,7 +36,9 @@ donde está el cursor decide a qué lado apunta un comentario.
 | ⌘E | editar el borrador bajo el cursor |
 | ⌘⌫ | borrar el borrador bajo el cursor |
 | ⇧⌘X | descartar ↔ restaurar (se conserva; no se envía mientras esté descartado) |
+| ⌥⌘↩ | sugerir un cambio: el código seleccionado prellenado en un bloque ```suggestion |
 | ⌘R | responder — al hilo del servidor o a la conversación del borrador |
+| ⌘L | el navegador de la revisión: cada borrador e hilo; Retorno salta |
 
 Una selección debe caer en un solo lado, al estilo de GitHub: un bloque
 de cambios se ancla a la DERECHA (los borrados simplemente no forman
