@@ -11,7 +11,7 @@ import SwiftUI
 /// extend the selection.
 @MainActor
 final class ReviewWindowController: NSWindowController, NSWindowDelegate,
-    NSToolbarDelegate, NSToolbarItemValidation
+    NSToolbarDelegate, NSToolbarItemValidation, NSTextViewDelegate
 {
     private let session: CoreSession
     private let files: [DiffFile]
@@ -35,6 +35,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
     private var contextCache: [Int: DiffFile] = [:]
     /// Where the caret was, per file — switching back resumes there.
     private var savedCarets: [Int: Int] = [:]
+    /// The row the caret is on, kept visibly tinted — a non-editable
+    /// text view draws no insertion point, so this is the position.
+    private var currentLineRange: NSRange?
 
     /// A background operation (submit, context fetch) owns the session's
     /// lock; the UI keeps its hands off until it finishes.
@@ -77,6 +80,7 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
 
         diffScrollView.hasVerticalScroller = true
         diffScrollView.documentView = diffTextView
+        diffTextView.delegate = self
         let content = NSViewController()
         content.view = diffScrollView
         split.addSplitViewItem(NSSplitViewItem(viewController: content))
@@ -96,6 +100,7 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             window.center()
         }
         window.setFrameAutosaveName("ReviewWindow")
+        window.initialFirstResponder = diffTextView
 
         let toolbar = NSToolbar(identifier: "review")
         toolbar.delegate = self
@@ -117,6 +122,36 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
 
     func windowWillClose(_ notification: Notification) {
         onClose?(self)
+    }
+
+    func textViewDidChangeSelection(_ notification: Notification) {
+        highlightCurrentLine()
+    }
+
+    /// Tints the caret's whole row so the position is always visible —
+    /// in both appearances, over any diff tint. Temporary attributes only:
+    /// the storage (and every range in the row model) stays untouched.
+    private func highlightCurrentLine() {
+        guard let layoutManager = diffTextView.layoutManager,
+            let storage = diffTextView.textStorage
+        else { return }
+        // Removing the temporary attribute re-exposes whatever background
+        // the storage carries (diff tints included).
+        if let previous = currentLineRange, previous.upperBound <= storage.length {
+            layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: previous)
+        }
+        let selection = diffTextView.selectedRange()
+        guard selection.length == 0, storage.length > 0 else {
+            currentLineRange = nil
+            return
+        }
+        let line = (storage.string as NSString).lineRange(
+            for: NSRange(location: min(selection.location, storage.length), length: 0))
+        layoutManager.addTemporaryAttribute(
+            .backgroundColor,
+            value: NSColor.controlAccentColor.withAlphaComponent(0.18),
+            forCharacterRange: line)
+        currentLineRange = line
     }
 
     func windowDidEndLiveResize(_ notification: Notification) {
@@ -974,6 +1009,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         } else {
             diffTextView.scrollRangeToVisible(NSRange(location: resume, length: 0))
         }
+        window?.makeFirstResponder(diffTextView)
+        highlightCurrentLine()
     }
 
     private func renderCurrentFile() {
@@ -1015,7 +1052,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             layout: layout,
             splitCodeWidth: max(perPanel, 30))
         self.rendered = rendered
+        currentLineRange = nil
         diffTextView.textStorage?.setAttributedString(rendered.text)
+        highlightCurrentLine()
     }
 
     private func applyWrap() {
@@ -1051,6 +1090,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         view.textContainerInset = NSSize(width: 8, height: 8)
         view.backgroundColor = .textBackgroundColor
+        view.selectedTextAttributes = [
+            .backgroundColor: NSColor.controlAccentColor.withAlphaComponent(0.35)
+        ]
         view.usesFindBar = true
         view.isIncrementalSearchingEnabled = true
         return view

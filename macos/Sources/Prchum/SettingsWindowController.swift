@@ -72,7 +72,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     /// Built-ins plus every themes/*.json next to the config file.
     private static func themeNames() -> [String] {
-        var names = ["default", "high-contrast"]
+        var names = CoreSyntax.builtinThemeNames
         let themesDir = (CoreConfig.defaultPath as NSString)
             .deletingLastPathComponent + "/themes"
         if let files = try? FileManager.default.contentsOfDirectory(atPath: themesDir) {

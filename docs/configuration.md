@@ -45,6 +45,14 @@ Action names: `open`, `open-pr`, `open-git`, `review-queue`, `export`,
 `reply`, `pr-info`, `submit`, `open-at-caret`, `suggest`, `comments`,
 `general`, `toggle-context` — every menu item names its action.
 
+## Appearance and theme
+
+- `appearance` — `system` (default), `light`, or `dark`.
+- `theme` — a built-in (`default`, `high-contrast`, `graphite`,
+  `molokai`, `solarized`, `dracula`, `gruvbox` — each with a light and a
+  dark palette) or the name of a `themes/<name>.json` file next to
+  config.json. Settings (⌘,) writes both through.
+
 ## Forges
 
 - `forges` — host → kind (`github` | `gitlab` | `forgejo`) for

@@ -1184,6 +1184,13 @@ pub unsafe extern "C" fn pc_history_prune_json(
     }
 }
 
+/// Built-in theme names, newline-joined, in presentation order.
+/// Release with [`pc_string_free`].
+#[no_mangle]
+pub extern "C" fn pc_theme_builtin_names() -> *mut c_char {
+    owned_c_string(prchum_core::syntax::BUILTIN_THEMES.join("\n"))
+}
+
 /// The syntax style table as a JSON array of `{light, dark, flags}`
 /// (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
 /// Style ids in highlight spans index this table. Release with

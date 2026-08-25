@@ -455,6 +455,12 @@ char *pc_history_prune_json(const char *dir,
                             uintptr_t config_path_len);
 
 /**
+ * Built-in theme names, newline-joined, in presentation order.
+ * Release with [`pc_string_free`].
+ */
+char *pc_theme_builtin_names(void);
+
+/**
  * The syntax style table as a JSON array of `{light, dark, flags}`
  * (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
  * Style ids in highlight spans index this table. Release with

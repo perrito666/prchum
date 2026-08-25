@@ -41,6 +41,12 @@ public enum CoreSyntax {
         }
     }
 
+    /// Built-in theme names, in presentation order.
+    public static var builtinThemeNames: [String] {
+        guard let joined = takeString(pc_theme_builtin_names()) else { return ["default"] }
+        return joined.split(separator: "\n").map(String.init)
+    }
+
     /// Applies the theme config.json names (built-in or themes/<name>.json
     /// next to the config); a warning means the default stayed.
     @discardableResult

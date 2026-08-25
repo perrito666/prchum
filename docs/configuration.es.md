@@ -50,6 +50,14 @@ Nombres de acción: `open`, `open-pr`, `open-git`, `review-queue`,
 `collapse-all`… — every menu item names its action; the full list
 lives in the Keymap source.
 
+## Apariencia y tema
+
+- `appearance` — `system` (por defecto), `light` o `dark`.
+- `theme` — uno integrado (`default`, `high-contrast`, `graphite`,
+  `molokai`, `solarized`, `dracula`, `gruvbox` — cada uno con paleta
+  clara y oscura) o el nombre de un archivo `themes/<name>.json` junto a
+  config.json. Settings (⌘,) escribe ambos.
+
 ## Forjas
 
 - `forges` — servidor → clase (`github` | `gitlab` | `forgejo`) para
