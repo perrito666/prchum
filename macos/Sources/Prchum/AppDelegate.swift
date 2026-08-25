@@ -57,21 +57,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.messageText = "Prchum"
         alert.informativeText = "What would you like to review?"
         alert.addButton(withTitle: "Pull Request…")
+        alert.addButton(withTitle: "Review Queue")
         alert.addButton(withTitle: "Patch File…")
         alert.addButton(withTitle: "Git Repository…")
         alert.addButton(withTitle: "Quit")
         switch alert.runModal() {
         case .alertFirstButtonReturn: openPullRequest(nil)
-        case .alertSecondButtonReturn: openDocument(nil)
-        case .alertThirdButtonReturn: openGitComparison(nil)
+        case .alertSecondButtonReturn: showReviewQueue(nil)
+        case .alertThirdButtonReturn: openDocument(nil)
+        case NSApplication.ModalResponse(rawValue: 1003): openGitComparison(nil)
         default: NSApp.terminate(nil)
         }
     }
 
+    private var queueController: ReviewQueueWindowController?
+
+    /// Fetches the review queue off-main and shows it; Return or a
+    /// double-click reviews the selected request.
+    @objc func showReviewQueue(_ sender: Any?) {
+        pendingOpens += 1
+        let progress = makeProgressWindow(text: "Fetching your review queue…")
+        progress.makeKeyAndOrderFront(nil)
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let requests = try CoreDiscovery.listRequests()
+                DispatchQueue.main.async {
+                    self.pendingOpens -= 1
+                    progress.orderOut(nil)
+                    guard !requests.isEmpty else {
+                        let empty = NSAlert()
+                        empty.messageText = "Nothing waiting on you"
+                        empty.informativeText =
+                            "The queue filter found no open requests. list_filter in config.json adjusts it."
+                        empty.runModal()
+                        self.returnToChooserIfEmpty()
+                        return
+                    }
+                    let controller = ReviewQueueWindowController(requests: requests) {
+                        request in
+                        self.openPullRequest(reference: request.url)
+                    }
+                    controller.onClose = { [weak self] in
+                        self?.queueController = nil
+                        // Closing the queue without picking is a cancel.
+                        DispatchQueue.main.async { self?.returnToChooserIfEmpty() }
+                    }
+                    self.queueController = controller
+                    controller.showWindow(nil)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.pendingOpens -= 1
+                    progress.orderOut(nil)
+                    let failure = NSAlert()
+                    failure.messageText = "Could not fetch the review queue"
+                    failure.informativeText = "\(error)"
+                    failure.runModal()
+                    self.returnToChooserIfEmpty()
+                }
+            }
+        }
+    }
+
     /// Back to the chooser when a dialog was cancelled or failed and there
-    /// is nothing else on screen.
+    /// is nothing else on screen — and nothing on its way to the screen.
     private func returnToChooserIfEmpty() {
-        if windows.isEmpty {
+        if windows.isEmpty && pendingOpens == 0 && queueController == nil {
             showWelcomeChooser()
         }
     }
@@ -314,6 +365,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fileMenu.addItem(keymap.menuItem(for: .open))
         fileMenu.addItem(keymap.menuItem(for: .openPullRequest))
         fileMenu.addItem(keymap.menuItem(for: .openGitComparison))
+        fileMenu.addItem(keymap.menuItem(for: .reviewQueue))
         fileMenu.addItem(.separator())
         fileMenu.addItem(keymap.menuItem(for: .exportNotes))
         fileMenu.addItem(.separator())

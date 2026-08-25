@@ -340,6 +340,15 @@ char *pc_config_load_warning(const struct PcConfig *config);
 char *pc_config_keys_json(const struct PcConfig *config);
 
 /**
+ * Lists the open requests waiting for the user's review, through the
+ * engine the config selects (`list_engine`: `gh` default, or `forgejo`
+ * with `list_host`). Blocking — run off the UI thread. Returns a JSON
+ * array of `{host, owner, repo, number, title, author, updated_at, url}`
+ * or null with `error_out` set. Release with [`pc_string_free`].
+ */
+char *pc_list_requests(const char *config_path, uintptr_t config_path_len, char **error_out);
+
+/**
  * The syntax style table as a JSON array of `{light, dark, flags}`
  * (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
  * Style ids in highlight spans index this table. Release with

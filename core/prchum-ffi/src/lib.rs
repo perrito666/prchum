@@ -785,6 +785,52 @@ pub unsafe extern "C" fn pc_config_keys_json(config: *const PcConfig) -> *mut c_
     owned_c_string(config.inner.keys_json())
 }
 
+/// Lists the open requests waiting for the user's review, through the
+/// engine the config selects (`list_engine`: `gh` default, or `forgejo`
+/// with `list_host`). Blocking — run off the UI thread. Returns a JSON
+/// array of `{host, owner, repo, number, title, author, updated_at, url}`
+/// or null with `error_out` set. Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_list_requests(
+    config_path: *const c_char,
+    config_path_len: usize,
+    error_out: *mut *mut c_char,
+) -> *mut c_char {
+    let config_path = unsafe { str_from_raw(config_path, config_path_len) }.unwrap_or_default();
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let config = if config_path.is_empty() {
+            Config::default()
+        } else {
+            Config::load(std::path::Path::new(config_path))
+        };
+        match config.list_engine() {
+            "forgejo" => {
+                let host = config.list_host();
+                if host.is_empty() {
+                    return Err(
+                        "the forgejo list engine needs list_host in config.json".to_string()
+                    );
+                }
+                let forge =
+                    ForgejoForge::with_runner(ProcessRunner, config.forgejo_api_command());
+                prchum_forge::list::list_forgejo(&forge, host, config.list_filter())
+            }
+            _ => prchum_forge::list::list_github(&ProcessRunner, config.list_filter()),
+        }
+    }));
+    match result {
+        Ok(Ok(requests)) => owned_c_string(serde_json::to_string(&requests).unwrap_or_default()),
+        Ok(Err(message)) => {
+            unsafe { write_error(error_out, &message) };
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            unsafe { write_error(error_out, "internal error while listing requests") };
+            std::ptr::null_mut()
+        }
+    }
+}
+
 /// The syntax style table as a JSON array of `{light, dark, flags}`
 /// (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
 /// Style ids in highlight spans index this table. Release with

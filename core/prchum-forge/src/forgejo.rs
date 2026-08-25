@@ -52,10 +52,26 @@ impl<R: Runner> ForgejoForge<R> {
         path: &str,
         body: Option<&Value>,
     ) -> Result<String, String> {
+        self.host_request(&pr.host, method, path, body)
+    }
+
+    /// A raw GET against an arbitrary v1 path on `host` (discovery uses
+    /// this — no pull request to key on yet).
+    pub fn raw_request(&self, host: &str, method: &str, path: &str) -> Result<String, String> {
+        self.host_request(host, method, path, None)
+    }
+
+    fn host_request(
+        &self,
+        host: &str,
+        method: &str,
+        path: &str,
+        body: Option<&Value>,
+    ) -> Result<String, String> {
         let mut words: Vec<String> = Vec::new();
         for word in self.template.split_whitespace() {
             words.push(
-                word.replace("{host}", &pr.host)
+                word.replace("{host}", host)
                     .replace("{method}", method)
                     .replace("{path}", path),
             );

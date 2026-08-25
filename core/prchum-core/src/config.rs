@@ -22,6 +22,14 @@ pub struct Config {
     /// and `{path}` placeholders; the JSON body arrives on stdin. Empty
     /// means the built-in default (the `fj` CLI).
     forgejo_api_command: String,
+    /// Discovery engine: `gh` (default) or `forgejo`.
+    list_engine: String,
+    /// Discovery filter: a GitHub search query, or Forgejo query-string
+    /// qualifiers. Empty means the engine's default.
+    list_filter: String,
+    /// The Forgejo host discovery searches (the `forgejo` engine needs
+    /// one; requests are host-scoped).
+    list_host: String,
     load_warning: Option<String>,
 }
 
@@ -55,12 +63,22 @@ impl Config {
         let mut config = Self::default();
         Self::read_string_map(object, "keys", &mut config.keys, &mut config.load_warning);
         Self::read_string_map(object, "forges", &mut config.forges, &mut config.load_warning);
-        if let Some(command) = object.get("forgejo_api_command") {
-            match command.as_str() {
-                Some(command) => config.forgejo_api_command = command.to_string(),
+        for (key, target) in [
+            ("forgejo_api_command", 0usize),
+            ("list_engine", 1),
+            ("list_filter", 2),
+            ("list_host", 3),
+        ] {
+            let Some(value) = object.get(key) else { continue };
+            match value.as_str() {
+                Some(text) => match target {
+                    0 => config.forgejo_api_command = text.to_string(),
+                    1 => config.list_engine = text.to_string(),
+                    2 => config.list_filter = text.to_string(),
+                    _ => config.list_host = text.to_string(),
+                },
                 None => {
-                    config.load_warning =
-                        Some("forgejo_api_command must be a string; ignored".to_string());
+                    config.load_warning = Some(format!("{key} must be a string; ignored"));
                 }
             }
         }
@@ -119,6 +137,18 @@ impl Config {
     pub fn forgejo_api_command(&self) -> &str {
         &self.forgejo_api_command
     }
+
+    pub fn list_engine(&self) -> &str {
+        if self.list_engine.is_empty() { "gh" } else { &self.list_engine }
+    }
+
+    pub fn list_filter(&self) -> &str {
+        &self.list_filter
+    }
+
+    pub fn list_host(&self) -> &str {
+        &self.list_host
+    }
 }
 
 impl Default for Config {
@@ -127,6 +157,9 @@ impl Default for Config {
             keys: BTreeMap::new(),
             forges: BTreeMap::new(),
             forgejo_api_command: String::new(),
+            list_engine: String::new(),
+            list_filter: String::new(),
+            list_host: String::new(),
             load_warning: None,
         }
     }
