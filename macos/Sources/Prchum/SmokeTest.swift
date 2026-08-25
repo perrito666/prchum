@@ -599,7 +599,7 @@ func runSmokeTest() -> Int32 {
             return 1
         }
 
-        try #"{"styles": {"keyword": {"light": "#123456"}}}"#
+        try ##"{"styles": {"keyword": {"light": "#123456"}}}"##
             .write(
                 toFile: dir.appendingPathComponent("themes/mine.json").path,
                 atomically: true, encoding: .utf8)
