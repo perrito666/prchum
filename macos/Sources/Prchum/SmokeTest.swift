@@ -175,6 +175,236 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
+    // Comment lifecycle through the C boundary: add on a selection,
+    // validate rejection, edit, dismiss, reply, export, delete — with
+    // drafts persisting across session lifetimes.
+    do {
+        let stateDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-drafts-\(ProcessInfo.processInfo.processIdentifier)")
+            .path
+
+        let session = try CoreSession(title: "review", patch: patch)
+        _ = session.attachStore(directory: stateDir)
+        session.setAuthor("smoke")
+
+        let id = try session.addComment(
+            fileIndex: 0, side: .right, startLine: 2, endLine: 3, body: "why?")
+        guard session.comments().count == 1 else {
+            print("FAIL: comment not recorded")
+            return 1
+        }
+        // Cross-side and out-of-diff ranges must be rejected with a message.
+        do {
+            _ = try session.addComment(
+                fileIndex: 0, side: .left, startLine: 99, endLine: 99, body: "x")
+            print("FAIL: core accepted an impossible location")
+            return 1
+        } catch {}
+
+        guard session.updateComment(localID: id, body: "why though?"),
+            session.addReply(localID: id, body: "checking"),
+            session.toggleDismiss(localID: id)
+        else {
+            print("FAIL: comment mutation refused")
+            return 1
+        }
+        guard session.comments()[0].state == .dismissed,
+            session.comments()[0].replies?.count == 1
+        else {
+            print("FAIL: comment state after mutations: \(session.comments())")
+            return 1
+        }
+
+        // A fresh session over the same content resumes the draft.
+        let resumed = try CoreSession(title: "review", patch: patch)
+        _ = resumed.attachStore(directory: stateDir)
+        guard resumed.comments().count == 1, resumed.comments()[0].body == "why though?" else {
+            print("FAIL: draft did not persist across sessions")
+            return 1
+        }
+
+        // Export: markdown and exchange, by extension.
+        let exportBase = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-export-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(at: exportBase, withIntermediateDirectories: true)
+        let markdownPath = exportBase.appendingPathComponent("notes.md").path
+        try resumed.export(to: markdownPath)
+        let markdown = try String(contentsOfFile: markdownPath, encoding: .utf8)
+        guard markdown.contains("## src/lib.rs"), markdown.contains("> why though?") else {
+            print("FAIL: markdown export: \(markdown)")
+            return 1
+        }
+        let jsonPath = exportBase.appendingPathComponent("notes.json").path
+        try resumed.export(to: jsonPath)
+        let exchange = try String(contentsOfFile: jsonPath, encoding: .utf8)
+        guard exchange.hasPrefix("{\n  \"leanreview_review\": 1") else {
+            print("FAIL: exchange export: \(exchange.prefix(60))")
+            return 1
+        }
+
+        guard resumed.deleteComment(localID: id), resumed.comments().isEmpty else {
+            print("FAIL: delete")
+            return 1
+        }
+        try? FileManager.default.removeItem(atPath: stateDir)
+        try? FileManager.default.removeItem(at: exportBase)
+        print("comment lifecycle ok (add/validate/edit/reply/dismiss/persist/export/delete)")
+    } catch {
+        print("FAIL: comment lifecycle: \(error)")
+        return 1
+    }
+
+    // An exchange document opens as an exchange session (sniffed by
+    // content) and triage rewrites it in place.
+    do {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-exch-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let path = dir.appendingPathComponent("loop.review.json").path
+        try #"{"leanreview_review": 1, "title": "loop", "patch": ["--- a/x.rs", "+++ b/x.rs", "@@ -1,2 +1,2 @@", " context", "-a", "+b"], "comments": [{"id": "c1", "author": "assistant", "path": "x.rs", "side": "RIGHT", "start_line": 2, "end_line": 2, "body": "why b?", "state": "active"}]}"#
+            .write(toFile: path, atomically: true, encoding: .utf8)
+
+        let session = try CoreSession(contentsOf: path)
+        session.setAuthor("smoke")
+        guard session.title == "loop", session.comments().count == 1 else {
+            print("FAIL: exchange session shape")
+            return 1
+        }
+        guard session.addReply(localID: "c1", body: "because a was wrong") else {
+            print("FAIL: exchange reply refused")
+            return 1
+        }
+        let rewritten = try String(contentsOfFile: path, encoding: .utf8)
+        guard rewritten.contains("because a was wrong") else {
+            print("FAIL: exchange writeback did not happen")
+            return 1
+        }
+        try? FileManager.default.removeItem(at: dir)
+        print("exchange session ok (content sniffing, triage, in-place writeback)")
+    } catch {
+        print("FAIL: exchange session: \(error)")
+        return 1
+    }
+
+    // A local git comparison through the C boundary.
+    do {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-git-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        func git(_ arguments: [String]) throws {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["git", "-C", dir.path] + arguments
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
+        }
+        try git(["init", "-q", "-b", "main"])
+        try git(["config", "user.name", "Smoke"])
+        try git(["config", "user.email", "smoke@example.com"])
+        try "one\ntwo\n".write(
+            to: dir.appendingPathComponent("f.txt"), atomically: true, encoding: .utf8)
+        try git(["add", "."])
+        try git(["commit", "-q", "-m", "init"])
+        try "one\nchanged\n".write(
+            to: dir.appendingPathComponent("f.txt"), atomically: true, encoding: .utf8)
+
+        let session = try CoreSession(gitRepo: dir.path, comparison: .workingTree)
+        guard session.fileCount == 1,
+            try session.file(at: 0).displayPath == "f.txt",
+            session.title.contains("working tree")
+        else {
+            print("FAIL: git session shape: \(session.title)")
+            return 1
+        }
+        try? FileManager.default.removeItem(at: dir)
+        print("git session ok (worktree comparison through the core)")
+    } catch {
+        print("FAIL: git session: \(error)")
+        return 1
+    }
+
+    // Selection resolution: one continuous range on one side, enforced
+    // before any editor opens.
+    do {
+        let session = try CoreSession(title: "sel", patch: patch)
+        let rendered = DiffRenderer.render(file: try session.file(at: 0))
+        let deletion = rendered.lineRefs.first { $0.kind == .deletion }!
+        let addition = rendered.lineRefs.first { $0.kind == .addition }!
+        let context = rendered.lineRefs.first { $0.kind == .context }!
+
+        guard case .success(let single) = SelectionResolver.resolve(
+            lineRefs: rendered.lineRefs,
+            selection: NSRange(location: addition.range.location, length: 0)),
+            single.side == .right, single.startLine == 2
+        else {
+            print("FAIL: caret resolution")
+            return 1
+        }
+        guard case .success(let left) = SelectionResolver.resolve(
+            lineRefs: rendered.lineRefs,
+            selection: NSRange(location: deletion.range.location, length: 1)),
+            left.side == .left, left.startLine == 2
+        else {
+            print("FAIL: deletion resolves LEFT")
+            return 1
+        }
+        // Context + addition selection spans both rows on the RIGHT side.
+        let union = NSUnionRange(context.range, addition.range)
+        guard case .success(let multi) = SelectionResolver.resolve(
+            lineRefs: rendered.lineRefs, selection: union),
+            multi.side == .right, multi.startLine == 1
+        else {
+            print("FAIL: multi-line resolution")
+            return 1
+        }
+        // A changed block (deletion + addition) anchors RIGHT — the
+        // deletion is not part of that side, GitHub-style.
+        let block = NSUnionRange(deletion.range, addition.range)
+        guard case .success(let blockTarget) = SelectionResolver.resolve(
+            lineRefs: rendered.lineRefs, selection: block),
+            blockTarget.side == .right, blockTarget.startLine == 2
+        else {
+            print("FAIL: changed-block resolution")
+            return 1
+        }
+        // Context + deletion (no additions) anchors LEFT.
+        let leftSpan = NSUnionRange(context.range, deletion.range)
+        guard case .success(let leftTarget) = SelectionResolver.resolve(
+            lineRefs: rendered.lineRefs, selection: leftSpan),
+            leftTarget.side == .left, leftTarget.startLine == 1, leftTarget.endLine == 2
+        else {
+            print("FAIL: left-span resolution")
+            return 1
+        }
+        print("selection resolution ok (caret, sides, changed blocks)")
+    } catch {
+        print("FAIL: selection resolution: \(error)")
+        return 1
+    }
+
+    // Rendering with review state: markers in the gutter, inline boxes.
+    do {
+        let session = try CoreSession(title: "marks", patch: patch)
+        _ = try session.addComment(
+            fileIndex: 0, side: .right, startLine: 2, endLine: 2, body: "note here")
+        let rendered = DiffRenderer.render(
+            file: try session.file(at: 0), comments: session.comments())
+        let text = rendered.text.string
+        guard text.contains("●"), text.contains("note here"),
+            rendered.annotations.count == 1,
+            rendered.annotations[0].commentID != nil
+        else {
+            print("FAIL: markers/boxes missing")
+            return 1
+        }
+        print("annotated rendering ok (gutter marker + inline box)")
+    } catch {
+        print("FAIL: annotated rendering: \(error)")
+        return 1
+    }
+
     // Async event round trip: core dispatch thread → main queue.
     var receivedSequence: UInt64?
     let coreApp = CoreApp { event in

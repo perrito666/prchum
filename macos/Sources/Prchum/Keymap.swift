@@ -68,6 +68,9 @@ struct KeyChord: Equatable {
 /// keyboard-only or mouse-only.
 enum ActionID: String, CaseIterable {
     case open = "open"
+    case openPullRequest = "open-pr"
+    case openGitComparison = "open-git"
+    case exportNotes = "export"
     case nextChange = "next-change"
     case previousChange = "prev-change"
     case nextHunk = "next-hunk"
@@ -76,10 +79,21 @@ enum ActionID: String, CaseIterable {
     case previousFile = "prev-file"
     case toggleSidebar = "toggle-sidebar"
     case toggleWrap = "toggle-wrap"
+    case find = "find"
+    case comment = "comment"
+    case editComment = "edit-comment"
+    case deleteComment = "delete-comment"
+    case dismissComment = "dismiss-comment"
+    case reply = "reply"
+    case prInfo = "pr-info"
+    case submit = "submit"
 
     var title: String {
         switch self {
         case .open: return "Open…"
+        case .openPullRequest: return "Open Pull Request…"
+        case .openGitComparison: return "Review Git Repository…"
+        case .exportNotes: return "Export Notes…"
         case .nextChange: return "Next Change"
         case .previousChange: return "Previous Change"
         case .nextHunk: return "Next Hunk"
@@ -88,6 +102,14 @@ enum ActionID: String, CaseIterable {
         case .previousFile: return "Previous File"
         case .toggleSidebar: return "Toggle Sidebar"
         case .toggleWrap: return "Wrap Lines"
+        case .find: return "Find in Diff"
+        case .comment: return "Add Comment…"
+        case .editComment: return "Edit Comment…"
+        case .deleteComment: return "Delete Comment"
+        case .dismissComment: return "Dismiss / Restore Comment"
+        case .reply: return "Reply…"
+        case .prInfo: return "Pull Request Info"
+        case .submit: return "Submit Review…"
         }
     }
 
@@ -96,6 +118,9 @@ enum ActionID: String, CaseIterable {
     var selector: Selector {
         switch self {
         case .open: return #selector(AppDelegate.openDocument(_:))
+        case .openPullRequest: return #selector(AppDelegate.openPullRequest(_:))
+        case .openGitComparison: return #selector(AppDelegate.openGitComparison(_:))
+        case .exportNotes: return #selector(ReviewWindowController.exportNotes(_:))
         case .nextChange: return #selector(ReviewWindowController.nextChange(_:))
         case .previousChange: return #selector(ReviewWindowController.previousChange(_:))
         case .nextHunk: return #selector(ReviewWindowController.nextHunk(_:))
@@ -104,12 +129,23 @@ enum ActionID: String, CaseIterable {
         case .previousFile: return #selector(ReviewWindowController.previousFile(_:))
         case .toggleSidebar: return #selector(NSSplitViewController.toggleSidebar(_:))
         case .toggleWrap: return #selector(ReviewWindowController.toggleWrap(_:))
+        case .find: return #selector(ReviewWindowController.findInDiff(_:))
+        case .comment: return #selector(ReviewWindowController.addComment(_:))
+        case .editComment: return #selector(ReviewWindowController.editComment(_:))
+        case .deleteComment: return #selector(ReviewWindowController.deleteComment(_:))
+        case .dismissComment: return #selector(ReviewWindowController.dismissComment(_:))
+        case .reply: return #selector(ReviewWindowController.replyAtCursor(_:))
+        case .prInfo: return #selector(ReviewWindowController.showPRInfo(_:))
+        case .submit: return #selector(ReviewWindowController.submitReview(_:))
         }
     }
 
     var defaultChord: KeyChord? {
         switch self {
         case .open: return KeyChord.parse("cmd+o")
+        case .openPullRequest: return KeyChord.parse("cmd+shift+o")
+        case .openGitComparison: return KeyChord.parse("cmd+ctrl+o")
+        case .exportNotes: return KeyChord.parse("cmd+shift+e")
         case .nextChange: return KeyChord.parse("cmd+down")
         case .previousChange: return KeyChord.parse("cmd+up")
         case .nextHunk: return KeyChord.parse("cmd+alt+down")
@@ -118,6 +154,14 @@ enum ActionID: String, CaseIterable {
         case .previousFile: return KeyChord.parse("cmd+shift+up")
         case .toggleSidebar: return KeyChord.parse("cmd+ctrl+s")
         case .toggleWrap: return KeyChord.parse("cmd+alt+w")
+        case .find: return KeyChord.parse("cmd+f")
+        case .comment: return KeyChord.parse("cmd+return")
+        case .editComment: return KeyChord.parse("cmd+e")
+        case .deleteComment: return KeyChord.parse("cmd+delete")
+        case .dismissComment: return KeyChord.parse("cmd+shift+x")
+        case .reply: return KeyChord.parse("cmd+r")
+        case .prInfo: return KeyChord.parse("cmd+i")
+        case .submit: return KeyChord.parse("cmd+shift+return")
         }
     }
 }
