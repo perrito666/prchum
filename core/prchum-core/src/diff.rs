@@ -5,10 +5,10 @@
 //! relocation — anchors to `(path, side, line)` in this model, and layouts
 //! are projections over it.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Which side of the change a line (or a comment) belongs to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Side {
     /// The old file: deletions and their context.

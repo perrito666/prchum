@@ -7,9 +7,15 @@
 pub mod app;
 pub mod config;
 pub mod diff;
+pub mod export;
+pub mod location;
+pub mod review;
 pub mod session;
+pub mod util;
 
 pub use app::{App, Event, EventSender};
 pub use config::Config;
 pub use diff::{DiffLine, FileDiff, FileStatus, Hunk, LineKind, Side};
+pub use location::{Location, RelocateResult};
+pub use review::{DraftComment, DraftReview, DraftState, ReviewEvent};
 pub use session::Session;
