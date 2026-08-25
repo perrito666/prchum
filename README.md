@@ -54,6 +54,11 @@ make app                    # a double-clickable Prchum.app in dist/
 
 Requires a Rust toolchain and Xcode (macOS 14+).
 
+## The icon
+
+The app icon is a sunflower photographed by Horacio Duran in a field
+near Melnik on 6 July 2026 at 15:05.
+
 ## License
 
 [MIT](LICENSE)

@@ -44,6 +44,15 @@ app: core
 	plutil -replace CFBundleShortVersionString \
 	  -string "$$(git describe --tags --always --dirty 2>/dev/null || echo development)" \
 	  $(APP_BUNDLE)/Contents/Info.plist
+	rm -rf dist/Prchum.iconset
+	mkdir -p dist/Prchum.iconset
+	for size in 16 32 128 256 512; do \
+	  sips -z $$size $$size macos/AppIcon/icon-1024.png \
+	    --out dist/Prchum.iconset/icon_$${size}x$${size}.png >/dev/null; \
+	  sips -z $$((size*2)) $$((size*2)) macos/AppIcon/icon-1024.png \
+	    --out dist/Prchum.iconset/icon_$${size}x$${size}@2x.png >/dev/null; \
+	done
+	iconutil -c icns dist/Prchum.iconset -o $(APP_BUNDLE)/Contents/Resources/Prchum.icns
 
 clean:
 	cargo clean --manifest-path core/Cargo.toml

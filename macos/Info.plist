@@ -22,6 +22,8 @@
 	<string>NSApplication</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>CFBundleIconFile</key>
+	<string>Prchum</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
