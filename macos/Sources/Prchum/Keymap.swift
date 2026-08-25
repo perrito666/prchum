@@ -80,6 +80,9 @@ enum ActionID: String, CaseIterable {
     case toggleSidebar = "toggle-sidebar"
     case toggleWrap = "toggle-wrap"
     case toggleSyntax = "toggle-syntax"
+    case toggleFold = "toggle-fold"
+    case expandAll = "expand-all"
+    case collapseAll = "collapse-all"
     case find = "find"
     case comment = "comment"
     case editComment = "edit-comment"
@@ -104,6 +107,9 @@ enum ActionID: String, CaseIterable {
         case .toggleSidebar: return "Toggle Sidebar"
         case .toggleWrap: return "Wrap Lines"
         case .toggleSyntax: return "Cycle Syntax Coloring"
+        case .toggleFold: return "Fold / Unfold Hunk"
+        case .expandAll: return "Expand All Hunks"
+        case .collapseAll: return "Collapse All Hunks"
         case .find: return "Find in Diff"
         case .comment: return "Add Comment…"
         case .editComment: return "Edit Comment…"
@@ -132,6 +138,9 @@ enum ActionID: String, CaseIterable {
         case .toggleSidebar: return #selector(NSSplitViewController.toggleSidebar(_:))
         case .toggleWrap: return #selector(ReviewWindowController.toggleWrap(_:))
         case .toggleSyntax: return #selector(ReviewWindowController.toggleSyntax(_:))
+        case .toggleFold: return #selector(ReviewWindowController.toggleFold(_:))
+        case .expandAll: return #selector(ReviewWindowController.expandAllHunks(_:))
+        case .collapseAll: return #selector(ReviewWindowController.collapseAllHunks(_:))
         case .find: return #selector(ReviewWindowController.findInDiff(_:))
         case .comment: return #selector(ReviewWindowController.addComment(_:))
         case .editComment: return #selector(ReviewWindowController.editComment(_:))
@@ -158,6 +167,9 @@ enum ActionID: String, CaseIterable {
         case .toggleSidebar: return KeyChord.parse("cmd+ctrl+s")
         case .toggleWrap: return KeyChord.parse("cmd+alt+w")
         case .toggleSyntax: return KeyChord.parse("cmd+alt+s")
+        case .toggleFold: return KeyChord.parse("cmd+alt+left")
+        case .expandAll: return KeyChord.parse("cmd+alt+shift+right")
+        case .collapseAll: return KeyChord.parse("cmd+alt+shift+left")
         case .find: return KeyChord.parse("cmd+f")
         case .comment: return KeyChord.parse("cmd+return")
         case .editComment: return KeyChord.parse("cmd+e")

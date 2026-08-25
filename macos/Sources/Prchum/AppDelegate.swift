@@ -367,6 +367,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         viewMenu.addItem(keymap.menuItem(for: .toggleSidebar))
         viewMenu.addItem(keymap.menuItem(for: .toggleWrap))
         viewMenu.addItem(keymap.menuItem(for: .toggleSyntax))
+        viewMenu.addItem(.separator())
+        viewMenu.addItem(keymap.menuItem(for: .toggleFold))
+        viewMenu.addItem(keymap.menuItem(for: .expandAll))
+        viewMenu.addItem(keymap.menuItem(for: .collapseAll))
 
         let goItem = NSMenuItem()
         mainMenu.addItem(goItem)

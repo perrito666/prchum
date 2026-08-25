@@ -24,6 +24,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     /// Per-file highlight cache; an entry exists once computed (nil inside
     /// means the language is unknown).
     private var highlightCache: [Int: [[[HighlightSpan]]]?] = [:]
+    /// Folded hunk indexes, per file index — folds survive file switches.
+    private var foldedHunks: [Int: Set<Int>] = [:]
 
     var onClose: ((ReviewWindowController) -> Void)?
 
@@ -124,6 +126,40 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     @objc func toggleWrap(_ sender: Any?) {
         wrapEnabled.toggle()
         applyWrap()
+    }
+
+    /// Folds ↔ unfolds the hunk at the caret.
+    @objc func toggleFold(_ sender: Any?) {
+        guard let rendered else { return }
+        // The hunk the caret is in: the last one starting at or before it.
+        guard
+            let hunkIndex = rendered.hunkRanges.lastIndex(where: {
+                $0.location <= caret
+            })
+        else {
+            NSSound.beep()
+            return
+        }
+        let file = sidebarModel.selected
+        var folds = foldedHunks[file] ?? []
+        if folds.contains(hunkIndex) {
+            folds.remove(hunkIndex)
+        } else {
+            folds.insert(hunkIndex)
+        }
+        foldedHunks[file] = folds
+        refreshReviewState()
+    }
+
+    @objc func expandAllHunks(_ sender: Any?) {
+        foldedHunks[sidebarModel.selected] = []
+        refreshReviewState()
+    }
+
+    @objc func collapseAllHunks(_ sender: Any?) {
+        foldedHunks[sidebarModel.selected] =
+            Set(files[sidebarModel.selected].hunks.indices)
+        refreshReviewState()
     }
 
     /// Cycles diff-colors-only → syntax everywhere (tinted) → plain.
@@ -500,7 +536,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             comments: comments.filter { $0.location.path == path },
             threads: threads.filter { $0.path == path },
             highlights: highlights,
-            mode: syntaxMode)
+            mode: syntaxMode,
+            foldedHunks: foldedHunks[index] ?? [])
         self.rendered = rendered
         diffTextView.textStorage?.setAttributedString(rendered.text)
     }
@@ -792,7 +829,8 @@ enum DiffRenderer {
         comments: [DraftComment] = [],
         threads: [ReviewThread] = [],
         highlights: [[[HighlightSpan]]]? = nil,
-        mode: SyntaxMode = .syntax
+        mode: SyntaxMode = .syntax,
+        foldedHunks: Set<Int> = []
     ) -> RenderedDiff {
         let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         let boldFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
@@ -896,7 +934,20 @@ enum DiffRenderer {
 
         for (hunkIndex, hunk) in file.hunks.enumerated() {
             let hunkStart = result.length
-            append("  \(hunk.header)\n", color: .secondaryLabelColor,
+            if foldedHunks.contains(hunkIndex) {
+                // A folded hunk collapses to its annotated header; its
+                // lines are gone from the row model, so navigation and
+                // commenting skip it until it unfolds.
+                append(
+                    "▸ \(hunk.header)  (\(hunk.lines.count) lines)\n",
+                    color: .secondaryLabelColor,
+                    background: NSColor.separatorColor.withAlphaComponent(0.25))
+                hunkRanges.append(
+                    NSRange(location: hunkStart, length: result.length - hunkStart))
+                append("\n", color: .labelColor)
+                continue
+            }
+            append("▾ \(hunk.header)\n", color: .secondaryLabelColor,
                    background: NSColor.separatorColor.withAlphaComponent(0.25))
             for (lineIndex, line) in hunk.lines.enumerated() {
                 if line.kind == .meta {

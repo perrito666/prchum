@@ -458,6 +458,31 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
+    // Folding: a folded hunk collapses to its annotated header, its lines
+    // leave the row model, and other hunks keep their identity.
+    do {
+        let session = try CoreSession(title: "fold", patch: patch)
+        let file = try session.file(at: 0)
+        let folded = DiffRenderer.render(file: file, foldedHunks: [0])
+        guard folded.text.string.contains("▸"),
+            folded.text.string.contains("(5 lines)"),
+            folded.hunkRanges.count == file.hunks.count,
+            folded.lineRefs.isEmpty
+        else {
+            print("FAIL: folded rendering: \(folded.text.string.prefix(80))")
+            return 1
+        }
+        let expanded = DiffRenderer.render(file: file)
+        guard expanded.text.string.contains("▾"), !expanded.lineRefs.isEmpty else {
+            print("FAIL: expanded rendering")
+            return 1
+        }
+        print("folding ok (collapse to header, row model shrinks)")
+    } catch {
+        print("FAIL: folding: \(error)")
+        return 1
+    }
+
     // Clipboard prefill: PR-looking references only, never random text.
     guard AppDelegate.looksLikePullRequestReference("https://github.com/o/r/pull/418"),
         AppDelegate.looksLikePullRequestReference(
