@@ -23,6 +23,7 @@ use prchum_core::source::GitSpec;
 use prchum_core::{App, Config, Event, Session};
 use prchum_forge::forgejo::ForgejoForge;
 use prchum_forge::ghcli::{GhForge, ProcessRunner};
+use prchum_forge::glabcli::GlabForge;
 use prchum_forge::refs::{parse_ref, resolve_from_origin};
 use prchum_forge::{kind_for_host, submit, Forge, ForgeKind, PullRequestRef};
 
@@ -88,7 +89,8 @@ impl PrContext {
                 ProcessRunner,
                 &self.forgejo_template,
             )),
-            _ => Box::new(GhForge::new()),
+            ForgeKind::GitLab => Box::new(GlabForge::new()),
+            ForgeKind::GitHub => Box::new(GhForge::new()),
         }
     }
 }
@@ -325,9 +327,6 @@ fn build_pr_session(
         Config::load(std::path::Path::new(config_path))
     };
     let kind = kind_for_host(&pr_ref.host, config.forge_for_host(&pr_ref.host));
-    if kind == ForgeKind::GitLab {
-        return Err("GitLab merge requests are not supported yet".to_string());
-    }
     let context = PrContext {
         reference: pr_ref.clone(),
         kind,
@@ -342,7 +341,11 @@ fn build_pr_session(
     // not block the review.
     let generals = forge.general_comments(&pr_ref).unwrap_or_default();
 
-    let prefix = if kind == ForgeKind::Forgejo { "fj" } else { "gh" };
+    let prefix = match kind {
+        ForgeKind::Forgejo => "fj",
+        ForgeKind::GitLab => "gl",
+        ForgeKind::GitHub => "gh",
+    };
     let key = format!(
         "{prefix}-{}-{}-{}-pr{}",
         pr_ref.host,
@@ -375,7 +378,8 @@ fn build_pr_session(
                 ProcessRunner,
                 &provider_template,
             )),
-            _ => Box::new(GhForge::new()),
+            ForgeKind::GitLab => Box::new(GlabForge::new()),
+            ForgeKind::GitHub => Box::new(GhForge::new()),
         };
         forge.file_content(&provider_ref, path, &head)
     }));
@@ -1091,8 +1095,8 @@ pub unsafe extern "C" fn pc_history_prune_json(
                     ProcessRunner,
                     config.forgejo_api_command(),
                 )),
-                ForgeKind::GitLab => return false,
-                _ => Box::new(GhForge::new()),
+                ForgeKind::GitLab => Box::new(GlabForge::new()),
+                ForgeKind::GitHub => Box::new(GhForge::new()),
             };
             match forge.pull_request(&pr_ref) {
                 Ok(pr) => pr.merged || pr.state == "closed",
