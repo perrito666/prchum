@@ -11,7 +11,7 @@ import SwiftUI
 /// extend the selection.
 @MainActor
 final class ReviewWindowController: NSWindowController, NSWindowDelegate,
-    NSToolbarDelegate
+    NSToolbarDelegate, NSToolbarItemValidation
 {
     private let session: CoreSession
     private let files: [DiffFile]
@@ -1110,6 +1110,18 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             item.target = nil
             item.action = action
             return item
+        }
+    }
+
+    func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
+        if busy {
+            return false
+        }
+        switch item.action {
+        case #selector(showConversation(_:)), #selector(submitReview(_:)):
+            return session.isPullRequest
+        default:
+            return true
         }
     }
 
