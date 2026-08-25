@@ -6,8 +6,9 @@
 
 A native macOS code-review client: [leanreview](https://github.com/perrito666/leanreview)'s
 functionality on [textchum](https://github.com/perrito666/textchum)'s
-architecture. Review a **patch/diff file**, a **local git comparison**, a
-**GitHub pull request**, or a **Forgejo pull request** in the same app:
+architecture. Review a **patch/diff file**, a **local git comparison**, or
+a **pull/merge request** on **GitHub**, **Forgejo**, or **GitLab** in the
+same app:
 navigate the diff, attach draft comments anchored to semantic diff
 locations, then export them as Markdown / review-exchange JSON or submit
 them as a real review.
@@ -15,8 +16,8 @@ them as a real review.
 Prchum is built as a portable compiled core (Rust) behind a fully native
 shell (Swift + AppKit), meeting at a C interface. The core owns the diff
 and the review state; the shell owns the platform. It is a review client,
-not a git client: the installed `git`, `gh`, and `fj` handle repository
-and forge semantics.
+not a git client: the installed `git`, `gh`, `fj`, and `glab` handle
+repository and forge semantics.
 
 Full documentation — workflows, sources, forges, and configuration, in
 English, Spanish, and French — lives at
@@ -53,9 +54,12 @@ Also in: tree-sitter syntax highlighting on both sides of a change
 (cmd+alt+s cycles the mode), split view (cmd+alt+t), hunk folding
 (cmd+alt+left), and the review queue (File → My Review Queue) listing
 the requests waiting on you via gh or Forgejo; suggestion fences
-(cmd+alt+return), the review navigator (cmd+l), and the full-file
-context view (cmd+alt+c). Not yet: themes, images in comments, the
-general-comments screen, GitLab. See [`PLAN.md`](PLAN.md).
+(cmd+alt+return), the review navigator (cmd+l), the full-file context
+view (cmd+alt+c), the conversation screen (cmd+shift+p), themes and
+appearance in Settings (cmd+comma), inline images in comment views, the
+home screen with your review history (pruned when requests merge or
+close), and the `pr` command-line tool (`make install-cli`) driving the
+app through its prchum:// scheme. See [`PLAN.md`](PLAN.md).
 
 ## Build
 

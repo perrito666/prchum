@@ -24,6 +24,17 @@
 	<true/>
 	<key>CFBundleIconFile</key>
 	<string>Prchum</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Prchum review target</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>prchum</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

@@ -9,7 +9,7 @@ export MACOSX_DEPLOYMENT_TARGET := 14.0
 SWIFT_PKG := --package-path macos
 APP_BUNDLE := dist/Prchum.app
 
-.PHONY: all core build run test smoke header-check check app docs docs-serve clean
+.PHONY: all core build run test smoke header-check check app docs docs-serve install-cli clean
 
 all: build
 
@@ -41,6 +41,7 @@ app: core
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS $(APP_BUNDLE)/Contents/Resources
 	cp macos/.build/release/Prchum $(APP_BUNDLE)/Contents/MacOS/
 	cp macos/Info.plist $(APP_BUNDLE)/Contents/
+	cp scripts/pr $(APP_BUNDLE)/Contents/Resources/
 	plutil -replace CFBundleShortVersionString \
 	  -string "$$(git describe --tags --always --dirty 2>/dev/null || echo development)" \
 	  $(APP_BUNDLE)/Contents/Info.plist
@@ -53,6 +54,11 @@ app: core
 	    --out dist/Prchum.iconset/icon_$${size}x$${size}@2x.png >/dev/null; \
 	done
 	iconutil -c icns dist/Prchum.iconset -o $(APP_BUNDLE)/Contents/Resources/Prchum.icns
+
+PREFIX ?= /usr/local
+
+install-cli:
+	install -m 0755 scripts/pr $(PREFIX)/bin/pr
 
 docs:
 	python3 -m venv .docs-venv 2>/dev/null || true

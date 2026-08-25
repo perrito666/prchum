@@ -201,6 +201,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// `prchum://open?target=…` — the `pr` command-line tool's door in.
+    /// The target is anything the command line accepts: a path, a PR
+    /// reference, a URL.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls where url.scheme == "prchum" {
+            let target = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?
+                .first { $0.name == "target" }?
+                .value ?? ""
+            guard !target.isEmpty else {
+                showHome()
+                continue
+            }
+            if FileManager.default.fileExists(atPath: target) {
+                openReview(atPath: target)
+            } else {
+                openPullRequest(reference: target)
+            }
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
         if launched {
             openReview(atPath: filename)

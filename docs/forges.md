@@ -55,5 +55,10 @@ Forgejo's issue search with `list_engine: "forgejo"` plus a `list_host`.
 
 ## GitLab
 
-Not supported yet: the seam is in place and merge-request references
-parse, but opening one reports that plainly instead of failing obscurely.
+Merge requests work through [`glab`](https://gitlab.com/gitlab-org/cli)
+(`glab auth login`). GitLab has no atomic review, so submission maps:
+each line comment becomes a positioned diff discussion, the summary a
+note, Approve approves, and Request changes posts a "Changes requested"
+note — in order, with a failure reporting how many were already
+published. Suggestion fences are rewritten into GitLab's ranged form so
+multi-line selections replace the whole range.

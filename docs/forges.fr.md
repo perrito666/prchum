@@ -61,6 +61,12 @@ défaut, ou la recherche d'issues de Forgejo avec
 
 ## GitLab
 
-Pas encore pris en charge : la couture est en place et les références de
-merge request s'analysent, mais en ouvrir une l'annonce clairement au
-lieu d'échouer obscurément.
+Les merge requests passent par
+[`glab`](https://gitlab.com/gitlab-org/cli) (`glab auth login`). GitLab
+n'a pas de revue atomique : la soumission se traduit — chaque
+commentaire de ligne devient une discussion positionnée, le résumé une
+note, Approve approuve, Request changes publie une note « Changes
+requested » — dans l'ordre, un échec indiquant combien sont déjà
+publiés. Les blocs de suggestion sont réécrits dans la forme à
+intervalle de GitLab pour que les sélections multilignes remplacent tout
+l'intervalle.
