@@ -1,0 +1,17 @@
+[package]
+name = "prchum-ffi"
+description = "C ABI over prchum-core, consumed by platform shells"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "prchum"
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+prchum-core = { path = "../prchum-core" }
+serde_json = "1"
+
+[build-dependencies]
+cbindgen = "0.29"
