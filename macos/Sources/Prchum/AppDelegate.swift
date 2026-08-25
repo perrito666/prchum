@@ -22,18 +22,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         buildMainMenu()
         launched = true
 
-        // A path on the command line opens directly: `Prchum change.diff`.
-        let cliPaths = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
-        let paths = pendingPaths + cliPaths
+        // A command-line target opens directly: `Prchum change.diff`, or a
+        // PR reference (`418`, `owner/repo#418`, a URL). A file on disk
+        // always wins over a PR interpretation of the same argument.
+        let cliTargets = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-") }
+        let targets = pendingPaths + cliTargets
         pendingPaths = []
-        if paths.isEmpty {
-            openDocument(nil)
+        if targets.isEmpty {
+            showWelcomeChooser()
         } else {
-            for path in paths {
-                openReview(atPath: path)
+            for target in targets {
+                if FileManager.default.fileExists(atPath: target) {
+                    openReview(atPath: target)
+                } else {
+                    openPullRequest(reference: target)
+                }
             }
         }
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// The launch chooser: what kind of source to review. Every dialog's
+    /// cancel returns here while no window is open, so the app never
+    /// strands you (or quits) for picking the wrong door.
+    private func showWelcomeChooser() {
+        let alert = NSAlert()
+        alert.messageText = "Prchum"
+        alert.informativeText = "What would you like to review?"
+        alert.addButton(withTitle: "Pull Request…")
+        alert.addButton(withTitle: "Patch File…")
+        alert.addButton(withTitle: "Git Repository…")
+        alert.addButton(withTitle: "Quit")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: openPullRequest(nil)
+        case .alertSecondButtonReturn: openDocument(nil)
+        case .alertThirdButtonReturn: openGitComparison(nil)
+        default: NSApp.terminate(nil)
+        }
+    }
+
+    /// Back to the chooser when a dialog was cancelled or failed and there
+    /// is nothing else on screen.
+    private func returnToChooserIfEmpty() {
+        if windows.isEmpty {
+            showWelcomeChooser()
+        }
     }
 
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
@@ -61,8 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let patch = UTType(filenameExtension: "patch") { types.append(patch) }
         panel.allowedContentTypes = types
         guard panel.runModal() == .OK, let url = panel.url else {
-            // Launched empty and declined to open anything: nothing to show.
-            if windows.isEmpty { NSApp.terminate(nil) }
+            returnToChooserIfEmpty()
             return
         }
         openReview(atPath: url.path)
@@ -92,7 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = "\(error)"
         alert.alertStyle = .warning
         alert.runModal()
-        if windows.isEmpty { NSApp.terminate(nil) }
+        returnToChooserIfEmpty()
     }
 
     /// Open a PR by URL, `owner/repo#N`, or bare number (inferred from the
@@ -109,10 +141,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.window.initialFirstResponder = field
         alert.addButton(withTitle: "Open")
         alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            returnToChooserIfEmpty()
+            return
+        }
         let reference = field.stringValue.trimmingCharacters(in: .whitespaces)
-        guard !reference.isEmpty else { return }
+        guard !reference.isEmpty else {
+            returnToChooserIfEmpty()
+            return
+        }
+        openPullRequest(reference: reference)
+    }
 
+    /// Fetches a PR reference off-main and opens it; failures report and
+    /// fall back to the chooser when nothing else is open.
+    private func openPullRequest(reference: String) {
         let hint = FileManager.default.currentDirectoryPath
         DispatchQueue.global(qos: .userInitiated).async {
             do {
@@ -125,6 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     failure.messageText = "Could not open \(reference)"
                     failure.informativeText = "\(error)"
                     failure.runModal()
+                    self.returnToChooserIfEmpty()
                 }
             }
         }
@@ -136,7 +180,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.message = "Choose a git repository to review"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard panel.runModal() == .OK, let url = panel.url else {
+            returnToChooserIfEmpty()
+            return
+        }
 
         let alert = NSAlert()
         alert.messageText = "What to compare"
@@ -152,7 +199,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.accessoryView = stack
         alert.addButton(withTitle: "Review")
         alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            returnToChooserIfEmpty()
+            return
+        }
 
         let comparison: GitComparison
         switch picker.indexOfSelectedItem {
