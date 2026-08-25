@@ -130,7 +130,8 @@ final class ConversationWindowController: NSWindowController, NSWindowDelegate,
             MarkdownRenderer.render(
                 markdown: item.body,
                 header: "@\(item.author)  \(item.date)"
-                    + (item.draftID != nil ? "  (staged — posts on submit)" : "")))
+                    + (item.draftID != nil ? "  (staged — posts on submit)" : ""),
+                onImagesLoaded: { [weak self] in self?.showDetail() }))
     }
 
     @objc private func addComment(_ sender: Any?) {
@@ -210,9 +211,68 @@ final class ConversationWindowController: NSWindowController, NSWindowDelegate,
     }
 }
 
+/// Fetches and caches comment images. Public http(s) URLs only; GitHub's
+/// session-gated user-attachments links stay links (their signed variants
+/// need the HTML body, a later refinement).
+@MainActor
+enum CommentImageCache {
+    private static var images: [String: NSImage] = [:]
+    private static var pending: Set<String> = []
+
+    static func image(for url: String) -> NSImage? {
+        images[url]
+    }
+
+    /// Kicks a fetch when the image is unknown; `onLoad` fires on main
+    /// once it arrives (never for failures — a broken URL stays a link).
+    static func fetch(_ url: String, onLoad: @escaping () -> Void) {
+        guard images[url] == nil, !pending.contains(url),
+            url.hasPrefix("https://") || url.hasPrefix("http://"),
+            !url.contains("github.com/user-attachments/"),
+            let target = URL(string: url)
+        else { return }
+        pending.insert(url)
+        URLSession.shared.dataTask(with: target) { data, _, _ in
+            DispatchQueue.main.async {
+                pending.remove(url)
+                // The size cap keeps a hostile URL from ballooning memory.
+                guard let data, data.count < 10 * 1024 * 1024,
+                    let image = NSImage(data: data)
+                else { return }
+                images[url] = image
+                onLoad()
+            }
+        }.resume()
+    }
+
+    /// Image URLs referenced by a Markdown body: `![alt](url)` and
+    /// `<img src="url">`, at most three per comment.
+    static func imageURLs(in markdown: String) -> [String] {
+        var urls: [String] = []
+        for pattern in [
+            #"!\[[^\]]*\]\(([^)\s]+)\)"#,
+            #"<img[^>]+src="([^"]+)""#,
+        ] {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let range = NSRange(markdown.startIndex..., in: markdown)
+            regex.enumerateMatches(in: markdown, range: range) { match, _, _ in
+                if let match, match.numberOfRanges > 1,
+                    let urlRange = Range(match.range(at: 1), in: markdown)
+                {
+                    urls.append(String(markdown[urlRange]))
+                }
+            }
+        }
+        return Array(urls.prefix(3))
+    }
+}
+
 /// Markdown → attributed text for comment bodies and PR descriptions.
 enum MarkdownRenderer {
-    static func render(markdown: String, header: String? = nil) -> NSAttributedString {
+    @MainActor
+    static func render(
+        markdown: String, header: String? = nil, onImagesLoaded: (() -> Void)? = nil
+    ) -> NSAttributedString {
         let result = NSMutableAttributedString()
         if let header {
             result.append(
@@ -252,6 +312,26 @@ enum MarkdownRenderer {
                 ])
         }
         result.append(body)
+
+        // Referenced images render inline once fetched; until then (and
+        // for unfetchable ones) the link in the text stands in.
+        if let onImagesLoaded {
+            for url in CommentImageCache.imageURLs(in: markdown) {
+                if let image = CommentImageCache.image(for: url) {
+                    let attachment = NSTextAttachment()
+                    attachment.image = image
+                    let size = image.size
+                    let width = min(size.width, 480)
+                    attachment.bounds = CGRect(
+                        x: 0, y: 0, width: width,
+                        height: size.height * (width / max(size.width, 1)))
+                    result.append(NSAttributedString(string: "\n\n"))
+                    result.append(NSAttributedString(attachment: attachment))
+                } else {
+                    CommentImageCache.fetch(url, onLoad: onImagesLoaded)
+                }
+            }
+        }
         return result
     }
 }

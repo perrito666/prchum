@@ -510,10 +510,14 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         textView.isEditable = false
         textView.textContainerInset = NSSize(width: 10, height: 10)
         scroll.hasVerticalScroller = true
-        textView.textStorage?.setAttributedString(
-            MarkdownRenderer.render(
-                markdown: info.body.isEmpty ? "_no description_" : info.body,
-                header: "@\(info.author)  \(info.baseRef) ← \(info.headRef)\n\(info.url)"))
+        func renderInfo() {
+            textView.textStorage?.setAttributedString(
+                MarkdownRenderer.render(
+                    markdown: info.body.isEmpty ? "_no description_" : info.body,
+                    header: "@\(info.author)  \(info.baseRef) ← \(info.headRef)\n\(info.url)",
+                    onImagesLoaded: { renderInfo() }))
+        }
+        renderInfo()
 
         let stack = NSStackView()
         stack.orientation = .vertical
