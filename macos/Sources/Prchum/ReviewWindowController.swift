@@ -128,6 +128,64 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         highlightCurrentLine()
     }
 
+    /// The comment boxes' action links: `prchum-act://<verb>/<id>`.
+    func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
+        guard let text = link as? String, text.hasPrefix("prchum-act://") else {
+            return false
+        }
+        let parts = text.dropFirst("prchum-act://".count).split(separator: "/", maxSplits: 1)
+        guard parts.count == 2 else { return true }
+        let verb = String(parts[0])
+        let id = String(parts[1])
+        switch verb {
+        case "reply-thread":
+            if let thread = threads.first(where: { String($0.id) == id }) {
+                promptThreadReply(thread)
+            }
+        case "reply-draft":
+            promptForText(title: "Reply", button: "Reply") { [weak self] body in
+                guard let self else { return }
+                _ = self.session.addReply(localID: id, body: body)
+                self.refreshReviewState()
+            }
+        case "edit-draft":
+            if let comment = comments.first(where: { $0.localID == id }) {
+                promptForText(
+                    title: "Edit comment", button: "Save", initial: comment.body
+                ) { [weak self] body in
+                    guard let self else { return }
+                    _ = self.session.updateComment(localID: id, body: body)
+                    self.refreshReviewState()
+                }
+            }
+        default:
+            break
+        }
+        return true
+    }
+
+    /// Stages a reply into a host thread (posts individually on submit).
+    private func promptThreadReply(_ thread: ReviewThread) {
+        promptForText(
+            title: "Reply to @\(thread.comments.first?.author ?? "thread")",
+            button: "Stage Reply"
+        ) { [weak self] body in
+            guard let self else { return }
+            do {
+                try self.session.addComment(
+                    fileIndex: self.sidebarModel.selected,
+                    side: thread.side,
+                    startLine: thread.line ?? thread.originalLine ?? 1,
+                    endLine: thread.line ?? thread.originalLine ?? 1,
+                    body: body,
+                    replyTo: thread.id)
+                self.refreshReviewState()
+            } catch {
+                self.presentInfo("\(error)")
+            }
+        }
+    }
+
     /// Tints the caret's whole row so the position is always visible —
     /// in both appearances, over any diff tint. Temporary attributes only:
     /// the storage (and every range in the row model) stays untouched.
@@ -564,26 +622,7 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
     /// conversation at the caret.
     @objc func replyAtCursor(_ sender: Any?) {
         if let thread = threadAtCaret() {
-            promptForText(
-                title: "Reply to @\(thread.comments.first?.author ?? "thread")",
-                button: "Stage Reply"
-            ) { [weak self] body in
-                guard let self else { return }
-                do {
-                    // A thread reply anchors where the thread lives and
-                    // posts individually on submit.
-                    try self.session.addComment(
-                        fileIndex: self.sidebarModel.selected,
-                        side: thread.side,
-                        startLine: thread.line ?? thread.originalLine ?? 1,
-                        endLine: thread.line ?? thread.originalLine ?? 1,
-                        body: body,
-                        replyTo: thread.id)
-                    self.refreshReviewState()
-                } catch {
-                    self.presentInfo("\(error)")
-                }
-            }
+            promptThreadReply(thread)
             return
         }
         guard let comment = draftAtCaret() else {
@@ -1454,6 +1493,7 @@ enum DiffRenderer {
         let target: (side: DiffSide, line: Int)
     }
 
+    @MainActor
     static func render(
         file: DiffFile,
         comments: [DraftComment] = [],
@@ -1465,6 +1505,13 @@ enum DiffRenderer {
         splitCodeWidth: Int = 60
     ) -> RenderedDiff {
         let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        // The comment boxes' frame: a quiet block that reads in both
+        // appearances without fighting the diff tints.
+        let boxTint = NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor.white.withAlphaComponent(0.07)
+                : NSColor.black.withAlphaComponent(0.05)
+        }
         let boldFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
         let tinted = mode != .plain
         let result = NSMutableAttributedString()
@@ -1493,50 +1540,154 @@ enum DiffRenderer {
         }
 
         /// Draft boxes and thread boxes under their anchor line.
+        /// One framed comment box: a tinted, indented block with a small
+        /// header per item, Markdown-rendered bodies, threaded replies,
+        /// and clickable action links handled by the text view delegate.
+        func appendCommentBox(
+            items: [(mark: String, markColor: NSColor, author: String, date: String,
+                     note: String, body: String, indent: CGFloat)],
+            links: [(title: String, url: String)],
+            record: (NSRange) -> Void
+        ) {
+            let boxStart = result.length
+            let headerFont = NSFont.systemFont(
+                ofSize: NSFont.smallSystemFontSize, weight: .semibold)
+            let bodyFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize + 1)
+
+            func paragraph(indent: CGFloat, spacingBefore: CGFloat = 0) -> NSParagraphStyle {
+                let style = NSMutableParagraphStyle()
+                style.firstLineHeadIndent = indent
+                style.headIndent = indent
+                style.paragraphSpacingBefore = spacingBefore
+                return style
+            }
+
+            for item in items {
+                let date = item.date.isEmpty ? "" : " · \(String(item.date.prefix(10)))"
+                result.append(
+                    NSAttributedString(
+                        string: "\(item.mark) @\(item.author)\(date)\(item.note)\n",
+                        attributes: [
+                            .font: headerFont,
+                            .foregroundColor: item.markColor,
+                            .paragraphStyle: paragraph(
+                                indent: item.indent, spacingBefore: 4),
+                        ]))
+                let rendered = NSMutableAttributedString(
+                    attributedString: MarkdownRenderer.render(markdown: item.body))
+                let full = NSRange(location: 0, length: rendered.length)
+                rendered.addAttribute(
+                    .paragraphStyle, value: paragraph(indent: item.indent + 14),
+                    range: full)
+                // Base size down to the box scale, keeping Markdown traits.
+                rendered.enumerateAttribute(.font, in: full) { value, range, _ in
+                    let current = value as? NSFont ?? bodyFont
+                    let sized = NSFontManager.shared.convert(
+                        current, toSize: bodyFont.pointSize)
+                    rendered.addAttribute(.font, value: sized, range: range)
+                }
+                result.append(rendered)
+                result.append(NSAttributedString(string: "\n"))
+            }
+
+            if !links.isEmpty {
+                let line = NSMutableAttributedString()
+                for (index, link) in links.enumerated() {
+                    if index > 0 {
+                        line.append(
+                            NSAttributedString(
+                                string: "   ",
+                                attributes: [.font: bodyFont]))
+                    }
+                    line.append(
+                        NSAttributedString(
+                            string: link.title,
+                            attributes: [
+                                .font: bodyFont,
+                                .link: link.url,
+                                .foregroundColor: NSColor.linkColor,
+                            ]))
+                }
+                line.append(NSAttributedString(string: "\n"))
+                line.addAttribute(
+                    .paragraphStyle,
+                    value: paragraph(indent: (items.first?.indent ?? 24) + 14),
+                    range: NSRange(location: 0, length: line.length))
+                result.append(line)
+            }
+
+            // The frame: one tinted block behind the whole box.
+            let box = NSRange(location: boxStart, length: result.length - boxStart)
+            result.addAttribute(.backgroundColor, value: boxTint, range: box)
+            record(box)
+        }
+
         func appendAnnotations(side: DiffSide, line: Int) {
             for thread in threads where thread.side == side && thread.line == line {
-                let start = result.length
+                var items: [(mark: String, markColor: NSColor, author: String,
+                             date: String, note: String, body: String, indent: CGFloat)] = []
                 for (index, comment) in thread.comments.enumerated() {
-                    let marker = index == 0 ? "◆" : "  ↳"
-                    let date = String(comment.createdAt.prefix(10))
-                    append(
-                        "        \(marker) @\(comment.author)  \(date)\n",
-                        color: .systemPurple)
-                    for bodyLine in comment.body.split(
-                        separator: "\n", omittingEmptySubsequences: false)
-                    {
-                        append("          \(bodyLine)\n", color: .secondaryLabelColor)
-                    }
+                    items.append((
+                        mark: index == 0 ? "◆" : "↳",
+                        markColor: .systemPurple,
+                        author: comment.author,
+                        date: comment.createdAt,
+                        note: "",
+                        body: comment.body,
+                        indent: index == 0 ? 24 : 44
+                    ))
                 }
-                annotations.append(
-                    Annotation(
-                        range: NSRange(location: start, length: result.length - start),
-                        commentID: nil,
-                        threadID: thread.id,
-                        target: (side, line)))
+                appendCommentBox(
+                    items: items,
+                    links: [("Reply…", "prchum-act://reply-thread/\(thread.id)")]
+                ) { range in
+                    annotations.append(
+                        Annotation(
+                            range: range,
+                            commentID: nil,
+                            threadID: thread.id,
+                            target: (side, line)))
+                }
             }
             for comment in comments
             where comment.location.side == side && comment.location.endLine == line {
-                let start = result.length
                 let author = comment.author.flatMap { $0.isEmpty ? nil : $0 } ?? "me"
                 let state = comment.state == .active ? "" : "  [\(comment.state.rawValue)]"
-                let kindMark = comment.replyTo != nil ? "↳" : "●"
-                append("        \(kindMark) @\(author)\(state)\n", color: .systemOrange)
-                for bodyLine in comment.body.split(
-                    separator: "\n", omittingEmptySubsequences: false)
-                {
-                    append("          \(bodyLine)\n", color: .secondaryLabelColor)
-                }
+                var items: [(mark: String, markColor: NSColor, author: String,
+                             date: String, note: String, body: String, indent: CGFloat)] = [(
+                    mark: comment.replyTo != nil ? "↳" : "●",
+                    markColor: .systemOrange,
+                    author: author,
+                    date: comment.at ?? "",
+                    note: state,
+                    body: comment.body,
+                    indent: 24
+                )]
                 for reply in comment.replies ?? [] {
-                    append("          ↳ @\(reply.author): \(reply.body)\n",
-                           color: .secondaryLabelColor)
+                    items.append((
+                        mark: "↳",
+                        markColor: .systemOrange,
+                        author: reply.author,
+                        date: reply.at,
+                        note: "",
+                        body: reply.body,
+                        indent: 44
+                    ))
                 }
-                annotations.append(
-                    Annotation(
-                        range: NSRange(location: start, length: result.length - start),
-                        commentID: comment.localID,
-                        threadID: nil,
-                        target: (side, line)))
+                appendCommentBox(
+                    items: items,
+                    links: [
+                        ("Reply…", "prchum-act://reply-draft/\(comment.localID)"),
+                        ("Edit…", "prchum-act://edit-draft/\(comment.localID)"),
+                    ]
+                ) { range in
+                    annotations.append(
+                        Annotation(
+                            range: range,
+                            commentID: comment.localID,
+                            threadID: nil,
+                            target: (side, line)))
+                }
             }
         }
 

@@ -409,22 +409,59 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
-    // Rendering with review state: markers in the gutter, inline boxes.
+    // Rendering with review state: markers in the gutter, framed boxes
+    // with Markdown bodies, threaded replies, and action links.
     do {
         let session = try CoreSession(title: "marks", patch: patch)
-        _ = try session.addComment(
-            fileIndex: 0, side: .right, startLine: 2, endLine: 2, body: "note here")
+        session.setAuthor("smoke")
+        let id = try session.addComment(
+            fileIndex: 0, side: .right, startLine: 2, endLine: 2,
+            body: "note **here** with `code`")
+        _ = session.addReply(localID: id, body: "threaded answer")
+        let threadJSON = #"""
+            {"id": 7, "path": "src/lib.rs", "side": "RIGHT", "line": 3,
+             "outdated": false, "comments": [
+               {"id": 7, "author": "alice", "body": "root question",
+                "created_at": "2026-01-02T03:04:05Z", "url": ""},
+               {"id": 8, "author": "bob", "body": "root answer",
+                "created_at": "2026-01-03T03:04:05Z", "url": ""}]}
+            """#
+        let thread = try JSONDecoder().decode(
+            ReviewThread.self, from: Data(threadJSON.utf8))
         let rendered = DiffRenderer.render(
-            file: try session.file(at: 0), comments: session.comments())
+            file: try session.file(at: 0),
+            comments: session.comments(),
+            threads: [thread])
         let text = rendered.text.string
-        guard text.contains("●"), text.contains("note here"),
-            rendered.annotations.count == 1,
-            rendered.annotations[0].commentID != nil
+        guard text.contains("●"), text.contains("@smoke"),
+            text.contains("threaded answer"),
+            text.contains("◆ @alice"), text.contains("↳ @bob"),
+            text.contains("root answer"),
+            rendered.annotations.count == 2
         else {
-            print("FAIL: markers/boxes missing")
+            print("FAIL: markers/boxes/threading missing")
             return 1
         }
-        print("annotated rendering ok (gutter marker + inline box)")
+        // Markdown applied: the fence markers are gone from the display.
+        guard !text.contains("**here**"), text.contains("here") else {
+            print("FAIL: Markdown not rendered in the box")
+            return 1
+        }
+        // Action links present: reply on both kinds, edit on the draft.
+        var links: [String] = []
+        rendered.text.enumerateAttribute(
+            .link, in: NSRange(location: 0, length: rendered.text.length)
+        ) { value, _, _ in
+            if let value = value as? String { links.append(value) }
+        }
+        guard links.contains("prchum-act://reply-thread/7"),
+            links.contains("prchum-act://reply-draft/\(id)"),
+            links.contains("prchum-act://edit-draft/\(id)")
+        else {
+            print("FAIL: action links: \(links)")
+            return 1
+        }
+        print("annotated rendering ok (framed boxes, Markdown, threads, links)")
     } catch {
         print("FAIL: annotated rendering: \(error)")
         return 1
