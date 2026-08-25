@@ -730,9 +730,24 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         controller.showWindow(nil)
     }
 
+    /// The submit sheet preselecting Approve (the sheet still confirms —
+    /// nothing is sent before it).
+    @objc func submitApprove(_ sender: Any?) {
+        presentSubmitSheet(preselecting: .approve)
+    }
+
+    /// The submit sheet preselecting Request changes.
+    @objc func submitRequestChanges(_ sender: Any?) {
+        presentSubmitSheet(preselecting: .requestChanges)
+    }
+
     /// The submit sheet: counts, event, summary — nothing is sent before
     /// this confirmation.
     @objc func submitReview(_ sender: Any?) {
+        presentSubmitSheet(preselecting: nil)
+    }
+
+    private func presentSubmitSheet(preselecting: ReviewSubmitEvent?) {
         guard session.isPullRequest, let window else {
             presentInfo("Submitting needs a pull-request session.")
             return
@@ -758,6 +773,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         accessory.frame = NSRect(x: 0, y: 0, width: 420, height: 150)
         let eventPicker = NSPopUpButton(frame: .zero, pullsDown: false)
         eventPicker.addItems(withTitles: ["Comment", "Approve", "Request changes"])
+        if let preselecting {
+            eventPicker.selectItem(at: Int(preselecting.rawValue))
+        }
         let summaryScroll = NSTextView.scrollableTextView()
         summaryScroll.frame = NSRect(x: 0, y: 0, width: 420, height: 110)
         let summaryView = summaryScroll.documentView as! NSTextView
@@ -825,7 +843,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             return draftAtCaret() != nil
         case #selector(replyAtCursor(_:)):
             return threadAtCaret() != nil || draftAtCaret() != nil
-        case #selector(showPRInfo(_:)), #selector(submitReview(_:)):
+        case #selector(showPRInfo(_:)), #selector(submitReview(_:)),
+            #selector(submitApprove(_:)), #selector(submitRequestChanges(_:)):
             return session.isPullRequest
         default:
             return true

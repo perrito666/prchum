@@ -53,7 +53,9 @@ dismissed comment is never submitted.
 
 ## Submitting
 
-⇧⌘↩ opens the submit sheet on a pull-request session: the counts, an
+⇧⌘↩ opens the submit sheet on a pull-request session; ⌥⌘A opens it
+with **Approve** preselected and ⌥⌘R with **Request changes** — the
+sheet still confirms either way. It shows the counts, the
 event picker (Comment / Approve / Request changes), the summary, and an
 explicit warning for orphaned comments, which are never submitted.
 Nothing is sent before this confirmation.

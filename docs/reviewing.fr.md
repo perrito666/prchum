@@ -55,7 +55,9 @@ mais un commentaire écarté n'est jamais soumis.
 
 ## La soumission
 
-⇧⌘↩ ouvre la feuille de soumission sur une session de pull request :
+⇧⌘↩ ouvre la feuille de soumission sur une session de pull request ;
+⌥⌘A l'ouvre avec **Approve** présélectionné et ⌥⌘R avec **Request
+changes** — la feuille confirme dans tous les cas. Elle montre
 les décomptes, le sélecteur d'événement (Comment / Approve / Request
 changes), le résumé et un avertissement explicite pour les commentaires
 orphelins, qui ne sont jamais soumis. Rien ne part avant cette

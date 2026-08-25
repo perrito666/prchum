@@ -55,7 +55,9 @@ comentario descartado nunca se envía.
 
 ## El envío
 
-⇧⌘↩ abre la hoja de envío en una sesión de pull request: los conteos,
+⇧⌘↩ abre la hoja de envío en una sesión de pull request; ⌥⌘A la abre
+con **Approve** preseleccionado y ⌥⌘R con **Request changes** — la hoja
+confirma igualmente. Muestra los conteos,
 el selector de evento (Comment / Approve / Request changes), el resumen
 y un aviso explícito por los comentarios huérfanos, que nunca se envían.
 Nada se manda antes de esta confirmación.

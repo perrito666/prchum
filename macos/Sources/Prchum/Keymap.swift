@@ -98,6 +98,8 @@ enum ActionID: String, CaseIterable {
     case prInfo = "pr-info"
     case conversation = "general"
     case submit = "submit"
+    case submitApprove = "approve"
+    case submitRequest = "request-changes"
 
     var title: String {
         switch self {
@@ -132,6 +134,8 @@ enum ActionID: String, CaseIterable {
         case .prInfo: return "Pull Request Info"
         case .conversation: return "Conversation…"
         case .submit: return "Submit Review…"
+        case .submitApprove: return "Submit as Approve…"
+        case .submitRequest: return "Submit Requesting Changes…"
         }
     }
 
@@ -170,6 +174,8 @@ enum ActionID: String, CaseIterable {
         case .prInfo: return #selector(ReviewWindowController.showPRInfo(_:))
         case .conversation: return #selector(ReviewWindowController.showConversation(_:))
         case .submit: return #selector(ReviewWindowController.submitReview(_:))
+        case .submitApprove: return #selector(ReviewWindowController.submitApprove(_:))
+        case .submitRequest: return #selector(ReviewWindowController.submitRequestChanges(_:))
         }
     }
 
@@ -206,6 +212,8 @@ enum ActionID: String, CaseIterable {
         case .prInfo: return KeyChord.parse("cmd+i")
         case .conversation: return KeyChord.parse("cmd+shift+p")
         case .submit: return KeyChord.parse("cmd+shift+return")
+        case .submitApprove: return KeyChord.parse("cmd+alt+a")
+        case .submitRequest: return KeyChord.parse("cmd+alt+r")
         }
     }
 }

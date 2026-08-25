@@ -536,6 +536,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         reviewMenu.addItem(keymap.menuItem(for: .prInfo))
         reviewMenu.addItem(keymap.menuItem(for: .conversation))
         reviewMenu.addItem(keymap.menuItem(for: .submit))
+        reviewMenu.addItem(keymap.menuItem(for: .submitApprove))
+        reviewMenu.addItem(keymap.menuItem(for: .submitRequest))
 
         let viewItem = NSMenuItem()
         mainMenu.addItem(viewItem)
