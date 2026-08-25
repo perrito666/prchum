@@ -234,6 +234,61 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    /// Suggest a replacement: the comment sheet opens prefilled with the
+    /// selection's verbatim code in a ```suggestion fence — edit the code,
+    /// and the forge renders it as an applicable change. RIGHT side only:
+    /// a suggestion replaces lines that exist in the new file.
+    @objc func suggestChange(_ sender: Any?) {
+        guard let rendered else { return }
+        let resolved = SelectionResolver.resolve(
+            lineRefs: rendered.lineRefs, selection: diffTextView.selectedRange())
+        switch resolved {
+        case .failure(let error):
+            presentInfo(error.message)
+        case .success(let target):
+            guard target.side == .right else {
+                presentInfo("A suggestion replaces lines of the new file — select on the RIGHT side.")
+                return
+            }
+            // The verbatim form, never the tab-expanded display text:
+            // this code leaves the app as code.
+            let file = files[sidebarModel.selected]
+            var code: [String] = []
+            for hunk in file.hunks {
+                for line in hunk.lines
+                where line.kind != .deletion && line.newLine != nil {
+                    if let newLine = line.newLine,
+                        target.startLine <= newLine, newLine <= target.endLine
+                    {
+                        code.append(line.rawText)
+                    }
+                }
+            }
+            let fence = "```suggestion\n" + code.joined(separator: "\n") + "\n```\n"
+            let lines = target.startLine == target.endLine
+                ? "line \(target.startLine)"
+                : "lines \(target.startLine)–\(target.endLine)"
+            promptForText(
+                title: "Suggest a change to \(lines)",
+                button: "Comment",
+                initial: fence
+            ) { [weak self] body in
+                guard let self else { return }
+                do {
+                    try self.session.addComment(
+                        fileIndex: self.sidebarModel.selected,
+                        side: .right,
+                        startLine: target.startLine,
+                        endLine: target.endLine,
+                        body: body)
+                    self.refreshReviewState()
+                } catch {
+                    self.presentInfo("\(error)")
+                }
+            }
+        }
+    }
+
     /// Edit the draft comment at the caret.
     @objc func editComment(_ sender: Any?) {
         guard let comment = draftAtCaret() else {
@@ -307,6 +362,72 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             _ = self.session.addReply(localID: comment.localID, body: body)
             self.refreshReviewState()
         }
+    }
+
+    private var commentList: CommentListWindowController?
+
+    /// The review navigator: every draft and host thread; Return jumps.
+    @objc func showCommentList(_ sender: Any?) {
+        var entries: [CommentListWindowController.Entry] = []
+        for comment in comments {
+            let location = comment.location
+            let lines = location.startLine == location.endLine
+                ? "L\(location.startLine)" : "L\(location.startLine)-\(location.endLine)"
+            let state = comment.state == .active ? "" : " [\(comment.state.rawValue)]"
+            entries.append(
+                .init(
+                    location: "\(location.path) \(lines) (\(location.side.rawValue))",
+                    kind: (comment.replyTo != nil ? "↳ reply" : "● draft") + state,
+                    preview: comment.body.split(separator: "\n").first.map(String.init) ?? "",
+                    path: location.path,
+                    side: location.side,
+                    line: location.endLine))
+        }
+        for thread in threads {
+            guard let line = thread.line ?? thread.originalLine else { continue }
+            let author = thread.comments.first?.author ?? ""
+            entries.append(
+                .init(
+                    location: "\(thread.path) L\(line) (\(thread.side.rawValue))"
+                        + (thread.outdated ? " (outdated)" : ""),
+                    kind: "◆ thread",
+                    preview: "@\(author): "
+                        + (thread.comments.first?.body
+                            .split(separator: "\n").first.map(String.init) ?? ""),
+                    path: thread.path,
+                    side: thread.side,
+                    line: line))
+        }
+        guard !entries.isEmpty else {
+            presentInfo("No comments or threads yet.")
+            return
+        }
+        let list = CommentListWindowController(
+            title: "Review Navigator", entries: entries
+        ) { [weak self] entry in
+            self?.jump(toPath: entry.path, side: entry.side, line: entry.line)
+        }
+        list.onClose = { [weak self] in self?.commentList = nil }
+        commentList = list
+        list.showWindow(nil)
+    }
+
+    /// Switches to `path`'s file and lands the caret on (side, line).
+    private func jump(toPath path: String, side: DiffSide, line: Int) {
+        if let index = files.firstIndex(where: { $0.displayPath == path }),
+            index != sidebarModel.selected
+        {
+            showFile(at: index)
+        }
+        guard let rendered else { return }
+        let match = rendered.lineRefs.first {
+            side == .left ? $0.oldLine == line : $0.newLine == line
+        }
+        if let match {
+            diffTextView.setSelectedRange(NSRange(location: match.range.location, length: 0))
+            diffTextView.scrollRangeToVisible(match.range)
+        }
+        window?.makeKeyAndOrderFront(nil)
     }
 
     @objc func exportNotes(_ sender: Any?) {

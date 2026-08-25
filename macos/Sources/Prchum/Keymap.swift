@@ -91,6 +91,8 @@ enum ActionID: String, CaseIterable {
     case deleteComment = "delete-comment"
     case dismissComment = "dismiss-comment"
     case reply = "reply"
+    case suggest = "suggest"
+    case commentList = "comments"
     case prInfo = "pr-info"
     case submit = "submit"
 
@@ -120,6 +122,8 @@ enum ActionID: String, CaseIterable {
         case .deleteComment: return "Delete Comment"
         case .dismissComment: return "Dismiss / Restore Comment"
         case .reply: return "Reply…"
+        case .suggest: return "Suggest a Change…"
+        case .commentList: return "Review Navigator"
         case .prInfo: return "Pull Request Info"
         case .submit: return "Submit Review…"
         }
@@ -153,6 +157,8 @@ enum ActionID: String, CaseIterable {
         case .deleteComment: return #selector(ReviewWindowController.deleteComment(_:))
         case .dismissComment: return #selector(ReviewWindowController.dismissComment(_:))
         case .reply: return #selector(ReviewWindowController.replyAtCursor(_:))
+        case .suggest: return #selector(ReviewWindowController.suggestChange(_:))
+        case .commentList: return #selector(ReviewWindowController.showCommentList(_:))
         case .prInfo: return #selector(ReviewWindowController.showPRInfo(_:))
         case .submit: return #selector(ReviewWindowController.submitReview(_:))
         }
@@ -184,6 +190,8 @@ enum ActionID: String, CaseIterable {
         case .deleteComment: return KeyChord.parse("cmd+delete")
         case .dismissComment: return KeyChord.parse("cmd+shift+x")
         case .reply: return KeyChord.parse("cmd+r")
+        case .suggest: return KeyChord.parse("cmd+alt+return")
+        case .commentList: return KeyChord.parse("cmd+l")
         case .prInfo: return KeyChord.parse("cmd+i")
         case .submit: return KeyChord.parse("cmd+shift+return")
         }

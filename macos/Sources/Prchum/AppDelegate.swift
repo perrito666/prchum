@@ -403,12 +403,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let reviewMenu = NSMenu(title: "Review")
         reviewItem.submenu = reviewMenu
         reviewMenu.addItem(keymap.menuItem(for: .comment))
+        reviewMenu.addItem(keymap.menuItem(for: .suggest))
         reviewMenu.addItem(keymap.menuItem(for: .reply))
         reviewMenu.addItem(.separator())
         reviewMenu.addItem(keymap.menuItem(for: .editComment))
         reviewMenu.addItem(keymap.menuItem(for: .deleteComment))
         reviewMenu.addItem(keymap.menuItem(for: .dismissComment))
         reviewMenu.addItem(.separator())
+        reviewMenu.addItem(keymap.menuItem(for: .commentList))
         reviewMenu.addItem(keymap.menuItem(for: .prInfo))
         reviewMenu.addItem(keymap.menuItem(for: .submit))
 
