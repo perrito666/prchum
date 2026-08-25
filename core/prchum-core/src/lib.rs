@@ -5,9 +5,11 @@
 //! about it?"; a platform shell answers "how does it look and feel?".
 
 pub mod app;
+pub mod config;
 pub mod diff;
 pub mod session;
 
 pub use app::{App, Event, EventSender};
+pub use config::Config;
 pub use diff::{DiffLine, FileDiff, FileStatus, Hunk, LineKind, Side};
 pub use session::Session;

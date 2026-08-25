@@ -21,6 +21,12 @@
 typedef struct PcApp PcApp;
 
 /**
+ * The user configuration. Create with [`pc_config_new`], release with
+ * [`pc_config_free`].
+ */
+typedef struct PcConfig PcConfig;
+
+/**
  * A review session over one diff source. Create with
  * [`pc_session_new_from_patch`], release with [`pc_session_free`].
  */
@@ -117,6 +123,30 @@ uintptr_t pc_session_file_count(const struct PcSession *session);
  * Returns null for an out-of-range index. Release with [`pc_string_free`].
  */
 char *pc_session_file_json(const struct PcSession *session, uintptr_t index);
+
+/**
+ * Loads the configuration file at `path`. Never fails: a missing file is
+ * the defaults, a broken one is defaults plus a load warning (the file is
+ * left untouched). Returns null only for invalid UTF-8 in `path`.
+ */
+struct PcConfig *pc_config_new(const char *path, uintptr_t path_len);
+
+/**
+ * Releases a configuration handle.
+ */
+void pc_config_free(struct PcConfig *config);
+
+/**
+ * The problem found while loading, or null when the file loaded cleanly
+ * (or did not exist). Release with [`pc_string_free`].
+ */
+char *pc_config_load_warning(const struct PcConfig *config);
+
+/**
+ * Key-binding overrides as a JSON object string (`{"action": "key spec"}`;
+ * an empty spec unbinds the default). Release with [`pc_string_free`].
+ */
+char *pc_config_keys_json(const struct PcConfig *config);
 
 /**
  * Releases a string returned by this API.

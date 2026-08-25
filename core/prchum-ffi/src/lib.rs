@@ -17,7 +17,7 @@
 use std::ffi::{c_char, c_void, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use prchum_core::{App, Event, Session};
+use prchum_core::{App, Config, Event, Session};
 
 /// Event kind: reply to `pc_app_ping`.
 pub const PC_EVENT_PONG: u32 = 1;
@@ -62,6 +62,12 @@ pub struct PcApp {
 /// [`pc_session_new_from_patch`], release with [`pc_session_free`].
 pub struct PcSession {
     inner: Session,
+}
+
+/// The user configuration. Create with [`pc_config_new`], release with
+/// [`pc_config_free`].
+pub struct PcConfig {
+    inner: Config,
 }
 
 /// Wrapper making the raw userdata pointer sendable to the dispatch thread.
@@ -202,6 +208,52 @@ pub unsafe extern "C" fn pc_session_file_json(
         Ok(Ok(json)) => owned_c_string(json),
         _ => std::ptr::null_mut(),
     }
+}
+
+/// Loads the configuration file at `path`. Never fails: a missing file is
+/// the defaults, a broken one is defaults plus a load warning (the file is
+/// left untouched). Returns null only for invalid UTF-8 in `path`.
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_new(path: *const c_char, path_len: usize) -> *mut PcConfig {
+    let Some(path) = (unsafe { str_from_raw(path, path_len) }) else {
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| Config::load(std::path::Path::new(path))));
+    match result {
+        Ok(inner) => Box::into_raw(Box::new(PcConfig { inner })),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Releases a configuration handle.
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_free(config: *mut PcConfig) {
+    if !config.is_null() {
+        drop(unsafe { Box::from_raw(config) });
+    }
+}
+
+/// The problem found while loading, or null when the file loaded cleanly
+/// (or did not exist). Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_load_warning(config: *const PcConfig) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    match config.inner.load_warning() {
+        Some(warning) => owned_c_string(warning.to_string()),
+        None => std::ptr::null_mut(),
+    }
+}
+
+/// Key-binding overrides as a JSON object string (`{"action": "key spec"}`;
+/// an empty spec unbinds the default). Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_keys_json(config: *const PcConfig) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(config.inner.keys_json())
 }
 
 /// Releases a string returned by this API.
