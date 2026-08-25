@@ -344,6 +344,17 @@ void pc_config_free(struct PcConfig *config);
 char *pc_config_load_warning(const struct PcConfig *config);
 
 /**
+ * The configured appearance: 0 = system, 1 = light, 2 = dark.
+ */
+uint32_t pc_config_appearance(const struct PcConfig *config);
+
+/**
+ * The configured theme name (empty = default). Release with
+ * [`pc_string_free`].
+ */
+char *pc_config_theme(const struct PcConfig *config);
+
+/**
  * Key-binding overrides as a JSON object string (`{"action": "key spec"}`;
  * an empty spec unbinds the default). Release with [`pc_string_free`].
  */
@@ -421,6 +432,26 @@ char *pc_history_prune_json(const char *dir,
  * [`pc_string_free`].
  */
 char *pc_style_table_json(void);
+
+/**
+ * Applies the theme config.json names: a built-in (`default`,
+ * `high-contrast`) or a `themes/<name>.json` next to the config file.
+ * Returns a warning string when the theme could not apply (the default
+ * stays), null on success. Release with [`pc_string_free`].
+ */
+char *pc_theme_apply(const char *config_path, uintptr_t config_path_len);
+
+/**
+ * Writes one string setting into config.json, preserving everything
+ * else in the file (unknown keys included). `false` with the file left
+ * untouched on any problem.
+ */
+bool pc_config_set_string(const char *config_path,
+                          uintptr_t config_path_len,
+                          const char *key,
+                          uintptr_t key_len,
+                          const char *value,
+                          uintptr_t value_len);
 
 /**
  * Syntax highlights for one file: JSON `[hunk][line][ [start, end,

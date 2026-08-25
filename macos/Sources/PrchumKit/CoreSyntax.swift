@@ -20,8 +20,16 @@ public struct HighlightSpan: Sendable {
 }
 
 public enum CoreSyntax {
-    /// The style table; ids in highlight spans index it. Loaded once.
-    public static let styles: [SyntaxStyle] = {
+    /// The style table; ids in highlight spans index it. Cached — call
+    /// [`reloadStyles`] after the theme changes.
+    public private(set) static var styles: [SyntaxStyle] = loadStyles()
+
+    /// Re-reads the style table from the core (after a theme switch).
+    public static func reloadStyles() {
+        styles = loadStyles()
+    }
+
+    private static func loadStyles() -> [SyntaxStyle] {
         guard let json = takeString(pc_style_table_json()),
             let data = json.data(using: .utf8),
             let raw = try? JSONDecoder().decode([RawStyle].self, from: data)
@@ -31,7 +39,18 @@ public enum CoreSyntax {
                 light: $0.light, dark: $0.dark,
                 bold: $0.flags & 1 != 0, italic: $0.flags & 2 != 0)
         }
-    }()
+    }
+
+    /// Applies the theme config.json names (built-in or themes/<name>.json
+    /// next to the config); a warning means the default stayed.
+    @discardableResult
+    public static func applyTheme(configPath: String = CoreConfig.defaultPath) -> String? {
+        let warning = withUTF8Pointer(configPath) { pointer, length in
+            takeString(pc_theme_apply(pointer, UInt(length)))
+        }
+        reloadStyles()
+        return warning
+    }
 
     private struct RawStyle: Decodable {
         let light: UInt32

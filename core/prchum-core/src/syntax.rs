@@ -68,7 +68,7 @@ pub static CAPTURES: &[&str] = &[
 ];
 
 /// The default palette, aligned with [`CAPTURES`] (textchum's).
-pub static STYLES: &[Style] = &[
+pub static DEFAULT_STYLES: &[Style] = &[
     style(0x836C28FF, 0xBF8555FF, 0),            // attribute
     style(0x707F8CFF, 0x7F8C98FF, STYLE_ITALIC), // comment
     style(0x6F42C1FF, 0xB281EBFF, 0),            // constant
@@ -99,6 +99,111 @@ pub static STYLES: &[Style] = &[
     style(0xAD3DA4FF, 0xFC5FA3FF, STYLE_ITALIC), // variable.builtin
     style(0x24292EFF, 0xDFDFE0FF, STYLE_ITALIC), // variable.parameter
 ];
+
+/// Maximum-legibility palette: near-black saturated colors on light,
+/// bright saturated colors on dark (textchum's high-contrast set).
+pub static HIGH_CONTRAST_STYLES: &[Style] = &[
+    style(0x664400FF, 0xFFCC66FF, 0),            // attribute
+    style(0x3D4C59FF, 0xA8B5C2FF, STYLE_ITALIC), // comment
+    style(0x4B0082FF, 0xCC99FFFF, 0),            // constant
+    style(0x8B008BFF, 0xFF66CCFF, 0),            // constant.builtin
+    style(0x004D40FF, 0x66FFCCFF, 0),            // constructor
+    style(0x003D66FF, 0x66E0FFFF, 0),            // escape
+    style(0x004D40FF, 0x66FFCCFF, 0),            // function
+    style(0x004D40FF, 0x66FFCCFF, 0),            // function.builtin
+    style(0x8B008BFF, 0xFF66CCFF, STYLE_BOLD),   // keyword
+    style(0x664400FF, 0xFFCC66FF, 0),            // label
+    style(0x1A0099FF, 0x80DFFFFF, 0),            // module
+    style(0x0000CCFF, 0xFFE066FF, 0),            // number
+    style(0x1A2633FF, 0xD0D8E0FF, 0),            // operator
+    style(0x00456AFF, 0x99E0BBFF, 0),            // property
+    style(0x1A2633FF, 0xA8B5C2FF, 0),            // punctuation
+    style(0x8B008BFF, 0xFF66CCFF, 0),            // punctuation.special
+    style(0x990000FF, 0xFF8073FF, 0),            // string
+    style(0x003D66FF, 0xFFB066FF, 0),            // string.special
+    style(0x8B008BFF, 0xFF66CCFF, 0),            // tag
+    style(0x000000FF, 0xFFFFFFFF, STYLE_ITALIC), // text.emphasis
+    style(0x990000FF, 0xFF8073FF, 0),            // text.literal
+    style(0x003D66FF, 0x80EFFFFF, 0),            // text.reference
+    style(0x000000FF, 0xFFFFFFFF, STYLE_BOLD),   // text.strong
+    style(0x003366FF, 0x66C2FFFF, STYLE_BOLD),   // text.title
+    style(0x003D66FF, 0x80EFFFFF, 0),            // text.uri
+    style(0x1A0099FF, 0x80DFFFFF, 0),            // type
+    style(0x1A0099FF, 0x80DFFFFF, 0),            // type.builtin
+    style(0x8B008BFF, 0xFF66CCFF, STYLE_ITALIC), // variable.builtin
+    style(0x000000FF, 0xFFFFFFFF, STYLE_ITALIC), // variable.parameter
+];
+
+/// Built-in theme names, selectable by `theme` in config.json.
+pub static BUILTIN_THEMES: &[&str] = &["default", "high-contrast"];
+
+static CURRENT_STYLES: std::sync::RwLock<Option<Vec<Style>>> = std::sync::RwLock::new(None);
+
+/// The active style table.
+pub fn styles() -> Vec<Style> {
+    CURRENT_STYLES
+        .read()
+        .ok()
+        .and_then(|guard| guard.clone())
+        .unwrap_or_else(|| DEFAULT_STYLES.to_vec())
+}
+
+/// Switches to a built-in theme. `false` for an unknown name.
+pub fn set_builtin(name: &str) -> bool {
+    let table: &[Style] = match name {
+        "" | "default" => DEFAULT_STYLES,
+        "high-contrast" => HIGH_CONTRAST_STYLES,
+        _ => return false,
+    };
+    if let Ok(mut guard) = CURRENT_STYLES.write() {
+        *guard = Some(table.to_vec());
+    }
+    true
+}
+
+/// Applies a user theme JSON: `{"name": …, "styles": {capture: {"light":
+/// "#RRGGBB", "dark": "#RRGGBB", "bold": …, "italic": …}}}`. Anything
+/// missing keeps the default palette's value. Errors change nothing.
+pub fn set_theme_json(text: &str) -> Result<(), String> {
+    let value: serde_json::Value =
+        serde_json::from_str(text).map_err(|e| format!("theme is not valid JSON: {e}"))?;
+    let Some(styles_map) = value.get("styles").and_then(|v| v.as_object()) else {
+        return Err("theme has no styles object".to_string());
+    };
+    let mut table: Vec<Style> = DEFAULT_STYLES.to_vec();
+    for (capture, entry) in styles_map {
+        let Some(id) = resolve(capture) else {
+            return Err(format!("unknown style role {capture}"));
+        };
+        let slot = &mut table[id as usize];
+        if let Some(color) = entry.get("light").and_then(|v| v.as_str()) {
+            slot.light = parse_color(color).ok_or_else(|| format!("bad color {color}"))?;
+        }
+        if let Some(color) = entry.get("dark").and_then(|v| v.as_str()) {
+            slot.dark = parse_color(color).ok_or_else(|| format!("bad color {color}"))?;
+        }
+        if let Some(bold) = entry.get("bold").and_then(|v| v.as_bool()) {
+            if bold { slot.flags |= STYLE_BOLD } else { slot.flags &= !STYLE_BOLD }
+        }
+        if let Some(italic) = entry.get("italic").and_then(|v| v.as_bool()) {
+            if italic { slot.flags |= STYLE_ITALIC } else { slot.flags &= !STYLE_ITALIC }
+        }
+    }
+    if let Ok(mut guard) = CURRENT_STYLES.write() {
+        *guard = Some(table);
+    }
+    Ok(())
+}
+
+/// `#RRGGBB` or `#RRGGBBAA` → 0xRRGGBBAA.
+fn parse_color(text: &str) -> Option<u32> {
+    let hex = text.strip_prefix('#')?;
+    match hex.len() {
+        6 => u32::from_str_radix(hex, 16).ok().map(|rgb| (rgb << 8) | 0xFF),
+        8 => u32::from_str_radix(hex, 16).ok(),
+        _ => None,
+    }
+}
 
 /// Resolves a capture name to a style id by trimming dotted segments —
 /// the tree-sitter convention. None = unstyled (plain text).
@@ -345,7 +450,8 @@ mod tests {
         assert_eq!(resolve("keyword"), resolve("keyword.control.flow"));
         assert!(resolve("keyword").is_some());
         assert_eq!(resolve("variable"), None, "plain text stays unstyled");
-        assert_eq!(CAPTURES.len(), STYLES.len());
+        assert_eq!(CAPTURES.len(), DEFAULT_STYLES.len());
+        assert_eq!(CAPTURES.len(), HIGH_CONTRAST_STYLES.len());
     }
 
     #[test]

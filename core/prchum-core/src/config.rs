@@ -30,6 +30,10 @@ pub struct Config {
     /// The Forgejo host discovery searches (the `forgejo` engine needs
     /// one; requests are host-scoped).
     list_host: String,
+    /// Syntax theme name: a built-in or a themes/<name>.json file.
+    theme: String,
+    /// `system` (default) | `light` | `dark`.
+    appearance: String,
     load_warning: Option<String>,
 }
 
@@ -68,6 +72,8 @@ impl Config {
             ("list_engine", 1),
             ("list_filter", 2),
             ("list_host", 3),
+            ("theme", 4),
+            ("appearance", 5),
         ] {
             let Some(value) = object.get(key) else { continue };
             match value.as_str() {
@@ -75,7 +81,9 @@ impl Config {
                     0 => config.forgejo_api_command = text.to_string(),
                     1 => config.list_engine = text.to_string(),
                     2 => config.list_filter = text.to_string(),
-                    _ => config.list_host = text.to_string(),
+                    3 => config.list_host = text.to_string(),
+                    4 => config.theme = text.to_string(),
+                    _ => config.appearance = text.to_string(),
                 },
                 None => {
                     config.load_warning = Some(format!("{key} must be a string; ignored"));
@@ -149,6 +157,49 @@ impl Config {
     pub fn list_host(&self) -> &str {
         &self.list_host
     }
+
+    pub fn theme(&self) -> &str {
+        &self.theme
+    }
+
+    /// `system` | `light` | `dark`; anything else reads as system.
+    pub fn appearance(&self) -> &str {
+        match self.appearance.as_str() {
+            "light" => "light",
+            "dark" => "dark",
+            _ => "system",
+        }
+    }
+}
+
+/// Writes one string setting into the config file, preserving everything
+/// else — unknown keys included. A file that is not a JSON object (or is
+/// broken) is left untouched, matching the never-clobber rule; a missing
+/// file starts fresh.
+pub fn set_string(path: &Path, key: &str, value: &str) -> Result<(), String> {
+    let mut root = match std::fs::read_to_string(path) {
+        Ok(text) => {
+            let parsed: serde_json::Value = serde_json::from_str(&text)
+                .map_err(|e| format!("config is not valid JSON, not touching it: {e}"))?;
+            if !parsed.is_object() {
+                return Err("config is not a JSON object, not touching it".to_string());
+            }
+            parsed
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            serde_json::Value::Object(Default::default())
+        }
+        Err(error) => return Err(format!("could not read {}: {error}", path.display())),
+    };
+    root[key] = serde_json::Value::String(value.to_string());
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)
+            .map_err(|error| format!("could not create {}: {error}", dir.display()))?;
+    }
+    let mut text = serde_json::to_string_pretty(&root)
+        .map_err(|error| format!("could not encode config: {error}"))?;
+    text.push('\n');
+    crate::review::atomic_write(path, text.as_bytes())
 }
 
 impl Default for Config {
@@ -160,6 +211,8 @@ impl Default for Config {
             list_engine: String::new(),
             list_filter: String::new(),
             list_host: String::new(),
+            theme: String::new(),
+            appearance: String::new(),
             load_warning: None,
         }
     }
@@ -216,6 +269,26 @@ mod tests {
         assert_eq!(config.forge_for_host("elsewhere"), None);
         assert!(config.forgejo_api_command().starts_with("curl"));
         assert!(Config::default().forgejo_api_command().is_empty());
+    }
+
+    #[test]
+    fn set_string_preserves_unknown_keys() {
+        let dir = std::env::temp_dir().join(format!("prchum-cfg-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path, r#"{"future": [1, 2], "theme": "old"}"#).unwrap();
+        set_string(&path, "theme", "high-contrast").unwrap();
+        set_string(&path, "appearance", "dark").unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("future"), "{text}");
+        let config = Config::from_json(&text);
+        assert_eq!(config.theme(), "high-contrast");
+        assert_eq!(config.appearance(), "dark");
+        // Broken files stay untouched.
+        std::fs::write(&path, "{ broken").unwrap();
+        assert!(set_string(&path, "theme", "x").is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "{ broken");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

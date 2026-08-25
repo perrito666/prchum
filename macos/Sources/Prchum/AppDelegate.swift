@@ -20,6 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let warning = config.loadWarning {
             NSLog("config: %@ — defaults are in effect", warning)
         }
+        if let warning = CoreSyntax.applyTheme() {
+            NSLog("theme: %@", warning)
+        }
+        applyAppearance(config.appearance)
         for problem in keymap.problems {
             NSLog("config: %@ — the default binding stays", problem)
         }
@@ -47,6 +51,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func applyAppearance(_ appearance: CoreConfig.Appearance) {
+        switch appearance {
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        case .system: NSApp.appearance = nil
+        }
+    }
+
+    private var settings: SettingsWindowController?
+
+    /// Settings: appearance and theme; changes apply live and write
+    /// through to config.json.
+    @objc func showSettings(_ sender: Any?) {
+        if settings == nil {
+            let controller = SettingsWindowController { [weak self] in
+                guard let self else { return }
+                let fresh = CoreConfig()
+                self.applyAppearance(fresh.appearance)
+                if let warning = CoreSyntax.applyTheme() {
+                    NSLog("theme: %@", warning)
+                }
+                SyntaxPalette.rebuild()
+                for window in self.windows {
+                    window.redrawForThemeChange()
+                }
+            }
+            controller.onClose = { [weak self] in self?.settings = nil }
+            settings = controller
+        }
+        settings?.showWindow(nil)
     }
 
     private var home: HomeWindowController?
@@ -395,6 +431,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             withTitle: "About Prchum",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(
+            withTitle: "Settings…",
+            action: #selector(showSettings(_:)),
+            keyEquivalent: ",")
         appMenu.addItem(.separator())
         appMenu.addItem(
             withTitle: "Quit Prchum",

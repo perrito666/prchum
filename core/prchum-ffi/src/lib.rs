@@ -835,6 +835,29 @@ pub unsafe extern "C" fn pc_config_load_warning(config: *const PcConfig) -> *mut
     }
 }
 
+/// The configured appearance: 0 = system, 1 = light, 2 = dark.
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_appearance(config: *const PcConfig) -> u32 {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return 0;
+    };
+    match config.inner.appearance() {
+        "light" => 1,
+        "dark" => 2,
+        _ => 0,
+    }
+}
+
+/// The configured theme name (empty = default). Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_theme(config: *const PcConfig) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(config.inner.theme().to_string())
+}
+
 /// Key-binding overrides as a JSON object string (`{"action": "key spec"}`;
 /// an empty spec unbinds the default). Release with [`pc_string_free`].
 #[no_mangle]
@@ -1091,8 +1114,75 @@ pub unsafe extern "C" fn pc_history_prune_json(
 /// [`pc_string_free`].
 #[no_mangle]
 pub extern "C" fn pc_style_table_json() -> *mut c_char {
-    let json = serde_json::to_string(prchum_core::syntax::STYLES).unwrap_or_default();
+    let json = serde_json::to_string(&prchum_core::syntax::styles()).unwrap_or_default();
     owned_c_string(json)
+}
+
+/// Applies the theme config.json names: a built-in (`default`,
+/// `high-contrast`) or a `themes/<name>.json` next to the config file.
+/// Returns a warning string when the theme could not apply (the default
+/// stays), null on success. Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_theme_apply(
+    config_path: *const c_char,
+    config_path_len: usize,
+) -> *mut c_char {
+    let Some(config_path) = (unsafe { str_from_raw(config_path, config_path_len) }) else {
+        return owned_c_string("config path is not valid UTF-8".to_string());
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let config = Config::load(std::path::Path::new(config_path));
+        let name = config.theme();
+        if prchum_core::syntax::set_builtin(name) {
+            return None;
+        }
+        let themes_dir = std::path::Path::new(config_path)
+            .parent()
+            .map(|dir| dir.join("themes"))
+            .unwrap_or_default();
+        let file = themes_dir.join(format!("{name}.json"));
+        match std::fs::read_to_string(&file) {
+            Ok(text) => prchum_core::syntax::set_theme_json(&text)
+                .err()
+                .map(|error| format!("theme {name}: {error} — the default stays")),
+            Err(_) => Some(format!(
+                "theme {name} is neither built in nor at {} — the default stays",
+                file.display()
+            )),
+        }
+    }));
+    match result {
+        Ok(None) => std::ptr::null_mut(),
+        Ok(Some(warning)) => owned_c_string(warning),
+        Err(_) => owned_c_string("internal error applying the theme".to_string()),
+    }
+}
+
+/// Writes one string setting into config.json, preserving everything
+/// else in the file (unknown keys included). `false` with the file left
+/// untouched on any problem.
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_set_string(
+    config_path: *const c_char,
+    config_path_len: usize,
+    key: *const c_char,
+    key_len: usize,
+    value: *const c_char,
+    value_len: usize,
+) -> bool {
+    let Some(config_path) = (unsafe { str_from_raw(config_path, config_path_len) }) else {
+        return false;
+    };
+    let Some(key) = (unsafe { str_from_raw(key, key_len) }) else {
+        return false;
+    };
+    let Some(value) = (unsafe { str_from_raw(value, value_len) }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| {
+        prchum_core::config::set_string(std::path::Path::new(config_path), key, value).is_ok()
+    }))
+    .unwrap_or(false)
 }
 
 /// Syntax highlights for one file: JSON `[hunk][line][ [start, end,

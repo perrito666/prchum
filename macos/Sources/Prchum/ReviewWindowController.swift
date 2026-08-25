@@ -728,6 +728,12 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         diffTextView.scrollRangeToVisible(range)
     }
 
+    /// Re-renders after a theme change: highlight span indexes are theme
+    /// independent, only the colors moved.
+    @objc func redrawForThemeChange() {
+        refreshReviewState()
+    }
+
     // MARK: - Content
 
     /// Reloads review state and re-renders, keeping the caret in place.
@@ -1046,8 +1052,15 @@ enum DiffLayout {
 }
 
 /// The style table as appearance-aware NSColors, resolved at draw time.
+/// Rebuilt after a theme switch.
 enum SyntaxPalette {
-    static let colors: [NSColor] = CoreSyntax.styles.map { style in
+    static private(set) var colors: [NSColor] = build()
+
+    static func rebuild() {
+        colors = build()
+    }
+
+    private static func build() -> [NSColor] { CoreSyntax.styles.map { style in
         NSColor(name: nil) { appearance in
             let rgba =
                 appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -1058,6 +1071,7 @@ enum SyntaxPalette {
                 blue: CGFloat((rgba >> 8) & 0xFF) / 255,
                 alpha: CGFloat(rgba & 0xFF) / 255)
         }
+    }
     }
 }
 

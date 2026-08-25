@@ -38,6 +38,39 @@ public final class CoreConfig {
         takeString(pc_config_load_warning(handle))
     }
 
+    /// `system` | `light` | `dark`.
+    public enum Appearance: UInt32 {
+        case system = 0
+        case light = 1
+        case dark = 2
+    }
+
+    public var appearance: Appearance {
+        Appearance(rawValue: pc_config_appearance(handle)) ?? .system
+    }
+
+    /// The configured theme name (empty = default).
+    public var theme: String {
+        takeString(pc_config_theme(handle)) ?? ""
+    }
+
+    /// Writes one string setting into config.json, preserving everything
+    /// else in the file. A broken file is left untouched.
+    @discardableResult
+    public static func setString(
+        _ key: String, _ value: String, path: String = defaultPath
+    ) -> Bool {
+        withUTF8Pointer(path) { pathPtr, pathLen in
+            withUTF8Pointer(key) { keyPtr, keyLen in
+                withUTF8Pointer(value) { valuePtr, valueLen in
+                    pc_config_set_string(
+                        pathPtr, UInt(pathLen), keyPtr, UInt(keyLen),
+                        valuePtr, UInt(valueLen))
+                }
+            }
+        }
+    }
+
     /// Key-binding overrides: action name → key spec. An empty spec means
     /// the action's default binding is removed.
     public var keyOverrides: [String: String] {

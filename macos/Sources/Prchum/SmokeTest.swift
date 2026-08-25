@@ -575,6 +575,65 @@ func runSmokeTest() -> Int32 {
     }
     print("clipboard prefill sniffing ok")
 
+    // Themes: built-ins switch the table, user JSON applies over the
+    // default, breakage keeps the default, and config writes preserve
+    // unknown keys.
+    do {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-theme-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(
+            at: dir.appendingPathComponent("themes"), withIntermediateDirectories: true)
+        let configPath = dir.appendingPathComponent("config.json").path
+        let defaultStyles = CoreSyntax.styles
+        guard !defaultStyles.isEmpty else {
+            print("FAIL: empty style table")
+            return 1
+        }
+
+        try #"{"future": true, "theme": "high-contrast"}"#
+            .write(toFile: configPath, atomically: true, encoding: .utf8)
+        guard CoreSyntax.applyTheme(configPath: configPath) == nil,
+            CoreSyntax.styles[0].light != defaultStyles[0].light
+        else {
+            print("FAIL: high-contrast did not switch the table")
+            return 1
+        }
+
+        try #"{"styles": {"keyword": {"light": "#123456"}}}"#
+            .write(
+                toFile: dir.appendingPathComponent("themes/mine.json").path,
+                atomically: true, encoding: .utf8)
+        _ = CoreConfig.setString("theme", "mine", path: configPath)
+        guard CoreSyntax.applyTheme(configPath: configPath) == nil else {
+            print("FAIL: user theme did not apply")
+            return 1
+        }
+        let written = try String(contentsOfFile: configPath, encoding: .utf8)
+        guard written.contains("future") else {
+            print("FAIL: config write dropped unknown keys")
+            return 1
+        }
+
+        _ = CoreConfig.setString("theme", "no-such-theme", path: configPath)
+        guard CoreSyntax.applyTheme(configPath: configPath) != nil else {
+            print("FAIL: a missing theme applied silently")
+            return 1
+        }
+
+        _ = CoreConfig.setString("theme", "default", path: configPath)
+        guard CoreSyntax.applyTheme(configPath: configPath) == nil,
+            CoreSyntax.styles[0].light == defaultStyles[0].light
+        else {
+            print("FAIL: returning to the default palette")
+            return 1
+        }
+        try? FileManager.default.removeItem(at: dir)
+        print("themes ok (built-ins, user JSON, breakage, config writes)")
+    } catch {
+        print("FAIL: themes: \(error)")
+        return 1
+    }
+
     // Async event round trip: core dispatch thread → main queue.
     var receivedSequence: UInt64?
     let coreApp = CoreApp { event in
