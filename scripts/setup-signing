@@ -1,0 +1,72 @@
+#!/bin/sh
+# Loads the code-signing secrets the release workflow looks for into this
+# repository's GitHub Actions secrets, via `gh secret set`. Values never
+# touch the shell history or stdout — files are piped, passwords are
+# prompted with echo off.
+#
+# GitHub secrets are write-only, so "porting" them from another
+# repository means re-entering them from the local material:
+#   - the Developer ID Application certificate (.p12) and its password
+#   - EITHER an App Store Connect API key (.p8 + key id + issuer id)
+#     OR an Apple ID with an app-specific password and team id
+#
+# Usage: scripts/setup-signing [owner/repo]   (default: perrito666/prchum)
+
+set -eu
+
+REPO="${1:-perrito666/prchum}"
+
+say() { printf '%s\n' "$*"; }
+ask() { printf '%s: ' "$1" >&2; read -r REPLY; }
+ask_secret() {
+    printf '%s: ' "$1" >&2
+    stty -echo
+    read -r REPLY
+    stty echo
+    printf '\n' >&2
+}
+
+say "Setting release-signing secrets on $REPO."
+say ""
+
+ask "Path to the Developer ID Application certificate (.p12)"
+P12_PATH=$REPLY
+test -f "$P12_PATH" || { say "no such file: $P12_PATH"; exit 1; }
+base64 < "$P12_PATH" | gh secret set MACOS_CERTIFICATE_P12 --repo "$REPO"
+
+ask_secret "The .p12's password"
+printf '%s' "$REPLY" | gh secret set MACOS_CERTIFICATE_PASSWORD --repo "$REPO"
+
+say ""
+say "Notary service auth — pick one:"
+say "  1) App Store Connect API key (.p8) — Apple's recommended automation auth"
+say "  2) Apple ID with an app-specific password"
+ask "1 or 2"
+case "$REPLY" in
+    1)
+        ask "Path to the AuthKey .p8"
+        P8_PATH=$REPLY
+        test -f "$P8_PATH" || { say "no such file: $P8_PATH"; exit 1; }
+        gh secret set APPLE_API_KEY_P8 --repo "$REPO" < "$P8_PATH"
+        ask "Key ID"
+        printf '%s' "$REPLY" | gh secret set APPLE_API_KEY_ID --repo "$REPO"
+        ask "Issuer ID (the UUID)"
+        printf '%s' "$REPLY" | gh secret set APPLE_API_ISSUER_ID --repo "$REPO"
+        ;;
+    2)
+        ask "Apple ID (account email)"
+        printf '%s' "$REPLY" | gh secret set APPLE_ID --repo "$REPO"
+        ask_secret "App-specific password (from account.apple.com)"
+        printf '%s' "$REPLY" | gh secret set APPLE_APP_SPECIFIC_PASSWORD --repo "$REPO"
+        ask "Team ID (10 characters)"
+        printf '%s' "$REPLY" | gh secret set APPLE_TEAM_ID --repo "$REPO"
+        ;;
+    *)
+        say "neither 1 nor 2 — notary secrets not set; run again to add them"
+        ;;
+esac
+
+say ""
+say "Done. The next v* tag signs and notarizes automatically — the"
+say "release workflow switches on when it sees the secrets."
+gh secret list --repo "$REPO"

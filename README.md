@@ -66,6 +66,11 @@ make app                    # a double-clickable Prchum.app in dist/
 
 Requires a Rust toolchain and Xcode (macOS 14+).
 
+Releases build from `v*` tags. They ship unsigned until the Apple
+signing secrets exist in the repository — `scripts/setup-signing` loads
+them (certificate, password, and notary auth) via `gh secret set`, and
+the release workflow signs and notarizes by itself from then on.
+
 ## The icon
 
 The app icon is a sunflower photographed by Horacio Duran in a field
