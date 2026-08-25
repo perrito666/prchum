@@ -17,7 +17,13 @@
 use std::ffi::{c_char, c_void, CString};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
+use prchum_core::diff::Side;
+use prchum_core::review::ReviewEvent;
+use prchum_core::source::GitSpec;
 use prchum_core::{App, Config, Event, Session};
+use prchum_forge::ghcli::GhForge;
+use prchum_forge::refs::{parse_ref, resolve_from_origin};
+use prchum_forge::{kind_for_host, submit, Forge, ForgeKind, PullRequestRef};
 
 /// Event kind: reply to `pc_app_ping`.
 pub const PC_EVENT_PONG: u32 = 1;
@@ -58,10 +64,12 @@ pub struct PcApp {
     inner: App,
 }
 
-/// A review session over one diff source. Create with
-/// [`pc_session_new_from_patch`], release with [`pc_session_free`].
+/// A review session over one diff source. Create with one of the
+/// `pc_session_new_*` constructors, release with [`pc_session_free`].
 pub struct PcSession {
     inner: Session,
+    /// Set for PR-mode sessions; submission targets it.
+    pr: Option<PullRequestRef>,
 }
 
 /// The user configuration. Create with [`pc_config_new`], release with
@@ -149,17 +157,150 @@ pub unsafe extern "C" fn pc_session_new_from_patch(
         return std::ptr::null_mut();
     };
     let result = catch_unwind(AssertUnwindSafe(|| Session::from_patch(title, patch)));
+    wrap_session(result, error_out)
+}
+
+/// Boxes a session-creation result, reporting failures through `error_out`.
+fn wrap_session(
+    result: std::thread::Result<Result<Session, prchum_core::diff::ParseError>>,
+    error_out: *mut *mut c_char,
+) -> *mut PcSession {
     match result {
-        Ok(Ok(inner)) => Box::into_raw(Box::new(PcSession { inner })),
+        Ok(Ok(inner)) => Box::into_raw(Box::new(PcSession { inner, pr: None })),
         Ok(Err(error)) => {
             unsafe { write_error(error_out, &error.to_string()) };
             std::ptr::null_mut()
         }
         Err(_) => {
-            unsafe { write_error(error_out, "internal error while parsing") };
+            unsafe { write_error(error_out, "internal error while opening the session") };
             std::ptr::null_mut()
         }
     }
+}
+
+/// Opens a session over a file on disk: a unified diff, or a
+/// review-exchange document (detected by content, never filename — an
+/// exchange session rewrites its file on every save).
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_new_from_file(
+    path: *const c_char,
+    path_len: usize,
+    error_out: *mut *mut c_char,
+) -> *mut PcSession {
+    let Some(path) = (unsafe { str_from_raw(path, path_len) }) else {
+        unsafe { write_error(error_out, "path is not valid UTF-8") };
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| Session::from_patch_file(path)));
+    wrap_session(result, error_out)
+}
+
+/// Git comparison kinds for [`pc_session_new_from_git`].
+pub const PC_GIT_WORKTREE: u32 = 0;
+/// Index vs HEAD.
+pub const PC_GIT_STAGED: u32 = 1;
+/// `arg1...HEAD` (merge base).
+pub const PC_GIT_BASE: u32 = 2;
+/// Explicit range `arg1..arg2`.
+pub const PC_GIT_RANGE: u32 = 3;
+
+/// Opens a session over a local git comparison rooted at `repo`.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_new_from_git(
+    repo: *const c_char,
+    repo_len: usize,
+    kind: u32,
+    arg1: *const c_char,
+    arg1_len: usize,
+    arg2: *const c_char,
+    arg2_len: usize,
+    context: u32,
+    error_out: *mut *mut c_char,
+) -> *mut PcSession {
+    let Some(repo) = (unsafe { str_from_raw(repo, repo_len) }) else {
+        unsafe { write_error(error_out, "repo path is not valid UTF-8") };
+        return std::ptr::null_mut();
+    };
+    let arg1 = unsafe { str_from_raw(arg1, arg1_len) }.unwrap_or_default();
+    let arg2 = unsafe { str_from_raw(arg2, arg2_len) }.unwrap_or_default();
+    let spec = match kind {
+        PC_GIT_STAGED => GitSpec::Staged,
+        PC_GIT_BASE => GitSpec::Base(arg1.to_string()),
+        PC_GIT_RANGE => GitSpec::Range(arg1.to_string(), arg2.to_string()),
+        _ => GitSpec::WorkingTree,
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| Session::from_git(repo, &spec, context)));
+    wrap_session(result, error_out)
+}
+
+/// Opens a session over a pull request. `reference` accepts every spelling
+/// (URL, `owner/repo#N`, bare number); `repo_hint` is a local checkout used
+/// to infer host/owner/repo for underspecified references (may be empty).
+///
+/// Fetches the host's canonical diff, metadata, and review threads through
+/// the forge CLI — a blocking call; run it off the UI thread and hand the
+/// session over once built.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_new_from_pr(
+    reference: *const c_char,
+    reference_len: usize,
+    repo_hint: *const c_char,
+    repo_hint_len: usize,
+    error_out: *mut *mut c_char,
+) -> *mut PcSession {
+    let Some(reference) = (unsafe { str_from_raw(reference, reference_len) }) else {
+        unsafe { write_error(error_out, "reference is not valid UTF-8") };
+        return std::ptr::null_mut();
+    };
+    let repo_hint = unsafe { str_from_raw(repo_hint, repo_hint_len) }.unwrap_or_default();
+
+    let built = catch_unwind(AssertUnwindSafe(|| build_pr_session(reference, repo_hint)));
+    match built {
+        Ok(Ok((inner, pr))) => Box::into_raw(Box::new(PcSession { inner, pr: Some(pr) })),
+        Ok(Err(message)) => {
+            unsafe { write_error(error_out, &message) };
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            unsafe { write_error(error_out, "internal error while opening the pull request") };
+            std::ptr::null_mut()
+        }
+    }
+}
+
+fn build_pr_session(reference: &str, repo_hint: &str) -> Result<(Session, PullRequestRef), String> {
+    let mut pr_ref =
+        parse_ref(reference).ok_or_else(|| format!("not a pull-request reference: {reference}"))?;
+    if !pr_ref.is_resolved() {
+        let hint = if repo_hint.is_empty() { "." } else { repo_hint };
+        resolve_from_origin(&mut pr_ref, hint)?;
+    }
+    if pr_ref.host.is_empty() {
+        pr_ref.host = "github.com".to_string();
+    }
+    if kind_for_host(&pr_ref.host) == ForgeKind::GitLab {
+        return Err("GitLab merge requests are not supported yet".to_string());
+    }
+
+    let forge = GhForge::new();
+    let metadata = forge.pull_request(&pr_ref)?;
+    let diff = forge.diff(&pr_ref)?;
+    let threads = forge.threads(&pr_ref)?;
+
+    let key = format!(
+        "gh-{}-{}-{}-pr{}",
+        pr_ref.host,
+        pr_ref.owner.replace('/', "-"),
+        pr_ref.repo,
+        pr_ref.number
+    );
+    let title = format!("{}/{}#{}: {}", pr_ref.owner, pr_ref.repo, pr_ref.number, metadata.title);
+    let mut session = Session::from_patch_keyed(&title, &diff, key)
+        .map_err(|error| format!("could not parse the pull request's diff: {error}"))?;
+    session.set_head_oid(&metadata.head_oid);
+    session.set_pr_json(serde_json::to_string(&metadata).unwrap_or_default());
+    session.set_threads_json(serde_json::to_string(&threads).unwrap_or_default());
+    Ok((session, pr_ref))
 }
 
 /// Releases a session handle.
@@ -207,6 +348,340 @@ pub unsafe extern "C" fn pc_session_file_json(
     match result {
         Ok(Ok(json)) => owned_c_string(json),
         _ => std::ptr::null_mut(),
+    }
+}
+
+/// Attaches the persistence directory: loads any saved draft for this
+/// source (re-anchoring it if the head moved) and persists every later
+/// change. Returns a warning string when the saved draft was unreadable
+/// (released with [`pc_string_free`]), null otherwise.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_attach_store(
+    session: *mut PcSession,
+    dir: *const c_char,
+    dir_len: usize,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(dir) = (unsafe { str_from_raw(dir, dir_len) }) else {
+        return owned_c_string("drafts directory is not valid UTF-8".to_string());
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| session.inner.attach_store(dir)));
+    match result {
+        Ok(Some(warning)) => owned_c_string(warning),
+        _ => std::ptr::null_mut(),
+    }
+}
+
+/// Sets the author attributed to new comments and replies.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_set_author(
+    session: *mut PcSession,
+    author: *const c_char,
+    author_len: usize,
+) {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return;
+    };
+    let Some(author) = (unsafe { str_from_raw(author, author_len) }) else {
+        return;
+    };
+    session.inner.set_author(author);
+}
+
+/// Side values crossing the boundary.
+pub const PC_SIDE_LEFT: u32 = 0;
+pub const PC_SIDE_RIGHT: u32 = 1;
+
+fn side_from(value: u32) -> Side {
+    if value == PC_SIDE_LEFT {
+        Side::Left
+    } else {
+        Side::Right
+    }
+}
+
+/// Adds a draft comment on one side of one file's lines. `reply_to` is a
+/// host comment id (0 = a plain comment). Validates host semantics,
+/// captures anchor and snippet, persists, and returns the new comment's
+/// local id — or null with `error_out` set.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_add_comment(
+    session: *mut PcSession,
+    file_index: usize,
+    side: u32,
+    start_line: u32,
+    end_line: u32,
+    body: *const c_char,
+    body_len: usize,
+    reply_to: i64,
+    error_out: *mut *mut c_char,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
+        unsafe { write_error(error_out, "comment body is not valid UTF-8") };
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let id = session.inner.add_comment(
+            file_index,
+            side_from(side),
+            start_line,
+            end_line,
+            body.to_string(),
+        )?;
+        if reply_to != 0 {
+            if let Some(comment) = session.inner.draft_mut().comment_mut(&id) {
+                comment.reply_to = Some(reply_to);
+            }
+            session.inner.persist()?;
+        }
+        Ok::<String, String>(id)
+    }));
+    match result {
+        Ok(Ok(id)) => owned_c_string(id),
+        Ok(Err(message)) => {
+            unsafe { write_error(error_out, &message) };
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            unsafe { write_error(error_out, "internal error while adding the comment") };
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Rewrites a draft comment's body. `false` if the id is unknown.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_update_comment(
+    session: *mut PcSession,
+    local_id: *const c_char,
+    local_id_len: usize,
+    body: *const c_char,
+    body_len: usize,
+) -> bool {
+    with_comment_id(session, local_id, local_id_len, |session, id| {
+        let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
+            return false;
+        };
+        session.inner.update_comment(id, body.to_string()).is_ok()
+    })
+}
+
+/// Deletes a draft comment. `false` if the id is unknown.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_delete_comment(
+    session: *mut PcSession,
+    local_id: *const c_char,
+    local_id_len: usize,
+) -> bool {
+    with_comment_id(session, local_id, local_id_len, |session, id| {
+        session.inner.delete_comment(id).is_ok()
+    })
+}
+
+/// Dismiss ↔ restore a draft comment (kept, never submitted while
+/// dismissed).
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_toggle_dismiss(
+    session: *mut PcSession,
+    local_id: *const c_char,
+    local_id_len: usize,
+) -> bool {
+    with_comment_id(session, local_id, local_id_len, |session, id| {
+        session.inner.toggle_dismiss(id).is_ok()
+    })
+}
+
+/// Appends a reply to a draft comment's travelling conversation.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_add_reply(
+    session: *mut PcSession,
+    local_id: *const c_char,
+    local_id_len: usize,
+    body: *const c_char,
+    body_len: usize,
+) -> bool {
+    with_comment_id(session, local_id, local_id_len, |session, id| {
+        let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
+            return false;
+        };
+        session.inner.add_reply(id, body.to_string()).is_ok()
+    })
+}
+
+fn with_comment_id(
+    session: *mut PcSession,
+    local_id: *const c_char,
+    local_id_len: usize,
+    operation: impl FnOnce(&mut PcSession, &str) -> bool,
+) -> bool {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return false;
+    };
+    let Some(id) = (unsafe { str_from_raw(local_id, local_id_len) }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| operation(session, id))).unwrap_or(false)
+}
+
+/// Every draft comment (with its location and state) as a JSON array.
+/// Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_comments_json(session: *const PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(session.inner.comments_json())
+}
+
+/// Existing host review threads as a JSON array (empty string outside PR
+/// mode). Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_threads_json(session: *const PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(session.inner.threads_json().to_string())
+}
+
+/// Pull-request metadata as JSON (empty string outside PR mode). Release
+/// with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_pr_json(session: *const PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(session.inner.pr_json().to_string())
+}
+
+/// The review summary.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_summary(session: *const PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(session.inner.draft().summary.clone())
+}
+
+/// Sets the review summary (persisted immediately).
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_set_summary(
+    session: *mut PcSession,
+    summary: *const c_char,
+    summary_len: usize,
+) -> bool {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return false;
+    };
+    let Some(summary) = (unsafe { str_from_raw(summary, summary_len) }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| {
+        session.inner.set_summary(summary.to_string()).is_ok()
+    }))
+    .unwrap_or(false)
+}
+
+/// Review events crossing the boundary.
+pub const PC_EVENT_REVIEW_COMMENT: u32 = 0;
+pub const PC_EVENT_REVIEW_APPROVE: u32 = 1;
+pub const PC_EVENT_REVIEW_REQUEST_CHANGES: u32 = 2;
+
+/// Sets the submission event.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_set_event(session: *mut PcSession, event: u32) {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return;
+    };
+    session.inner.draft_mut().event = match event {
+        PC_EVENT_REVIEW_APPROVE => ReviewEvent::Approve,
+        PC_EVENT_REVIEW_REQUEST_CHANGES => ReviewEvent::RequestChanges,
+        _ => ReviewEvent::Comment,
+    };
+    let _ = session.inner.persist();
+}
+
+/// Exports the review to `path`: `.json` writes a review-exchange
+/// document, anything else Markdown. `false` with `error_out` on failure.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_export_to_file(
+    session: *const PcSession,
+    path: *const c_char,
+    path_len: usize,
+    error_out: *mut *mut c_char,
+) -> bool {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return false;
+    };
+    let Some(path) = (unsafe { str_from_raw(path, path_len) }) else {
+        unsafe { write_error(error_out, "path is not valid UTF-8") };
+        return false;
+    };
+    match catch_unwind(AssertUnwindSafe(|| session.inner.export_to_file(path))) {
+        Ok(Ok(())) => true,
+        Ok(Err(message)) => {
+            unsafe { write_error(error_out, &message) };
+            false
+        }
+        Err(_) => {
+            unsafe { write_error(error_out, "internal error while exporting") };
+            false
+        }
+    }
+}
+
+/// Submits the draft to the pull request: one atomic review, then staged
+/// replies, then conversation comments. Blocking — run off the UI thread.
+///
+/// Returns JSON `{"posted": n, "remaining": n, "skipped_dismissed": n,
+/// "skipped_orphaned": n, "error": "…"|null}`. Accepted drafts are removed
+/// and the draft persisted **before** any error is reported, so a retry
+/// sends only what is still pending — never a duplicate. Null only for a
+/// session that is not in PR mode.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_submit(session: *mut PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(pr) = session.pr.clone() else {
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let plan = submit::plan(session.inner.draft());
+        let forge = GhForge::new();
+        let outcome = submit::execute(&forge, &pr, session.inner.draft(), &plan);
+
+        // Retry safety: whatever the host accepted leaves the draft now,
+        // even when a later step failed.
+        let accepted = &outcome.accepted;
+        let draft = session.inner.draft_mut();
+        draft.comments.retain(|c| !accepted.contains(&c.local_id));
+        draft.general.retain(|g| !accepted.contains(&g.local_id));
+        if outcome.error.is_none() {
+            draft.summary.clear();
+            draft.event = ReviewEvent::Comment;
+        }
+        let remaining = draft.comments.len() + draft.general.len();
+        let _ = session.inner.persist();
+
+        serde_json::json!({
+            "posted": accepted.len(),
+            "remaining": remaining,
+            "skipped_dismissed": plan.skipped_dismissed,
+            "skipped_orphaned": plan.skipped_orphaned,
+            "error": outcome.error,
+        })
+        .to_string()
+    }));
+    match result {
+        Ok(json) => owned_c_string(json),
+        Err(_) => owned_c_string(
+            r#"{"posted":0,"remaining":0,"skipped_dismissed":0,"skipped_orphaned":0,"error":"internal error during submission"}"#.to_string(),
+        ),
     }
 }
 

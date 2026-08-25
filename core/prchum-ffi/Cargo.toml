@@ -11,6 +11,7 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 prchum-core = { path = "../prchum-core" }
+prchum-forge = { path = "../prchum-forge" }
 serde_json = "1"
 
 [build-dependencies]

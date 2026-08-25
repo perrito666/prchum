@@ -20,12 +20,17 @@ pub struct Session {
     author: String,
     draft: DraftReview,
     store: Option<DraftStore>,
+    /// The verbatim patch text the session was parsed from (exchange export
+    /// embeds it).
+    raw_patch: String,
     /// When set, every save also rewrites this exchange document in place.
     exchange_path: Option<String>,
     /// The exchange document's patch lines, kept verbatim for writeback.
     exchange_patch: Vec<String>,
     /// Existing host threads (PR mode), opaque JSON for the shell.
     threads_json: String,
+    /// Pull-request metadata (PR mode), opaque JSON for the shell.
+    pr_json: String,
 }
 
 impl Session {
@@ -77,9 +82,11 @@ impl Session {
             author: String::new(),
             draft,
             store: None,
+            raw_patch: patch.to_string(),
             exchange_path: None,
             exchange_patch: Vec::new(),
             threads_json: String::new(),
+            pr_json: String::new(),
         })
     }
 
@@ -169,6 +176,24 @@ impl Session {
             }
         };
         self.store = Some(store);
+
+        // The head moved since the draft was saved: re-anchor before the
+        // reviewer sees stale positions.
+        if !self.head_oid.is_empty()
+            && !self.draft.head_oid.is_empty()
+            && self.draft.head_oid != self.head_oid
+            && !self.draft.comments.is_empty()
+        {
+            self.relocate_drafts();
+        }
+        if !self.head_oid.is_empty() {
+            self.draft.head_oid = self.head_oid.clone();
+            // Don't litter the store with empty drafts for merely-opened
+            // sessions; the first real change persists everything.
+            if !self.draft.comments.is_empty() || !self.draft.general.is_empty() {
+                let _ = self.persist();
+            }
+        }
         warning
     }
 
@@ -186,6 +211,41 @@ impl Session {
 
     pub fn set_threads_json(&mut self, json: String) {
         self.threads_json = json;
+    }
+
+    pub fn pr_json(&self) -> &str {
+        &self.pr_json
+    }
+
+    pub fn set_pr_json(&mut self, json: String) {
+        self.pr_json = json;
+    }
+
+    pub fn raw_patch(&self) -> &str {
+        &self.raw_patch
+    }
+
+    /// Exports to `path`: a `.json` extension writes a review-exchange
+    /// document (embedding the session's patch), anything else Markdown.
+    pub fn export_to_file(&self, path: &str) -> Result<(), String> {
+        let content = if path.ends_with(".json") {
+            let lines: Vec<String> = self
+                .raw_patch
+                .trim_end_matches('\n')
+                .split('\n')
+                .map(str::to_string)
+                .collect();
+            let doc = exchange::from_drafts(
+                &self.title,
+                &self.draft.summary,
+                lines,
+                &self.draft.comments,
+            );
+            exchange::render(&doc)
+        } else {
+            self.export_markdown()
+        };
+        atomic_write(std::path::Path::new(path), content.as_bytes())
     }
 
     /// Re-anchors saved drafts after the head moved: exact matches keep

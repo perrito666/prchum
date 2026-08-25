@@ -82,7 +82,7 @@ fn default_state() -> String {
 
 /// `patch` as an array of lines on the wire, accepting a plain string too.
 mod patch_lines {
-    use serde::de::{self, Deserializer};
+    use serde::de::Deserializer;
     use serde::ser::Serializer;
     use serde::Deserialize;
 

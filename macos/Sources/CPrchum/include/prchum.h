@@ -15,6 +15,42 @@
 #define PC_EVENT_PONG 1
 
 /**
+ * Git comparison kinds for [`pc_session_new_from_git`].
+ */
+#define PC_GIT_WORKTREE 0
+
+/**
+ * Index vs HEAD.
+ */
+#define PC_GIT_STAGED 1
+
+/**
+ * `arg1...HEAD` (merge base).
+ */
+#define PC_GIT_BASE 2
+
+/**
+ * Explicit range `arg1..arg2`.
+ */
+#define PC_GIT_RANGE 3
+
+/**
+ * Side values crossing the boundary.
+ */
+#define PC_SIDE_LEFT 0
+
+#define PC_SIDE_RIGHT 1
+
+/**
+ * Review events crossing the boundary.
+ */
+#define PC_EVENT_REVIEW_COMMENT 0
+
+#define PC_EVENT_REVIEW_APPROVE 1
+
+#define PC_EVENT_REVIEW_REQUEST_CHANGES 2
+
+/**
  * Root handle for a core instance. Create with [`pc_app_new`], release with
  * [`pc_app_free`].
  */
@@ -27,8 +63,8 @@ typedef struct PcApp PcApp;
 typedef struct PcConfig PcConfig;
 
 /**
- * A review session over one diff source. Create with
- * [`pc_session_new_from_patch`], release with [`pc_session_free`].
+ * A review session over one diff source. Create with one of the
+ * `pc_session_new_*` constructors, release with [`pc_session_free`].
  */
 typedef struct PcSession PcSession;
 
@@ -102,6 +138,41 @@ struct PcSession *pc_session_new_from_patch(const char *title,
                                             char **error_out);
 
 /**
+ * Opens a session over a file on disk: a unified diff, or a
+ * review-exchange document (detected by content, never filename — an
+ * exchange session rewrites its file on every save).
+ */
+struct PcSession *pc_session_new_from_file(const char *path, uintptr_t path_len, char **error_out);
+
+/**
+ * Opens a session over a local git comparison rooted at `repo`.
+ */
+struct PcSession *pc_session_new_from_git(const char *repo,
+                                          uintptr_t repo_len,
+                                          uint32_t kind,
+                                          const char *arg1,
+                                          uintptr_t arg1_len,
+                                          const char *arg2,
+                                          uintptr_t arg2_len,
+                                          uint32_t context,
+                                          char **error_out);
+
+/**
+ * Opens a session over a pull request. `reference` accepts every spelling
+ * (URL, `owner/repo#N`, bare number); `repo_hint` is a local checkout used
+ * to infer host/owner/repo for underspecified references (may be empty).
+ *
+ * Fetches the host's canonical diff, metadata, and review threads through
+ * the forge CLI — a blocking call; run it off the UI thread and hand the
+ * session over once built.
+ */
+struct PcSession *pc_session_new_from_pr(const char *reference,
+                                         uintptr_t reference_len,
+                                         const char *repo_hint,
+                                         uintptr_t repo_hint_len,
+                                         char **error_out);
+
+/**
  * Releases a session handle.
  */
 void pc_session_free(struct PcSession *session);
@@ -123,6 +194,122 @@ uintptr_t pc_session_file_count(const struct PcSession *session);
  * Returns null for an out-of-range index. Release with [`pc_string_free`].
  */
 char *pc_session_file_json(const struct PcSession *session, uintptr_t index);
+
+/**
+ * Attaches the persistence directory: loads any saved draft for this
+ * source (re-anchoring it if the head moved) and persists every later
+ * change. Returns a warning string when the saved draft was unreadable
+ * (released with [`pc_string_free`]), null otherwise.
+ */
+char *pc_session_attach_store(struct PcSession *session, const char *dir, uintptr_t dir_len);
+
+/**
+ * Sets the author attributed to new comments and replies.
+ */
+void pc_session_set_author(struct PcSession *session, const char *author, uintptr_t author_len);
+
+/**
+ * Adds a draft comment on one side of one file's lines. `reply_to` is a
+ * host comment id (0 = a plain comment). Validates host semantics,
+ * captures anchor and snippet, persists, and returns the new comment's
+ * local id — or null with `error_out` set.
+ */
+char *pc_session_add_comment(struct PcSession *session,
+                             uintptr_t file_index,
+                             uint32_t side,
+                             uint32_t start_line,
+                             uint32_t end_line,
+                             const char *body,
+                             uintptr_t body_len,
+                             int64_t reply_to,
+                             char **error_out);
+
+/**
+ * Rewrites a draft comment's body. `false` if the id is unknown.
+ */
+bool pc_session_update_comment(struct PcSession *session,
+                               const char *local_id,
+                               uintptr_t local_id_len,
+                               const char *body,
+                               uintptr_t body_len);
+
+/**
+ * Deletes a draft comment. `false` if the id is unknown.
+ */
+bool pc_session_delete_comment(struct PcSession *session,
+                               const char *local_id,
+                               uintptr_t local_id_len);
+
+/**
+ * Dismiss ↔ restore a draft comment (kept, never submitted while
+ * dismissed).
+ */
+bool pc_session_toggle_dismiss(struct PcSession *session,
+                               const char *local_id,
+                               uintptr_t local_id_len);
+
+/**
+ * Appends a reply to a draft comment's travelling conversation.
+ */
+bool pc_session_add_reply(struct PcSession *session,
+                          const char *local_id,
+                          uintptr_t local_id_len,
+                          const char *body,
+                          uintptr_t body_len);
+
+/**
+ * Every draft comment (with its location and state) as a JSON array.
+ * Release with [`pc_string_free`].
+ */
+char *pc_session_comments_json(const struct PcSession *session);
+
+/**
+ * Existing host review threads as a JSON array (empty string outside PR
+ * mode). Release with [`pc_string_free`].
+ */
+char *pc_session_threads_json(const struct PcSession *session);
+
+/**
+ * Pull-request metadata as JSON (empty string outside PR mode). Release
+ * with [`pc_string_free`].
+ */
+char *pc_session_pr_json(const struct PcSession *session);
+
+/**
+ * The review summary.
+ */
+char *pc_session_summary(const struct PcSession *session);
+
+/**
+ * Sets the review summary (persisted immediately).
+ */
+bool pc_session_set_summary(struct PcSession *session, const char *summary, uintptr_t summary_len);
+
+/**
+ * Sets the submission event.
+ */
+void pc_session_set_event(struct PcSession *session, uint32_t event);
+
+/**
+ * Exports the review to `path`: `.json` writes a review-exchange
+ * document, anything else Markdown. `false` with `error_out` on failure.
+ */
+bool pc_session_export_to_file(const struct PcSession *session,
+                               const char *path,
+                               uintptr_t path_len,
+                               char **error_out);
+
+/**
+ * Submits the draft to the pull request: one atomic review, then staged
+ * replies, then conversation comments. Blocking — run off the UI thread.
+ *
+ * Returns JSON `{"posted": n, "remaining": n, "skipped_dismissed": n,
+ * "skipped_orphaned": n, "error": "…"|null}`. Accepted drafts are removed
+ * and the draft persisted **before** any error is reported, so a retry
+ * sends only what is still pending — never a duplicate. Null only for a
+ * session that is not in PR mode.
+ */
+char *pc_session_submit(struct PcSession *session);
 
 /**
  * Loads the configuration file at `path`. Never fails: a missing file is

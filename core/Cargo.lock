@@ -233,6 +233,7 @@ version = "0.1.0"
 dependencies = [
  "cbindgen",
  "prchum-core",
+ "prchum-forge",
  "serde_json",
 ]
 
