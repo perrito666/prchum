@@ -559,7 +559,11 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
                     self.presentInfo(
                         "Posted \(result.posted); \(result.remaining) kept as drafts.\n\(error)")
                 } else {
-                    self.presentInfo("Review submitted (\(result.posted) item\(result.posted == 1 ? "" : "s") posted).")
+                    // Submitted: stamp the history and land back home.
+                    self.session.recordHistory(submitted: true)
+                    self.presentInfo(
+                        "Review submitted (\(result.posted) item\(result.posted == 1 ? "" : "s") posted)."
+                    ) { self.close() }
                 }
             } catch {
                 self.presentInfo("\(error)")
@@ -798,11 +802,11 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    private func presentInfo(_ message: String) {
+    private func presentInfo(_ message: String, then completion: (() -> Void)? = nil) {
         guard let window else { return }
         let alert = NSAlert()
         alert.messageText = message
-        alert.beginSheetModal(for: window)
+        alert.beginSheetModal(for: window) { _ in completion?() }
     }
 }
 

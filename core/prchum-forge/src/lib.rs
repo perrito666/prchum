@@ -46,6 +46,9 @@ pub struct ThreadInfo {
 #[derive(Clone, Debug, Serialize)]
 pub struct PullRequest {
     pub number: u64,
+    /// `open` or `closed` (a merged request reads closed + merged).
+    pub state: String,
+    pub merged: bool,
     pub title: String,
     pub body: String,
     pub author: String,

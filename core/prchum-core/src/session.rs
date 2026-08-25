@@ -31,6 +31,9 @@ pub struct Session {
     threads_json: String,
     /// Pull-request metadata (PR mode), opaque JSON for the shell.
     pr_json: String,
+    /// How the home screen reopens this session: a URL, a path, or a git
+    /// spec. Empty for stdin-style sources that cannot reopen.
+    reopen_hint: String,
     /// Fetches a file's new-side content by path, for the context view.
     content_provider: Option<Box<dyn Fn(&str) -> Result<String, String> + Send>>,
     /// Context projections, built once per file.
@@ -64,7 +67,9 @@ impl Session {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| path.to_string());
         let key = format!("patch-{}", fnv64_hex(absolute.as_bytes()));
-        Self::from_patch_keyed(&title, &text, key)
+        let mut session = Self::from_patch_keyed(&title, &text, key)?;
+        session.reopen_hint = absolute;
+        Ok(session)
     }
 
     pub fn from_patch_keyed(
@@ -91,6 +96,7 @@ impl Session {
             exchange_patch: Vec::new(),
             threads_json: String::new(),
             pr_json: String::new(),
+            reopen_hint: String::new(),
             content_provider: None,
             context_cache: std::collections::HashMap::new(),
         })
@@ -101,6 +107,15 @@ impl Session {
         let diff = git_diff(repo, spec, context).map_err(|message| ParseError { message })?;
         let mut session = Self::from_patch_keyed(&diff.title, &diff.patch, diff.source_key)?;
         session.head_oid = diff.head_oid;
+        let (kind_tag, arg1, arg2) = match spec {
+            GitSpec::WorkingTree => ("worktree", String::new(), String::new()),
+            GitSpec::Staged => ("staged", String::new(), String::new()),
+            GitSpec::Base(base) => ("base", base.clone(), String::new()),
+            GitSpec::Range(a, b) => ("range", a.clone(), b.clone()),
+        };
+        let sep = '\u{1F}';
+        session.reopen_hint =
+            format!("{}{sep}{kind_tag}{sep}{arg1}{sep}{arg2}", diff.repo_root);
         let root = diff.repo_root;
         let new_rev = diff.new_rev;
         session.content_provider = Some(Box::new(move |path| {
@@ -132,6 +147,7 @@ impl Session {
         session.draft.comments = exchange::to_drafts(&doc, &session.files);
         session.draft.summary = doc.summary.clone();
         session.exchange_patch = doc.patch;
+        session.reopen_hint = absolute.clone();
         session.exchange_path = Some(absolute);
         Ok(session)
     }
@@ -234,6 +250,30 @@ impl Session {
 
     pub fn raw_patch(&self) -> &str {
         &self.raw_patch
+    }
+
+    /// The source kind, from the key's prefix.
+    pub fn kind(&self) -> &'static str {
+        for prefix in ["gh", "fj"] {
+            if self.source_key.starts_with(prefix) {
+                return "pr";
+            }
+        }
+        if self.source_key.starts_with("git-") {
+            "git"
+        } else if self.source_key.starts_with("exchange-") {
+            "exchange"
+        } else {
+            "patch"
+        }
+    }
+
+    pub fn reopen_hint(&self) -> &str {
+        &self.reopen_hint
+    }
+
+    pub fn set_reopen_hint(&mut self, hint: &str) {
+        self.reopen_hint = hint.to_string();
     }
 
     /// Installs the function the context view fetches new-side file

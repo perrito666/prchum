@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let targets = (pendingPaths + cliTargets).filter { seen.insert($0).inserted }
         pendingPaths = []
         if targets.isEmpty {
-            showWelcomeChooser()
+            showHome()
         } else {
             for target in targets {
                 if FileManager.default.fileExists(atPath: target) {
@@ -49,25 +49,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// The launch chooser: what kind of source to review. Every dialog's
-    /// cancel returns here while no window is open, so the app never
-    /// strands you (or quits) for picking the wrong door.
-    private func showWelcomeChooser() {
-        let alert = NSAlert()
-        alert.messageText = "Prchum"
-        alert.informativeText = "What would you like to review?"
-        alert.addButton(withTitle: "Pull Request…")
-        alert.addButton(withTitle: "Review Queue")
-        alert.addButton(withTitle: "Patch File…")
-        alert.addButton(withTitle: "Git Repository…")
-        alert.addButton(withTitle: "Quit")
-        switch alert.runModal() {
-        case .alertFirstButtonReturn: openPullRequest(nil)
-        case .alertSecondButtonReturn: showReviewQueue(nil)
-        case .alertThirdButtonReturn: openDocument(nil)
-        case NSApplication.ModalResponse(rawValue: 1003): openGitComparison(nil)
-        default: NSApp.terminate(nil)
+    private var home: HomeWindowController?
+
+    /// The landing screen: the review history plus the doors in. Also the
+    /// place a finished review returns to.
+    @objc func showHome(_ sender: Any? = nil) {
+        if home == nil {
+            let controller = HomeWindowController()
+            controller.onOpenEntry = { [weak self] entry in
+                self?.reopen(entry)
+            }
+            controller.onClose = { [weak self] in self?.home = nil }
+            home = controller
         }
+        home?.refresh()
+        home?.showWindow(nil)
+        home?.window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Reopens a history entry the way it was first opened.
+    private func reopen(_ entry: HistoryEntry) {
+        switch entry.kind {
+        case "pr":
+            openPullRequest(reference: entry.reopen)
+        case "git":
+            let parts = entry.reopen.split(
+                separator: "\u{1F}", omittingEmptySubsequences: false
+            ).map(String.init)
+            guard parts.count == 4 else {
+                presentReopenFailure(entry)
+                return
+            }
+            let comparison: GitComparison
+            switch parts[1] {
+            case "staged": comparison = .staged
+            case "base": comparison = .base(parts[2])
+            case "range": comparison = .range(parts[2], parts[3])
+            default: comparison = .workingTree
+            }
+            do {
+                adopt(session: try CoreSession(gitRepo: parts[0], comparison: comparison))
+            } catch {
+                presentOpenFailure("Could not reopen \(entry.title)", error)
+            }
+        default:
+            guard FileManager.default.fileExists(atPath: entry.reopen) else {
+                presentReopenFailure(entry)
+                return
+            }
+            openReview(atPath: entry.reopen)
+        }
+    }
+
+    private func presentReopenFailure(_ entry: HistoryEntry) {
+        let alert = NSAlert()
+        alert.messageText = "Could not reopen \(entry.title)"
+        alert.informativeText = "The source is gone. Remove the entry with ⌫."
+        alert.runModal()
     }
 
     private var queueController: ReviewQueueWindowController?
@@ -90,7 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         empty.informativeText =
                             "The queue filter found no open requests. list_filter in config.json adjusts it."
                         empty.runModal()
-                        self.returnToChooserIfEmpty()
+                        self.returnToHomeIfEmpty()
                         return
                     }
                     let controller = ReviewQueueWindowController(requests: requests) {
@@ -100,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     controller.onClose = { [weak self] in
                         self?.queueController = nil
                         // Closing the queue without picking is a cancel.
-                        DispatchQueue.main.async { self?.returnToChooserIfEmpty() }
+                        DispatchQueue.main.async { self?.returnToHomeIfEmpty() }
                     }
                     self.queueController = controller
                     controller.showWindow(nil)
@@ -113,17 +151,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     failure.messageText = "Could not fetch the review queue"
                     failure.informativeText = "\(error)"
                     failure.runModal()
-                    self.returnToChooserIfEmpty()
+                    self.returnToHomeIfEmpty()
                 }
             }
         }
     }
 
-    /// Back to the chooser when a dialog was cancelled or failed and there
+    /// Back home when a dialog was cancelled or a window closed and there
     /// is nothing else on screen — and nothing on its way to the screen.
-    private func returnToChooserIfEmpty() {
+    private func returnToHomeIfEmpty() {
         if windows.isEmpty && pendingOpens == 0 && queueController == nil {
-            showWelcomeChooser()
+            showHome()
         }
     }
 
@@ -152,7 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let patch = UTType(filenameExtension: "patch") { types.append(patch) }
         panel.allowedContentTypes = types
         guard panel.runModal() == .OK, let url = panel.url else {
-            returnToChooserIfEmpty()
+            returnToHomeIfEmpty()
             return
         }
         openReview(atPath: url.path)
@@ -168,11 +206,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func adopt(session: CoreSession) {
+        session.recordHistory()
         let controller = ReviewWindowController(session: session)
         controller.onClose = { [weak self] closed in
             self?.windows.removeAll { $0 === closed }
+            // A closed review lands back on the home screen — synchronously,
+            // so the quit-on-last-window check already sees home open.
+            self?.returnToHomeIfEmpty()
         }
         windows.append(controller)
+        home?.close()
         controller.showWindow(nil)
     }
 
@@ -182,7 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = "\(error)"
         alert.alertStyle = .warning
         alert.runModal()
-        returnToChooserIfEmpty()
+        returnToHomeIfEmpty()
     }
 
     /// Open a PR by URL, `owner/repo#N`, or bare number (inferred from the
@@ -208,12 +251,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Open")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else {
-            returnToChooserIfEmpty()
+            returnToHomeIfEmpty()
             return
         }
         let reference = field.stringValue.trimmingCharacters(in: .whitespaces)
         guard !reference.isEmpty else {
-            returnToChooserIfEmpty()
+            returnToHomeIfEmpty()
             return
         }
         openPullRequest(reference: reference)
@@ -267,7 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     failure.messageText = "Could not open \(reference)"
                     failure.informativeText = "\(error)"
                     failure.runModal()
-                    self.returnToChooserIfEmpty()
+                    self.returnToHomeIfEmpty()
                 }
             }
         }
@@ -300,7 +343,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.canChooseDirectories = true
         panel.message = "Choose a git repository to review"
         guard panel.runModal() == .OK, let url = panel.url else {
-            returnToChooserIfEmpty()
+            returnToHomeIfEmpty()
             return
         }
 
@@ -319,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Review")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else {
-            returnToChooserIfEmpty()
+            returnToHomeIfEmpty()
             return
         }
 

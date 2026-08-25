@@ -359,6 +359,37 @@ char *pc_config_keys_json(const struct PcConfig *config);
 char *pc_list_requests(const char *config_path, uintptr_t config_path_len, char **error_out);
 
 /**
+ * Records (or refreshes) this session in the review history at `dir`.
+ * `submitted` also stamps the submission time. `false` on failure.
+ */
+bool pc_session_record_history(const struct PcSession *session,
+                               const char *dir,
+                               uintptr_t dir_len,
+                               bool submitted);
+
+/**
+ * The review history at `dir` as a JSON array, newest first. Release
+ * with [`pc_string_free`].
+ */
+char *pc_history_list_json(const char *dir, uintptr_t dir_len);
+
+/**
+ * Removes one history entry by source key (the user's hand deletion).
+ */
+bool pc_history_remove(const char *dir, uintptr_t dir_len, const char *key, uintptr_t key_len);
+
+/**
+ * Prunes history entries whose pull request is merged, closed, or gone,
+ * asking each entry's forge. Blocking (one network call per PR entry) —
+ * run off the UI thread. Network failures never prune; only a definite
+ * answer does. Returns the surviving entries as JSON, newest first.
+ */
+char *pc_history_prune_json(const char *dir,
+                            uintptr_t dir_len,
+                            const char *config_path,
+                            uintptr_t config_path_len);
+
+/**
  * The syntax style table as a JSON array of `{light, dark, flags}`
  * (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
  * Style ids in highlight spans index this table. Release with

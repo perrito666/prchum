@@ -10,6 +10,7 @@ pub mod context;
 pub mod diff;
 pub mod exchange;
 pub mod export;
+pub mod history;
 pub mod location;
 pub mod review;
 pub mod session;

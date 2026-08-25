@@ -353,6 +353,12 @@ fn build_pr_session(
     session.set_head_oid(&metadata.head_oid);
     session.set_pr_json(serde_json::to_string(&metadata).unwrap_or_default());
     session.set_threads_json(serde_json::to_string(&threads).unwrap_or_default());
+    let reopen = if metadata.url.is_empty() {
+        pr_ref.web_url(kind)
+    } else {
+        metadata.url.clone()
+    };
+    session.set_reopen_hint(&reopen);
 
     // The context view fetches new-side content at the head revision.
     let provider_ref = pr_ref.clone();
@@ -878,6 +884,141 @@ pub unsafe extern "C" fn pc_list_requests(
             unsafe { write_error(error_out, "internal error while listing requests") };
             std::ptr::null_mut()
         }
+    }
+}
+
+/// Records (or refreshes) this session in the review history at `dir`.
+/// `submitted` also stamps the submission time. `false` on failure.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_record_history(
+    session: *const PcSession,
+    dir: *const c_char,
+    dir_len: usize,
+    submitted: bool,
+) -> bool {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return false;
+    };
+    let Some(dir) = (unsafe { str_from_raw(dir, dir_len) }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| {
+        let inner = &session.inner;
+        let display = match inner.kind() {
+            "pr" => session
+                .pr
+                .as_ref()
+                .map(|c| {
+                    format!(
+                        "{}/{}#{}",
+                        c.reference.owner, c.reference.repo, c.reference.number
+                    )
+                })
+                .unwrap_or_default(),
+            "git" => inner
+                .reopen_hint()
+                .split('\u{1F}')
+                .next()
+                .unwrap_or_default()
+                .to_string(),
+            _ => inner.reopen_hint().to_string(),
+        };
+        let entry = prchum_core::history::HistoryEntry {
+            key: inner.source_key().to_string(),
+            kind: inner.kind().to_string(),
+            title: inner.title().to_string(),
+            display,
+            reopen: inner.reopen_hint().to_string(),
+            last_opened: String::new(),
+            submitted_at: String::new(),
+        };
+        prchum_core::history::record(dir, entry, submitted).is_ok()
+    }))
+    .unwrap_or(false)
+}
+
+/// The review history at `dir` as a JSON array, newest first. Release
+/// with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_history_list_json(dir: *const c_char, dir_len: usize) -> *mut c_char {
+    let Some(dir) = (unsafe { str_from_raw(dir, dir_len) }) else {
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        serde_json::to_string(&prchum_core::history::load(dir)).unwrap_or_default()
+    }));
+    owned_c_string(result.unwrap_or_default())
+}
+
+/// Removes one history entry by source key (the user's hand deletion).
+#[no_mangle]
+pub unsafe extern "C" fn pc_history_remove(
+    dir: *const c_char,
+    dir_len: usize,
+    key: *const c_char,
+    key_len: usize,
+) -> bool {
+    let Some(dir) = (unsafe { str_from_raw(dir, dir_len) }) else {
+        return false;
+    };
+    let Some(key) = (unsafe { str_from_raw(key, key_len) }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| {
+        prchum_core::history::remove(dir, key).is_ok()
+    }))
+    .unwrap_or(false)
+}
+
+/// Prunes history entries whose pull request is merged, closed, or gone,
+/// asking each entry's forge. Blocking (one network call per PR entry) —
+/// run off the UI thread. Network failures never prune; only a definite
+/// answer does. Returns the surviving entries as JSON, newest first.
+#[no_mangle]
+pub unsafe extern "C" fn pc_history_prune_json(
+    dir: *const c_char,
+    dir_len: usize,
+    config_path: *const c_char,
+    config_path_len: usize,
+) -> *mut c_char {
+    let Some(dir) = (unsafe { str_from_raw(dir, dir_len) }) else {
+        return std::ptr::null_mut();
+    };
+    let config_path = unsafe { str_from_raw(config_path, config_path_len) }.unwrap_or_default();
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let config = if config_path.is_empty() {
+            Config::default()
+        } else {
+            Config::load(std::path::Path::new(config_path))
+        };
+        let kept = prchum_core::history::prune(dir, |entry| {
+            if entry.kind != "pr" {
+                // Files and comparisons only leave by hand.
+                return false;
+            }
+            let Some(pr_ref) = parse_ref(&entry.reopen) else {
+                return false;
+            };
+            let kind = kind_for_host(&pr_ref.host, config.forge_for_host(&pr_ref.host));
+            let forge: Box<dyn Forge> = match kind {
+                ForgeKind::Forgejo => Box::new(ForgejoForge::with_runner(
+                    ProcessRunner,
+                    config.forgejo_api_command(),
+                )),
+                ForgeKind::GitLab => return false,
+                _ => Box::new(GhForge::new()),
+            };
+            match forge.pull_request(&pr_ref) {
+                Ok(pr) => pr.merged || pr.state == "closed",
+                // 404 means gone; anything else (auth, network) keeps it.
+                Err(error) => error.contains("404") || error.contains("Not Found"),
+            }
+        });
+        kept.map(|entries| serde_json::to_string(&entries).unwrap_or_default())
+    }));
+    match result {
+        Ok(Ok(json)) => owned_c_string(json),
+        _ => std::ptr::null_mut(),
     }
 }
 

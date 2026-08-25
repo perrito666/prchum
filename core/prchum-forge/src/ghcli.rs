@@ -95,6 +95,8 @@ impl<R: Runner> Forge for GhForge<R> {
         let value: Value = parse_json(&text)?;
         Ok(PullRequest {
             number: pr.number,
+            state: str_at(&value, "state"),
+            merged: value["merged"].as_bool().unwrap_or(false),
             title: str_at(&value, "title"),
             body: str_at(&value, "body"),
             author: value["user"]["login"].as_str().unwrap_or_default().to_string(),
