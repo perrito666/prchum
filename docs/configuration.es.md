@@ -13,6 +13,10 @@ desconocidas se toleran.
     "next-hunk": "cmd+alt+n",
     "toggle-wrap": ""
   },
+  "keymap": "mio",
+  "keymaps": {
+    "mio": { "reply": "cmd+alt+r" }
+  },
   "forges": { "git.example.com": "forgejo" },
   "forgejo_api_command": "fj -H {host} api {method} {path}",
   "list_engine": "gh",
@@ -22,6 +26,10 @@ desconocidas se toleran.
 ```
 
 ## Teclas
+
+`keymap` selecciona un mapa con nombre de `keymaps` como capa base;
+las `keys` de nivel superior lo sobrescriben — capas de capas. Un nombre
+desconocido se registra y no aporta nada.
 
 `keys` asocia nombres de acción con especificaciones de tecla. Una
 especificación son modificadores más una tecla: `cmd`/`command`,
@@ -37,7 +45,10 @@ Nombres de acción: `open`, `open-pr`, `open-git`, `review-queue`,
 `next-file`, `prev-file`, `toggle-sidebar`, `toggle-layout`,
 `toggle-wrap`, `toggle-syntax`, `toggle-fold`, `expand-all`,
 `collapse-all`, `find`, `comment`, `edit-comment`, `delete-comment`,
-`dismiss-comment`, `reply`, `pr-info`, `submit`.
+`dismiss-comment`, `reply`, `open-at-caret`, `suggest`, `comments`,
+`general`, `toggle-context`, `toggle-fold`, `expand-all`,
+`collapse-all`… — every menu item names its action; the full list
+lives in the Keymap source.
 
 ## Forjas
 

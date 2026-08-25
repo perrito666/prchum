@@ -231,6 +231,7 @@ fn comment_from(item: &Value) -> Comment {
         body: str_at(item, "body"),
         created_at: str_at(item, "created_at"),
         url: str_at(item, "html_url"),
+        image_map: Default::default(),
     }
 }
 

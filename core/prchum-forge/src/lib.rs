@@ -23,6 +23,11 @@ pub struct Comment {
     pub body: String,
     pub created_at: String,
     pub url: String,
+    /// Session-gated attachment URLs in `body` → the signed, anonymously
+    /// fetchable variants the host's rendered HTML carries (GitHub's
+    /// user-attachments). Empty for hosts without the distinction.
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub image_map: std::collections::BTreeMap<String, String>,
 }
 
 /// A review thread anchored to a diff position.

@@ -114,7 +114,13 @@ impl<R: Runner> Forge for GhForge<R> {
 
     fn threads(&self, pr: &PullRequestRef) -> Result<Vec<ThreadInfo>, String> {
         let path = Self::repo_path(pr, &format!("pulls/{}/comments", pr.number));
-        let text = self.api(pr, &[&path, "--paginate"], None)?;
+        // full+json adds body_html, whose img tags carry the signed
+        // variants of session-gated attachment URLs.
+        let text = self.api(
+            pr,
+            &[&path, "--paginate", "-H", "Accept: application/vnd.github.full+json"],
+            None,
+        )?;
         let items = parse_paginated(&text)?;
 
         // Roots first (no in_reply_to_id), replies attach to their root.
@@ -153,7 +159,11 @@ impl<R: Runner> Forge for GhForge<R> {
     fn general_comments(&self, pr: &PullRequestRef) -> Result<Vec<Comment>, String> {
         // A pull request is an issue with code attached.
         let path = Self::repo_path(pr, &format!("issues/{}/comments", pr.number));
-        let text = self.api(pr, &[&path, "--paginate"], None)?;
+        let text = self.api(
+            pr,
+            &[&path, "--paginate", "-H", "Accept: application/vnd.github.full+json"],
+            None,
+        )?;
         Ok(parse_paginated(&text)?.iter().map(comment_from).collect())
     }
 
@@ -233,13 +243,54 @@ fn parse_paginated(text: &str) -> Result<Vec<Value>, String> {
 }
 
 fn comment_from(item: &Value) -> Comment {
+    let body = str_at(item, "body");
     Comment {
         id: item["id"].as_i64().unwrap_or(0),
         author: item["user"]["login"].as_str().unwrap_or_default().to_string(),
-        body: str_at(item, "body"),
+        image_map: attachment_map(&body, item["body_html"].as_str().unwrap_or_default()),
+        body,
         created_at: str_at(item, "created_at"),
         url: str_at(item, "html_url"),
     }
+}
+
+/// Maps session-gated `github.com/user-attachments/assets/<id>` URLs in
+/// the body to the signed `private-user-images` variants the rendered
+/// HTML carries — matched by the asset id embedded in the signed URL.
+/// Deliberately not fetched through gh: the raw asset URLs answer API
+/// credentials with a viewer page, not the asset.
+fn attachment_map(
+    body: &str,
+    body_html: &str,
+) -> std::collections::BTreeMap<String, String> {
+    let mut map = std::collections::BTreeMap::new();
+    if body_html.is_empty() {
+        return map;
+    }
+    // Signed URLs out of the HTML's src attributes.
+    let mut signed: Vec<String> = Vec::new();
+    for chunk in body_html.split("src=\"").skip(1) {
+        if let Some(url) = chunk.split('"').next() {
+            if url.contains("private-user-images.githubusercontent.com") {
+                signed.push(url.to_string());
+            }
+        }
+    }
+    // Gated URLs out of the plain body, matched by asset id.
+    for chunk in body.split("github.com/user-attachments/assets/").skip(1) {
+        let id: String = chunk
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .collect();
+        if id.is_empty() {
+            continue;
+        }
+        let original = format!("https://github.com/user-attachments/assets/{id}");
+        if let Some(url) = signed.iter().find(|s| s.contains(&id)) {
+            map.insert(original, url.clone());
+        }
+    }
+    map
 }
 
 fn str_at(value: &Value, key: &str) -> String {
@@ -368,6 +419,17 @@ mod tests {
         let calls = forge.runner.calls.lock().unwrap();
         assert_eq!(calls[0].0[1], "repos/o/r/pulls/7/comments/99/replies");
         assert!(calls[0].1.as_ref().unwrap().contains("hello"));
+    }
+
+    #[test]
+    fn attachment_map_matches_by_asset_id() {
+        let body = "look:\nhttps://github.com/user-attachments/assets/abc-123\nand text";
+        let html = r#"<p>look:</p><img src="https://private-user-images.githubusercontent.com/1/abc-123.png?jwt=tok"><p>and text</p>"#;
+        let map = attachment_map(body, html);
+        assert_eq!(map.len(), 1);
+        assert!(map["https://github.com/user-attachments/assets/abc-123"].contains("jwt=tok"));
+        assert!(attachment_map(body, "").is_empty());
+        assert!(attachment_map("no attachments", html).is_empty());
     }
 
     #[test]

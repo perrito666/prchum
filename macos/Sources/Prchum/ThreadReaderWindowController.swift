@@ -15,6 +15,7 @@ final class ThreadReaderWindowController: NSWindowController, NSWindowDelegate,
         /// Root = nil; replies carry their index.
         let replyIndex: Int?
         let editable: Bool
+        var imageMap: [String: String] = [:]
     }
 
     private var items: [Item] = []
@@ -150,6 +151,7 @@ final class ThreadReaderWindowController: NSWindowController, NSWindowDelegate,
             MarkdownRenderer.render(
                 markdown: item.body,
                 header: "@\(item.author)  \(item.date)",
+                imageMap: item.imageMap,
                 onImagesLoaded: { [weak self] in self?.showDetail() }))
     }
 

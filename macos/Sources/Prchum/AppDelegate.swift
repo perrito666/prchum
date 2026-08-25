@@ -24,6 +24,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("theme: %@", warning)
         }
         applyAppearance(config.appearance)
+        let selection = config.keymapSelection
+        if !selection.exists {
+            NSLog(
+                "config: keymap %@ is not defined in keymaps — defaults apply",
+                selection.name)
+        }
         for problem in keymap.problems {
             NSLog("config: %@ — the default binding stays", problem)
         }

@@ -106,6 +106,13 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         onClose?(self)
     }
 
+    func windowDidEndLiveResize(_ notification: Notification) {
+        // Split panels are sized in columns of the current width.
+        if layout == .split {
+            refreshReviewState()
+        }
+    }
+
     // MARK: - Navigation actions
 
     @objc func nextChange(_ sender: Any?) {
@@ -431,7 +438,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
                     thread.comments.map {
                         .init(
                             author: $0.author, date: $0.createdAt, body: $0.body,
-                            replyIndex: nil, editable: false)
+                            replyIndex: nil, editable: false,
+                            imageMap: $0.imageMap ?? [:])
                     }
                 },
                 onReply: { [weak self] body in
@@ -692,7 +700,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             reload: {
                 var items = session.generalComments().map {
                     ConversationWindowController.Item(
-                        author: $0.author, date: $0.createdAt, body: $0.body, draftID: nil)
+                        author: $0.author, date: $0.createdAt, body: $0.body,
+                        draftID: nil, imageMap: $0.imageMap ?? [:])
                 }
                 items += session.generalDrafts().map {
                     ConversationWindowController.Item(
@@ -936,6 +945,14 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         } else {
             highlights = nil
         }
+        // Split panels share the visible width: measure how many
+        // monospaced columns fit half of it, past each panel's 9-column
+        // prefix and the divider.
+        let charWidth = ("0" as NSString).size(withAttributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        ]).width
+        let available = diffScrollView.contentSize.width - 16
+        let perPanel = Int((available / max(charWidth, 1)) / 2) - 9 - 2
         let rendered = DiffRenderer.render(
             file: file,
             comments: comments.filter { $0.location.path == path },
@@ -945,7 +962,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
             // Fold indexes belong to the real diff's hunks, not the
             // projection's; folding sits out of context mode.
             foldedHunks: inContext ? [] : (foldedHunks[index] ?? []),
-            layout: layout)
+            layout: layout,
+            splitCodeWidth: max(perPanel, 30))
         self.rendered = rendered
         diffTextView.textStorage?.setAttributedString(rendered.text)
     }
@@ -1253,7 +1271,8 @@ enum DiffRenderer {
         highlights: [[[HighlightSpan]]]? = nil,
         mode: SyntaxMode = .syntax,
         foldedHunks: Set<Int> = [],
-        layout: DiffLayout = .unified
+        layout: DiffLayout = .unified,
+        splitCodeWidth: Int = 60
     ) -> RenderedDiff {
         let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         let boldFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
@@ -1408,7 +1427,7 @@ enum DiffRenderer {
                     }
                 }
 
-                let codeWidth = 60
+                let codeWidth = splitCodeWidth
                 for (leftIndex, rightIndex) in pairs {
                     let left = leftIndex.map { hunk.lines[$0] }
                     let right = rightIndex.map { hunk.lines[$0] }

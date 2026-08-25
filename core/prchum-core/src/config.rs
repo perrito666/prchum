@@ -30,6 +30,10 @@ pub struct Config {
     /// The Forgejo host discovery searches (the `forgejo` engine needs
     /// one; requests are host-scoped).
     list_host: String,
+    /// The named keymap `keys` overlays (from `keymaps`).
+    keymap: String,
+    /// User-defined named keymaps: name → {action → key spec}.
+    keymaps: BTreeMap<String, BTreeMap<String, String>>,
     /// Syntax theme name: a built-in or a themes/<name>.json file.
     theme: String,
     /// `system` (default) | `light` | `dark`.
@@ -66,6 +70,43 @@ impl Config {
         };
         let mut config = Self::default();
         Self::read_string_map(object, "keys", &mut config.keys, &mut config.load_warning);
+        if let Some(value) = object.get("keymaps") {
+            match value.as_object() {
+                Some(maps) => {
+                    for (name, entries) in maps {
+                        let mut map = BTreeMap::new();
+                        if let Some(entries) = entries.as_object() {
+                            for (action, spec) in entries {
+                                if let Some(spec) = spec.as_str() {
+                                    map.insert(action.clone(), spec.to_string());
+                                } else {
+                                    config.load_warning = Some(format!(
+                                        "keymaps.{name}.{action} must be a string; ignored"
+                                    ));
+                                }
+                            }
+                        } else {
+                            config.load_warning = Some(format!(
+                                "keymaps.{name} must be an object of action → key spec"
+                            ));
+                        }
+                        config.keymaps.insert(name.clone(), map);
+                    }
+                }
+                None => {
+                    config.load_warning =
+                        Some("keymaps must be an object of named keymaps".to_string());
+                }
+            }
+        }
+        if let Some(value) = object.get("keymap") {
+            match value.as_str() {
+                Some(name) => config.keymap = name.to_string(),
+                None => {
+                    config.load_warning = Some("keymap must be a string; ignored".to_string());
+                }
+            }
+        }
         Self::read_string_map(object, "forges", &mut config.forges, &mut config.load_warning);
         for (key, target) in [
             ("forgejo_api_command", 0usize),
@@ -131,9 +172,30 @@ impl Config {
         self.load_warning.as_deref()
     }
 
-    /// Key-binding overrides as a JSON object string.
+    /// The effective key-binding overrides as a JSON object string: the
+    /// selected named keymap (when any), with top-level `keys` on top —
+    /// overrides of overrides, textchum-style.
     pub fn keys_json(&self) -> String {
-        serde_json::to_string(&self.keys).unwrap_or_else(|_| "{}".to_string())
+        let mut effective: BTreeMap<String, String> = BTreeMap::new();
+        if !self.keymap.is_empty() {
+            match self.keymaps.get(&self.keymap) {
+                Some(base) => effective.extend(base.clone()),
+                None => {
+                    // Reported through keys the shell logs anyway: an
+                    // unknown name simply contributes nothing.
+                }
+            }
+        }
+        effective.extend(self.keys.clone());
+        serde_json::to_string(&effective).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// The selected keymap name, and whether it exists (for warnings).
+    pub fn keymap_status(&self) -> (String, bool) {
+        (
+            self.keymap.clone(),
+            self.keymap.is_empty() || self.keymaps.contains_key(&self.keymap),
+        )
     }
 
     /// The configured forge kind for `host`, if any.
@@ -206,6 +268,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             keys: BTreeMap::new(),
+            keymap: String::new(),
+            keymaps: BTreeMap::new(),
             forges: BTreeMap::new(),
             forgejo_api_command: String::new(),
             list_engine: String::new(),
@@ -256,6 +320,26 @@ mod tests {
 
         let config = Config::from_json(r#"{"keys": []}"#);
         assert!(config.load_warning().is_some());
+    }
+
+    #[test]
+    fn named_keymaps_overlay() {
+        let config = Config::from_json(
+            r#"{"keymap": "mine",
+                "keymaps": {"mine": {"next-hunk": "cmd+alt+n", "reply": "cmd+alt+r"}},
+                "keys": {"reply": "cmd+shift+r"}}"#,
+        );
+        assert!(config.load_warning().is_none());
+        // The named map is the base; top-level keys win over it.
+        assert_eq!(
+            config.keys_json(),
+            r#"{"next-hunk":"cmd+alt+n","reply":"cmd+shift+r"}"#
+        );
+        assert_eq!(config.keymap_status(), ("mine".to_string(), true));
+
+        let missing = Config::from_json(r#"{"keymap": "ghost"}"#);
+        assert_eq!(missing.keymap_status(), ("ghost".to_string(), false));
+        assert_eq!(missing.keys_json(), "{}");
     }
 
     #[test]

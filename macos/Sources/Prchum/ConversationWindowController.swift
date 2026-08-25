@@ -14,6 +14,7 @@ final class ConversationWindowController: NSWindowController, NSWindowDelegate,
         let body: String
         /// Set for staged drafts — the deletable ones.
         let draftID: String?
+        var imageMap: [String: String] = [:]
     }
 
     private var items: [Item] = []
@@ -131,6 +132,7 @@ final class ConversationWindowController: NSWindowController, NSWindowDelegate,
                 markdown: item.body,
                 header: "@\(item.author)  \(item.date)"
                     + (item.draftID != nil ? "  (staged — posts on submit)" : ""),
+                imageMap: item.imageMap,
                 onImagesLoaded: { [weak self] in self?.showDetail() }))
     }
 
@@ -225,11 +227,17 @@ enum CommentImageCache {
 
     /// Kicks a fetch when the image is unknown; `onLoad` fires on main
     /// once it arrives (never for failures — a broken URL stays a link).
-    static func fetch(_ url: String, onLoad: @escaping () -> Void) {
+    static func fetch(
+        _ url: String, via signedURL: String? = nil, onLoad: @escaping () -> Void
+    ) {
+        // Session-gated attachments fetch through their signed variant
+        // (cached under the original URL, which is what bodies reference);
+        // without one they stay links.
+        let fetchURL = signedURL ?? url
         guard images[url] == nil, !pending.contains(url),
-            url.hasPrefix("https://") || url.hasPrefix("http://"),
-            !url.contains("github.com/user-attachments/"),
-            let target = URL(string: url)
+            fetchURL.hasPrefix("https://") || fetchURL.hasPrefix("http://"),
+            !fetchURL.contains("github.com/user-attachments/"),
+            let target = URL(string: fetchURL)
         else { return }
         pending.insert(url)
         URLSession.shared.dataTask(with: target) { data, _, _ in
@@ -271,7 +279,10 @@ enum CommentImageCache {
 enum MarkdownRenderer {
     @MainActor
     static func render(
-        markdown: String, header: String? = nil, onImagesLoaded: (() -> Void)? = nil
+        markdown: String,
+        header: String? = nil,
+        imageMap: [String: String] = [:],
+        onImagesLoaded: (() -> Void)? = nil
     ) -> NSAttributedString {
         let result = NSMutableAttributedString()
         if let header {
@@ -328,7 +339,7 @@ enum MarkdownRenderer {
                     result.append(NSAttributedString(string: "\n\n"))
                     result.append(NSAttributedString(attachment: attachment))
                 } else {
-                    CommentImageCache.fetch(url, onLoad: onImagesLoaded)
+                    CommentImageCache.fetch(url, via: imageMap[url], onLoad: onImagesLoaded)
                 }
             }
         }

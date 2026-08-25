@@ -153,10 +153,14 @@ public struct HostComment: Codable, Sendable {
     public let body: String
     public let createdAt: String
     public let url: String
+    /// Session-gated attachment URLs in `body` → signed, fetchable
+    /// variants (GitHub's user-attachments).
+    public let imageMap: [String: String]?
 
     enum CodingKeys: String, CodingKey {
         case id, author, body, url
         case createdAt = "created_at"
+        case imageMap = "image_map"
     }
 }
 

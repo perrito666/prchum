@@ -12,6 +12,10 @@ touched; unknown keys are tolerated.
     "next-hunk": "cmd+alt+n",
     "toggle-wrap": ""
   },
+  "keymap": "mine",
+  "keymaps": {
+    "mine": { "reply": "cmd+alt+r" }
+  },
   "forges": { "git.example.com": "forgejo" },
   "forgejo_api_command": "fj -H {host} api {method} {path}",
   "list_engine": "gh",
@@ -21,6 +25,10 @@ touched; unknown keys are tolerated.
 ```
 
 ## Keys
+
+`keymap` selects a named keymap from `keymaps` as the base layer;
+top-level `keys` override it — overrides of overrides. An unknown name
+is logged and contributes nothing.
 
 `keys` maps action names to key specs. A spec is modifiers plus a key:
 `cmd`/`command`, `alt`/`opt`/`option`, `ctrl`/`control`, `shift`, then a

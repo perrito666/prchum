@@ -338,6 +338,7 @@ fn note_comment(note: &Value) -> Comment {
         body: str_at(note, "body"),
         created_at: str_at(note, "created_at"),
         url: String::new(),
+        image_map: Default::default(),
     }
 }
 

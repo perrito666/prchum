@@ -366,6 +366,13 @@ void pc_config_free(struct PcConfig *config);
 char *pc_config_load_warning(const struct PcConfig *config);
 
 /**
+ * The selected named keymap, or an empty string. `exists_out` (when
+ * non-null) reports whether `keymaps` defines it — the shell warns on a
+ * typo. Release with [`pc_string_free`].
+ */
+char *pc_config_keymap(const struct PcConfig *config, bool *exists_out);
+
+/**
  * The configured appearance: 0 = system, 1 = light, 2 = dark.
  */
 uint32_t pc_config_appearance(const struct PcConfig *config);

@@ -38,6 +38,13 @@ public final class CoreConfig {
         takeString(pc_config_load_warning(handle))
     }
 
+    /// The selected named keymap and whether `keymaps` defines it.
+    public var keymapSelection: (name: String, exists: Bool) {
+        var exists = false
+        let name = takeString(pc_config_keymap(handle, &exists)) ?? ""
+        return (name, exists)
+    }
+
     /// `system` | `light` | `dark`.
     public enum Appearance: UInt32 {
         case system = 0

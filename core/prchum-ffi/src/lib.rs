@@ -893,6 +893,24 @@ pub unsafe extern "C" fn pc_config_load_warning(config: *const PcConfig) -> *mut
     }
 }
 
+/// The selected named keymap, or an empty string. `exists_out` (when
+/// non-null) reports whether `keymaps` defines it — the shell warns on a
+/// typo. Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_keymap(
+    config: *const PcConfig,
+    exists_out: *mut bool,
+) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let (name, exists) = config.inner.keymap_status();
+    if !exists_out.is_null() {
+        unsafe { *exists_out = exists };
+    }
+    owned_c_string(name)
+}
+
 /// The configured appearance: 0 = system, 1 = light, 2 = dark.
 #[no_mangle]
 pub unsafe extern "C" fn pc_config_appearance(config: *const PcConfig) -> u32 {
