@@ -1,0 +1,68 @@
+site_name: Prchum
+site_url: https://perrito666.github.io/prchum/
+site_description: A native macOS code-review client with a portable compiled core.
+repo_url: https://github.com/perrito666/prchum
+repo_name: perrito666/prchum
+
+theme:
+  name: material
+  features:
+    - navigation.footer
+    - navigation.sections
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.highlight
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: es
+          name: Español
+          build: true
+          nav_translations:
+            Home: Inicio
+            Getting started: Primeros pasos
+            Reviewing: La revisión
+            Sources: Fuentes
+            Forges: Forjas
+            Configuration: Configuración
+        - locale: fr
+          name: Français
+          build: true
+          nav_translations:
+            Home: Accueil
+            Getting started: Premiers pas
+            Reviewing: La revue
+            Sources: Sources
+            Forges: Forges
+            Configuration: Configuration
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Reviewing: reviewing.md
+  - Sources: sources.md
+  - Forges: forges.md
+  - Configuration: configuration.md

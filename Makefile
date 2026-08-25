@@ -9,7 +9,7 @@ export MACOSX_DEPLOYMENT_TARGET := 14.0
 SWIFT_PKG := --package-path macos
 APP_BUNDLE := dist/Prchum.app
 
-.PHONY: all core build run test smoke header-check check app clean
+.PHONY: all core build run test smoke header-check check app docs docs-serve clean
 
 all: build
 
@@ -54,6 +54,14 @@ app: core
 	done
 	iconutil -c icns dist/Prchum.iconset -o $(APP_BUNDLE)/Contents/Resources/Prchum.icns
 
+docs:
+	python3 -m venv .docs-venv 2>/dev/null || true
+	.docs-venv/bin/pip install -q -r docs/requirements.txt
+	.docs-venv/bin/mkdocs build --strict
+
+docs-serve:
+	.docs-venv/bin/mkdocs serve
+
 clean:
 	cargo clean --manifest-path core/Cargo.toml
-	rm -rf macos/.build dist
+	rm -rf macos/.build dist site .docs-venv

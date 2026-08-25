@@ -8,3 +8,7 @@ macos/.swiftpm/
 # macOS noise
 .DS_Store
 dist/
+
+# Docs build output
+site/
+.docs-venv/

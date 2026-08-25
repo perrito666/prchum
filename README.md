@@ -1,9 +1,13 @@
 # Prchum
 
+[![Documentation](https://img.shields.io/badge/docs-perrito666.github.io%2Fprchum-f59e0b)](https://perrito666.github.io/prchum/)
+[![Latest release](https://img.shields.io/github/v/release/perrito666/prchum)](https://github.com/perrito666/prchum/releases/latest)
+[![CI](https://github.com/perrito666/prchum/actions/workflows/ci.yml/badge.svg)](https://github.com/perrito666/prchum/actions/workflows/ci.yml)
+
 A native macOS code-review client: [leanreview](https://github.com/perrito666/leanreview)'s
 functionality on [textchum](https://github.com/perrito666/textchum)'s
 architecture. Review a **patch/diff file**, a **local git comparison**, a
-**GitHub pull request**, or a **GitLab merge request** in the same app:
+**GitHub pull request**, or a **Forgejo pull request** in the same app:
 navigate the diff, attach draft comments anchored to semantic diff
 locations, then export them as Markdown / review-exchange JSON or submit
 them as a real review.
@@ -11,8 +15,12 @@ them as a real review.
 Prchum is built as a portable compiled core (Rust) behind a fully native
 shell (Swift + AppKit), meeting at a C interface. The core owns the diff
 and the review state; the shell owns the platform. It is a review client,
-not a git client: the installed `git`, `gh`, and `glab` handle repository
+not a git client: the installed `git`, `gh`, and `fj` handle repository
 and forge semantics.
+
+Full documentation — workflows, sources, forges, and configuration, in
+English, Spanish, and French — lives at
+**[perrito666.github.io/prchum](https://perrito666.github.io/prchum/)**.
 
 **Status: early but reviewing.** Working today: patch-file, git
 (worktree/staged/base/range), GitHub and Forgejo PR, and review-exchange
