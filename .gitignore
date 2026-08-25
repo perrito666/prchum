@@ -1,0 +1,10 @@
+# Rust
+core/target/
+
+# SwiftPM
+macos/.build/
+macos/.swiftpm/
+
+# macOS noise
+.DS_Store
+dist/
