@@ -405,6 +405,59 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
+    // Syntax highlighting: the style table crosses the FFI, a rust diff
+    // gets spans on both sides, offsets convert to UTF-16, and unknown
+    // languages report nil instead of empty.
+    do {
+        guard !CoreSyntax.styles.isEmpty else {
+            print("FAIL: style table is empty")
+            return 1
+        }
+        let rust = try CoreSession(
+            title: "hl",
+            patch: "--- a/x.rs\n+++ b/x.rs\n@@ -1,3 +1,3 @@\n fn main() {\n-    let a = \"x\";\n+    let b = \"y\";\n }\n"
+        )
+        guard let highlights = rust.fileHighlights(at: 0), highlights.count == 1 else {
+            print("FAIL: no highlights for a rust file")
+            return 1
+        }
+        let lines = highlights[0]
+        guard lines.count == 4,
+            !lines[0].isEmpty,  // context `fn main() {`
+            !lines[1].isEmpty,  // deletion (LEFT pass)
+            !lines[2].isEmpty   // addition (RIGHT pass)
+        else {
+            print("FAIL: highlight coverage: \(lines.map(\.count))")
+            return 1
+        }
+        for line in lines {
+            for span in line {
+                guard span.styleIndex < CoreSyntax.styles.count, span.startByte < span.endByte
+                else {
+                    print("FAIL: span out of table bounds")
+                    return 1
+                }
+            }
+        }
+        guard DiffRenderer.utf16Range(ofUTF8: 0..<4, in: "🎉ab") == NSRange(location: 0, length: 2),
+            DiffRenderer.utf16Range(ofUTF8: 4..<6, in: "🎉ab") == NSRange(location: 2, length: 2)
+        else {
+            print("FAIL: UTF-8 → UTF-16 conversion")
+            return 1
+        }
+
+        let unknown = try CoreSession(
+            title: "hl2", patch: "--- a/d.bin\n+++ b/d.bin\n@@ -1 +1 @@\n-a\n+b\n")
+        guard unknown.fileHighlights(at: 0) == nil else {
+            print("FAIL: unknown language should have no highlights")
+            return 1
+        }
+        print("syntax highlighting ok (\(CoreSyntax.styles.count) styles, both sides)")
+    } catch {
+        print("FAIL: syntax highlighting: \(error)")
+        return 1
+    }
+
     // Clipboard prefill: PR-looking references only, never random text.
     guard AppDelegate.looksLikePullRequestReference("https://github.com/o/r/pull/418"),
         AppDelegate.looksLikePullRequestReference(

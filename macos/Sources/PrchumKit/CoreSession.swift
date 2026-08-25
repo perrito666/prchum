@@ -233,7 +233,7 @@ public enum GitComparison {
 /// review, and every mutation persists it. Not thread-safe: after
 /// creation, use from a single thread (in the app, the main thread).
 public final class CoreSession {
-    private let handle: OpaquePointer
+    let handle: OpaquePointer
 
     /// The default persistence directory for drafts.
     public static var defaultDraftsDirectory: String {

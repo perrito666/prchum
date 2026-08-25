@@ -20,6 +20,10 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     private var comments: [DraftComment] = []
     private var threads: [ReviewThread] = []
     private var wrapEnabled = true
+    private var syntaxMode: SyntaxMode = .syntax
+    /// Per-file highlight cache; an entry exists once computed (nil inside
+    /// means the language is unknown).
+    private var highlightCache: [Int: [[[HighlightSpan]]]?] = [:]
 
     var onClose: ((ReviewWindowController) -> Void)?
 
@@ -120,6 +124,16 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     @objc func toggleWrap(_ sender: Any?) {
         wrapEnabled.toggle()
         applyWrap()
+    }
+
+    /// Cycles diff-colors-only → syntax everywhere (tinted) → plain.
+    @objc func toggleSyntax(_ sender: Any?) {
+        switch syntaxMode {
+        case .syntax: syntaxMode = .diff
+        case .diff: syntaxMode = .plain
+        case .plain: syntaxMode = .syntax
+        }
+        refreshReviewState()
     }
 
     @objc func findInDiff(_ sender: Any?) {
@@ -466,12 +480,27 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func renderCurrentFile() {
-        let file = files[sidebarModel.selected]
+        let index = sidebarModel.selected
+        let file = files[index]
         let path = file.displayPath
+        let highlights: [[[HighlightSpan]]]?
+        if syntaxMode == .syntax {
+            if let cached = highlightCache[index] {
+                highlights = cached
+            } else {
+                let computed = session.fileHighlights(at: index)
+                highlightCache[index] = computed
+                highlights = computed
+            }
+        } else {
+            highlights = nil
+        }
         let rendered = DiffRenderer.render(
             file: file,
             comments: comments.filter { $0.location.path == path },
-            threads: threads.filter { $0.path == path })
+            threads: threads.filter { $0.path == path },
+            highlights: highlights,
+            mode: syntaxMode)
         self.rendered = rendered
         diffTextView.textStorage?.setAttributedString(rendered.text)
     }
@@ -715,6 +744,30 @@ struct RenderedDiff {
     let annotations: [DiffRenderer.Annotation]
 }
 
+/// How the diff is colored: red/green change tints only, tints plus
+/// syntax colors, or nothing at all.
+enum SyntaxMode {
+    case diff
+    case syntax
+    case plain
+}
+
+/// The style table as appearance-aware NSColors, resolved at draw time.
+enum SyntaxPalette {
+    static let colors: [NSColor] = CoreSyntax.styles.map { style in
+        NSColor(name: nil) { appearance in
+            let rgba =
+                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? style.dark : style.light
+            return NSColor(
+                srgbRed: CGFloat((rgba >> 24) & 0xFF) / 255,
+                green: CGFloat((rgba >> 16) & 0xFF) / 255,
+                blue: CGFloat((rgba >> 8) & 0xFF) / 255,
+                alpha: CGFloat(rgba & 0xFF) / 255)
+        }
+    }
+}
+
 /// Builds the attributed text for one file's unified diff, with marker
 /// gutters (● drafts, ◆ threads) and inline preview boxes.
 enum DiffRenderer {
@@ -737,9 +790,13 @@ enum DiffRenderer {
     static func render(
         file: DiffFile,
         comments: [DraftComment] = [],
-        threads: [ReviewThread] = []
+        threads: [ReviewThread] = [],
+        highlights: [[[HighlightSpan]]]? = nil,
+        mode: SyntaxMode = .syntax
     ) -> RenderedDiff {
         let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        let boldFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
+        let tinted = mode != .plain
         let result = NSMutableAttributedString()
         var hunkRanges: [NSRange] = []
         var changeRanges: [NSRange] = []
@@ -837,11 +894,11 @@ enum DiffRenderer {
             append("renamed \(file.oldPath) → \(file.newPath)\n\n", color: .secondaryLabelColor)
         }
 
-        for hunk in file.hunks {
+        for (hunkIndex, hunk) in file.hunks.enumerated() {
             let hunkStart = result.length
             append("  \(hunk.header)\n", color: .secondaryLabelColor,
                    background: NSColor.separatorColor.withAlphaComponent(0.25))
-            for line in hunk.lines {
+            for (lineIndex, line) in hunk.lines.enumerated() {
                 if line.kind == .meta {
                     closeChangeBlock()
                     append("          \(line.text)\n", color: .tertiaryLabelColor)
@@ -860,12 +917,43 @@ enum DiffRenderer {
                 switch line.kind {
                 case .addition:
                     append("+\(line.text)\n", color: .labelColor,
-                           background: NSColor.systemGreen.withAlphaComponent(0.16))
+                           background: tinted
+                               ? NSColor.systemGreen.withAlphaComponent(0.16) : nil)
                 case .deletion:
                     append("-\(line.text)\n", color: .labelColor,
-                           background: NSColor.systemRed.withAlphaComponent(0.16))
+                           background: tinted
+                               ? NSColor.systemRed.withAlphaComponent(0.16) : nil)
                 default:
                     append(" \(line.text)\n", color: .labelColor)
+                }
+                // Syntax spans over the code portion: the marker (2), the
+                // gutter (12), and the +/-/space sign (1) precede it, all
+                // ASCII, so the code starts 15 UTF-16 units into the row.
+                if mode == .syntax,
+                    let spans = highlights?[safe: hunkIndex]?[safe: lineIndex],
+                    !spans.isEmpty
+                {
+                    let codeStart = lineStart + 15
+                    for span in spans {
+                        guard let range = utf16Range(
+                            ofUTF8: span.startByte..<span.endByte, in: line.text),
+                            span.styleIndex < SyntaxPalette.colors.count,
+                            span.styleIndex < CoreSyntax.styles.count
+                        else { continue }
+                        let target = NSRange(
+                            location: codeStart + range.location, length: range.length)
+                        result.addAttribute(
+                            .foregroundColor,
+                            value: SyntaxPalette.colors[span.styleIndex],
+                            range: target)
+                        let style = CoreSyntax.styles[span.styleIndex]
+                        if style.bold {
+                            result.addAttribute(.font, value: boldFont, range: target)
+                        }
+                        if style.italic {
+                            result.addAttribute(.obliqueness, value: 0.15, range: target)
+                        }
+                    }
                 }
                 lineRefs.append(
                     LineRef(
@@ -896,5 +984,30 @@ enum DiffRenderer {
     private static func pad(_ number: Int?) -> String {
         guard let number else { return String(repeating: " ", count: 5) }
         return String(format: "%5d", number)
+    }
+
+    /// Converts a UTF-8 byte range from the core into a UTF-16 range
+    /// within `text` (what NSAttributedString counts in).
+    static func utf16Range(ofUTF8 range: Range<Int>, in text: String) -> NSRange? {
+        let utf8 = text.utf8
+        guard range.lowerBound <= utf8.count, range.upperBound <= utf8.count,
+            let start = utf8.index(
+                utf8.startIndex, offsetBy: range.lowerBound, limitedBy: utf8.endIndex),
+            let end = utf8.index(
+                utf8.startIndex, offsetBy: range.upperBound, limitedBy: utf8.endIndex),
+            let startIndex = start.samePosition(in: text.utf16),
+            let endIndex = end.samePosition(in: text.utf16)
+        else { return nil }
+        let location = text.utf16.distance(from: text.utf16.startIndex, to: startIndex)
+        let length = text.utf16.distance(from: startIndex, to: endIndex)
+        return NSRange(location: location, length: length)
+    }
+}
+
+extension Array {
+    /// Bounds-checked subscript: nil instead of a trap for indexes the
+    /// core and shell might disagree on.
+    subscript(safe index: Int) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
