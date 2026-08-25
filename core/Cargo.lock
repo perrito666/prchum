@@ -246,7 +246,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "prchum-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -269,7 +269,7 @@ dependencies = [
 
 [[package]]
 name = "prchum-ffi"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cbindgen",
  "prchum-core",
@@ -279,7 +279,7 @@ dependencies = [
 
 [[package]]
 name = "prchum-forge"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "prchum-core",
  "serde",
