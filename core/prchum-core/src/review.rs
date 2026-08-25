@@ -139,6 +139,32 @@ impl DraftReview {
         true
     }
 
+    /// Rewrites one reply's body (authors and timestamps stay — editing
+    /// polishes, it doesn't re-attribute).
+    pub fn update_reply(&mut self, local_id: &str, index: usize, body: String) -> bool {
+        let Some(comment) = self.comment_mut(local_id) else {
+            return false;
+        };
+        match comment.replies.get_mut(index) {
+            Some(reply) => {
+                reply.body = body;
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn delete_reply(&mut self, local_id: &str, index: usize) -> bool {
+        let Some(comment) = self.comment_mut(local_id) else {
+            return false;
+        };
+        if index >= comment.replies.len() {
+            return false;
+        }
+        comment.replies.remove(index);
+        true
+    }
+
     pub fn update_comment(&mut self, local_id: &str, body: String) -> bool {
         match self.comment_mut(local_id) {
             Some(comment) => {

@@ -448,6 +448,22 @@ public final class CoreSession {
         }
     }
 
+    /// Rewrites one reply of a draft's conversation (authors stay).
+    public func updateReply(localID: String, index: Int, body: String) -> Bool {
+        withUTF8Pointer(localID) { idPtr, idLen in
+            withUTF8Pointer(body) { bodyPtr, bodyLen in
+                pc_session_update_reply(
+                    handle, idPtr, UInt(idLen), UInt(index), bodyPtr, UInt(bodyLen))
+            }
+        }
+    }
+
+    public func deleteReply(localID: String, index: Int) -> Bool {
+        withUTF8Pointer(localID) { pointer, length in
+            pc_session_delete_reply(handle, pointer, UInt(length), UInt(index))
+        }
+    }
+
     /// Appends to a draft comment's travelling conversation.
     public func addReply(localID: String, body: String) -> Bool {
         withUTF8Pointer(localID) { idPtr, idLen in

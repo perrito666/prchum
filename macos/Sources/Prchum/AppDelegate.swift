@@ -511,6 +511,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         reviewMenu.addItem(keymap.menuItem(for: .comment))
         reviewMenu.addItem(keymap.menuItem(for: .suggest))
         reviewMenu.addItem(keymap.menuItem(for: .reply))
+        reviewMenu.addItem(keymap.menuItem(for: .openAtCaret))
         reviewMenu.addItem(.separator())
         reviewMenu.addItem(keymap.menuItem(for: .editComment))
         reviewMenu.addItem(keymap.menuItem(for: .deleteComment))

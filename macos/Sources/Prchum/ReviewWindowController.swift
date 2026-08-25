@@ -365,6 +365,95 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    private var threadReader: ThreadReaderWindowController?
+
+    /// Opens the conversation under the caret: a host thread's reader, or
+    /// the draft's own travelling conversation with per-item edit/delete.
+    @objc func openAtCaret(_ sender: Any?) {
+        if let thread = threadAtCaret() {
+            let session = self.session
+            let fileIndex = sidebarModel.selected
+            let reader = ThreadReaderWindowController(
+                title: "Thread — \(thread.path)"
+                    + (thread.outdated ? " (outdated)" : ""),
+                snippet: "",
+                reload: {
+                    thread.comments.map {
+                        .init(
+                            author: $0.author, date: $0.createdAt, body: $0.body,
+                            replyIndex: nil, editable: false)
+                    }
+                },
+                onReply: { [weak self] body in
+                    try? session.addComment(
+                        fileIndex: fileIndex,
+                        side: thread.side,
+                        startLine: thread.line ?? thread.originalLine ?? 1,
+                        endLine: thread.line ?? thread.originalLine ?? 1,
+                        body: body,
+                        replyTo: thread.id)
+                    self?.refreshReviewState()
+                },
+                onEdit: nil,
+                onDelete: nil)
+            reader.onClose = { [weak self] in self?.threadReader = nil }
+            threadReader = reader
+            reader.showWindow(nil)
+            return
+        }
+        guard let draft = draftAtCaret() else {
+            NSSound.beep()
+            return
+        }
+        let session = self.session
+        let localID = draft.localID
+        let reader = ThreadReaderWindowController(
+            title: "Conversation — \(draft.location.path) L\(draft.location.startLine)",
+            snippet: draft.snippet,
+            reload: { [weak self] in
+                guard
+                    let current = self?.comments.first(where: { $0.localID == localID })
+                        ?? session.comments().first(where: { $0.localID == localID })
+                else { return [] }
+                var items: [ThreadReaderWindowController.Item] = [
+                    .init(
+                        author: current.author ?? "me", date: current.at ?? "",
+                        body: current.body, replyIndex: nil, editable: true)
+                ]
+                for (index, reply) in (current.replies ?? []).enumerated() {
+                    items.append(
+                        .init(
+                            author: reply.author, date: reply.at, body: reply.body,
+                            replyIndex: index, editable: true))
+                }
+                return items
+            },
+            onReply: { [weak self] body in
+                _ = session.addReply(localID: localID, body: body)
+                self?.refreshReviewState()
+            },
+            onEdit: { [weak self] item, body in
+                if let index = item.replyIndex {
+                    _ = session.updateReply(localID: localID, index: index, body: body)
+                } else {
+                    _ = session.updateComment(localID: localID, body: body)
+                }
+                self?.refreshReviewState()
+            },
+            onDelete: { [weak self] item in
+                if let index = item.replyIndex {
+                    _ = session.deleteReply(localID: localID, index: index)
+                } else {
+                    // Deleting the root deletes the whole conversation.
+                    _ = session.deleteComment(localID: localID)
+                }
+                self?.refreshReviewState()
+            })
+        reader.onClose = { [weak self] in self?.threadReader = nil }
+        threadReader = reader
+        reader.showWindow(nil)
+    }
+
     /// Reply: to the host thread at the caret (PR mode), else to the draft
     /// conversation at the caret.
     @objc func replyAtCursor(_ sender: Any?) {

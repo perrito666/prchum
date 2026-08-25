@@ -272,6 +272,24 @@ bool pc_session_add_reply(struct PcSession *session,
                           uintptr_t body_len);
 
 /**
+ * Rewrites one reply of a draft's conversation (authors stay).
+ */
+bool pc_session_update_reply(struct PcSession *session,
+                             const char *local_id,
+                             uintptr_t local_id_len,
+                             uintptr_t index,
+                             const char *body,
+                             uintptr_t body_len);
+
+/**
+ * Deletes one reply of a draft's conversation.
+ */
+bool pc_session_delete_reply(struct PcSession *session,
+                             const char *local_id,
+                             uintptr_t local_id_len,
+                             uintptr_t index);
+
+/**
  * Every draft comment (with its location and state) as a JSON array.
  * Release with [`pc_string_free`].
  */

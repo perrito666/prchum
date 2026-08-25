@@ -630,6 +630,37 @@ pub unsafe extern "C" fn pc_session_add_reply(
     })
 }
 
+/// Rewrites one reply of a draft's conversation (authors stay).
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_update_reply(
+    session: *mut PcSession,
+    local_id: *const c_char,
+    local_id_len: usize,
+    index: usize,
+    body: *const c_char,
+    body_len: usize,
+) -> bool {
+    with_comment_id(session, local_id, local_id_len, |session, id| {
+        let Some(body) = (unsafe { str_from_raw(body, body_len) }) else {
+            return false;
+        };
+        session.inner.update_reply(id, index, body.to_string()).is_ok()
+    })
+}
+
+/// Deletes one reply of a draft's conversation.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_delete_reply(
+    session: *mut PcSession,
+    local_id: *const c_char,
+    local_id_len: usize,
+    index: usize,
+) -> bool {
+    with_comment_id(session, local_id, local_id_len, |session, id| {
+        session.inner.delete_reply(id, index).is_ok()
+    })
+}
+
 fn with_comment_id(
     session: *mut PcSession,
     local_id: *const c_char,

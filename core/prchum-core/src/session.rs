@@ -442,6 +442,25 @@ impl Session {
         self.persist()
     }
 
+    pub fn update_reply(
+        &mut self,
+        local_id: &str,
+        index: usize,
+        body: String,
+    ) -> Result<(), String> {
+        if !self.draft.update_reply(local_id, index, body) {
+            return Err("no such reply".to_string());
+        }
+        self.persist()
+    }
+
+    pub fn delete_reply(&mut self, local_id: &str, index: usize) -> Result<(), String> {
+        if !self.draft.delete_reply(local_id, index) {
+            return Err("no such reply".to_string());
+        }
+        self.persist()
+    }
+
     pub fn add_reply(&mut self, local_id: &str, body: String) -> Result<(), String> {
         let author = self.author.clone();
         if !self.draft.add_reply(local_id, body, &author) {
