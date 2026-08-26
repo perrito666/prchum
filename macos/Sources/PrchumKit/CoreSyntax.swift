@@ -66,11 +66,28 @@ public enum CoreSyntax {
 }
 
 extension CoreSession {
+    /// Syntax highlights for the context projection at `index` — indexed
+    /// by the projection's hunks, so gap regions color too. Nil when the
+    /// language is unknown or the projection is unavailable.
+    public func contextHighlights(at index: Int) -> [[[HighlightSpan]]]? {
+        guard
+            let json = takeString(
+                pc_session_context_highlights_json(handle, UInt(index)))
+        else { return nil }
+        return Self.decodeSpans(json)
+    }
+
     /// Syntax highlights for the file at `index`: `[hunk][line]` → spans.
     /// Nil when the file's language is unknown.
     public func fileHighlights(at index: Int) -> [[[HighlightSpan]]]? {
         guard let json = takeString(pc_session_file_highlights_json(handle, UInt(index))),
-            let data = json.data(using: .utf8),
+            let spans = Self.decodeSpans(json)
+        else { return nil }
+        return spans
+    }
+
+    private static func decodeSpans(_ json: String) -> [[[HighlightSpan]]]? {
+        guard let data = json.data(using: .utf8),
             let raw = try? JSONDecoder().decode([[[[UInt32]]]].self, from: data)
         else { return nil }
         return raw.map { hunk in

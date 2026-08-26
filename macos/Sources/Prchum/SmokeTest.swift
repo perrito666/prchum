@@ -334,6 +334,41 @@ func runSmokeTest() -> Int32 {
             return 1
         }
 
+        // The projection highlights over its own hunks: gap lines (zero
+        // and tail, outside the diff) carry spans too.
+        // Long enough that -U3 leaves gap regions above and below the
+        // hunk.
+        let before = (1...12).map { "let line\($0) = \($0);" }
+        try (before.joined(separator: "\n") + "\n").write(
+            to: dir.appendingPathComponent("f.rs"), atomically: true, encoding: .utf8)
+        try git(["add", "."])
+        try git(["commit", "-q", "-m", "rust file"])
+        var after = before
+        after[5] = "let altered = 6;"
+        try (after.joined(separator: "\n") + "\n").write(
+            to: dir.appendingPathComponent("f.rs"), atomically: true, encoding: .utf8)
+        let rustSession = try CoreSession(gitRepo: dir.path, comparison: .workingTree)
+        let rustIndex = try (0..<rustSession.fileCount).first {
+            try rustSession.file(at: $0).displayPath == "f.rs"
+        }!
+        let projection = try rustSession.contextFile(at: rustIndex)
+        guard let contextSpans = rustSession.contextHighlights(at: rustIndex) else {
+            print("FAIL: no context highlights for a rust file")
+            return 1
+        }
+        guard contextSpans.count == projection.hunks.count else {
+            print("FAIL: context spans shape: \(contextSpans.count) vs \(projection.hunks.count)")
+            return 1
+        }
+        // A gap hunk (empty header) must carry spans — `let` is a keyword.
+        guard
+            let gapIndex = projection.hunks.firstIndex(where: { $0.header.isEmpty }),
+            contextSpans[gapIndex].contains(where: { !$0.isEmpty })
+        else {
+            print("FAIL: gap regions carry no highlights")
+            return 1
+        }
+
         // A patch session has no content to fetch — a plain error, not a
         // crash.
         let patchOnly = try CoreSession(title: "p", patch: patch)

@@ -1258,6 +1258,33 @@ pub extern "C" fn pc_theme_builtin_names() -> *mut c_char {
     owned_c_string(prchum_core::syntax::BUILTIN_THEMES.join("\n"))
 }
 
+/// Syntax highlights for the context projection of one file: same JSON
+/// shape as [`pc_session_file_highlights_json`], but indexed by the
+/// projection's hunks, so gap regions color too. Null when the language
+/// is unknown or the projection is unavailable. Cached content — cheap
+/// after the first [`pc_session_context_file_json`]. Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_context_highlights_json(
+    session: *mut PcSession,
+    index: usize,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let mut inner = session.lock();
+        match inner.context_highlights(index) {
+            Ok(Some(spans)) => serde_json::to_string(&spans).ok(),
+            _ => None,
+        }
+    }));
+    match result {
+        Ok(Some(json)) => owned_c_string(json),
+        _ => std::ptr::null_mut(),
+    }
+}
+
 /// The syntax style table as a JSON array of `{light, dark, flags}`
 /// (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
 /// Style ids in highlight spans index this table. Release with

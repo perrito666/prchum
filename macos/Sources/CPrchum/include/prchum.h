@@ -492,6 +492,16 @@ char *pc_history_prune_json(const char *dir,
 char *pc_theme_builtin_names(void);
 
 /**
+ * Syntax highlights for the context projection of one file: same JSON
+ * shape as [`pc_session_file_highlights_json`], but indexed by the
+ * projection's hunks, so gap regions color too. Null when the language
+ * is unknown or the projection is unavailable. Cached content — cheap
+ * after the first [`pc_session_context_file_json`]. Release with
+ * [`pc_string_free`].
+ */
+char *pc_session_context_highlights_json(struct PcSession *session, uintptr_t index);
+
+/**
  * The syntax style table as a JSON array of `{light, dark, flags}`
  * (colors 0xRRGGBBAA as numbers; flags bit 0 = bold, bit 1 = italic).
  * Style ids in highlight spans index this table. Release with
