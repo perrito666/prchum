@@ -340,6 +340,17 @@ impl Session {
         Ok(&self.context_cache[&file_index])
     }
 
+    /// Syntax highlights for the context projection — computed over the
+    /// projection's own hunks, so gap regions color too. `None` when the
+    /// language is unknown.
+    pub fn context_highlights(
+        &mut self,
+        file_index: usize,
+    ) -> Result<Option<Vec<Vec<Vec<crate::syntax::LineSpan>>>>, String> {
+        let file = self.context_file(file_index)?;
+        Ok(crate::syntax::highlight_file(file))
+    }
+
     /// Exports to `path`: a `.json` extension writes a review-exchange
     /// document (embedding the session's patch), anything else Markdown.
     pub fn export_to_file(&self, path: &str) -> Result<(), String> {

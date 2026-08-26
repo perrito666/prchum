@@ -33,6 +33,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
     private var contextFiles: Set<Int> = []
     /// The fetched projections (content verified against the diff).
     private var contextCache: [Int: DiffFile] = [:]
+    /// Highlights over the projections' own hunks (gap regions included).
+    private var contextHighlightCache: [Int: [[[HighlightSpan]]]?] = [:]
     /// Where the caret was, per file — switching back resumes there.
     private var savedCarets: [Int: Int] = [:]
     /// The row the caret is on, kept visibly tinted — a non-editable
@@ -262,13 +264,20 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         } else {
             if contextCache[index] == nil {
                 // The first fetch can be a network call (PR sessions);
-                // run it off-main behind the busy guard.
+                // run it off-main behind the busy guard — the highlight
+                // pass rides along so the projection arrives colored.
                 runBusy(message: "Fetching the file…") {
-                    Result { try self.session.contextFile(at: index) }
+                    Result {
+                        (
+                            try self.session.contextFile(at: index),
+                            self.session.contextHighlights(at: index)
+                        )
+                    }
                 } then: { outcome in
                     switch outcome {
-                    case .success(let file):
+                    case .success(let (file, highlights)):
                         self.contextCache[index] = file
+                        self.contextHighlightCache[index] = highlights
                         self.contextFiles.insert(index)
                         self.finishContextToggle(target: target)
                     case .failure(let error):
@@ -1058,10 +1067,18 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         let file = inContext ? (contextCache[index] ?? files[index]) : files[index]
         let path = file.displayPath
         let highlights: [[[HighlightSpan]]]?
-        // Highlight spans index the real diff's hunks; the context
-        // projection has different ones, so syntax is skipped there.
-        if syntaxMode == .syntax && !inContext {
-            if let cached = highlightCache[index] {
+        // Each projection carries its own spans: the diff's index the
+        // diff's hunks, the context view's index the projection's.
+        if syntaxMode == .syntax {
+            if inContext {
+                if let cached = contextHighlightCache[index] {
+                    highlights = cached
+                } else {
+                    let computed = session.contextHighlights(at: index)
+                    contextHighlightCache[index] = computed
+                    highlights = computed
+                }
+            } else if let cached = highlightCache[index] {
                 highlights = cached
             } else {
                 let computed = session.fileHighlights(at: index)
