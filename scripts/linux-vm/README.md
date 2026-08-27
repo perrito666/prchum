@@ -72,17 +72,24 @@ do not have, and a disposable VM has no business holding one.
 of the network, which is what you want before the guest has an address,
 or when it has stopped answering and you need to find out why.
 
-## Why screenshots come from the host
+## Screenshots, and why the session runs on Xorg
 
-Because GNOME will not take one for you. `Shell.Screenshot` over D-Bus
-answers *"Screenshot is not allowed"* to anything that is not an
-interactive user action, and `grim` is useless here because Mutter
-implements none of the wlroots screencopy protocol it relies on.
+Under Wayland the session cannot be photographed or driven. GNOME's
+`Shell.Screenshot` answers *"Screenshot is not allowed"* to anything
+that is not an interactive user action, and `grim` does nothing under
+Mutter, which implements none of the wlroots screencopy protocol.
 
-Capturing UTM's window sidesteps all of that, and it lands somewhere
-better than a workaround: it is the same `screencapture -l` used to
-photograph the macOS app, so both platforms are photographed the same
-way, at the same retina scale.
+So `provision.sh` sets `WaylandEnable=false` and the session runs on
+Xorg, where `import -window <id>` captures one window cleanly and
+`xdotool` can type and click. `vm-shot.sh` takes a window title and
+fits the window on screen first, because X11 reads a window's pixels
+out of the screen and anything hanging off the edge comes back with the
+desktop behind it.
+
+That matters for the manual: the macOS images are single windows, and
+these need to match. `--host` falls back to capturing UTM's window from
+the outside, for when you have deliberately switched to Wayland to check
+fractional scaling or other Wayland-specific behaviour.
 
 ## Driving the app
 

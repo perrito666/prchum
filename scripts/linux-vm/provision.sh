@@ -14,6 +14,12 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ubuntu-desktop-minimal \
     gnome-console
 
+# ---------------------------------------------------------------------
+# Project packages. Swap this block for whatever the thing you are
+# testing needs to build — Qt, Electron, SDL, a language runtime. The
+# rest of this script is the part that makes the machine testable at
+# all, and is worth keeping whatever you build in it.
+# ---------------------------------------------------------------------
 echo "==> GTK4 / libadwaita development packages"
 # The versions Ubuntu 24.04 ships (GTK 4.14, libadwaita 1.5) satisfy what
 # textchum's GTK shell already asks for, so a shell written against the
@@ -35,7 +41,9 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libatspi2.0-dev \
     python3-pyatspi \
     weston \
-    grim \
+    xdotool \
+    imagemagick \
+    x11-apps \
     gnome-screenshot \
     xdg-desktop-portal-gnome
 
@@ -48,14 +56,28 @@ fi
 source "$HOME/.cargo/env"
 rustc --version
 
+echo "==> An Xorg session"
+# Deliberate, and the single most useful thing here. Under Wayland the
+# session cannot be photographed or driven: GNOME's Shell.Screenshot
+# refuses any caller that is not an interactive user, and Mutter
+# implements none of the wlroots screencopy protocol grim needs. On Xorg
+# `import -window <id>` captures one window cleanly and xdotool can type
+# and click.
+#
+# The cost is that this is not Wayland, so Wayland-specific behaviour —
+# fractional scaling in particular — is not exercised. Comment the line
+# out and reboot to check the app under Wayland, then put it back.
+WAYLAND_LINE="WaylandEnable=false"
+
 echo "==> Automatic login"
 # Screenshots need a session running without someone typing a password
 # into the console first.
 sudo install -d /etc/gdm3
-sudo tee /etc/gdm3/custom.conf >/dev/null <<'CONF'
+sudo tee /etc/gdm3/custom.conf >/dev/null <<CONF
 [daemon]
 AutomaticLoginEnable=true
 AutomaticLogin=prchum
+$WAYLAND_LINE
 CONF
 
 echo "==> Accessibility bus on for the session"
