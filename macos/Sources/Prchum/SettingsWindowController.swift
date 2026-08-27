@@ -14,6 +14,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
     private let filtersTable = NSTableView()
     /// (name, filter), sorted by name.
     private var filters: [(String, String)] = []
+    private let editorField = NSTextField(string: "")
+    private let clonesTable = NSTableView()
+    /// (owner/repo, path), sorted by repository.
+    private var clones: [(String, String)] = []
     private let onChange: () -> Void
 
     var onClose: (() -> Void)?
@@ -21,7 +25,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
     init(onChange: @escaping () -> Void) {
         self.onChange = onChange
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 470, height: 640),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false)
@@ -61,11 +65,41 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
         filtersTable.usesAlternatingRowBackgroundColors = true
         reloadFilters()
 
+        editorField.placeholderString = CoreEditorDefaults.template
+        editorField.stringValue = config.editorCommand
+        editorField.target = self
+        editorField.action = #selector(editorChanged(_:))
+
+        for (identifier, title, width) in [("repo", "Repository", 150), ("path", "Clone", 210)] {
+            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(identifier))
+            column.title = title
+            column.width = CGFloat(width)
+            clonesTable.addTableColumn(column)
+        }
+        clonesTable.dataSource = self
+        clonesTable.delegate = self
+        clonesTable.usesAlternatingRowBackgroundColors = true
+        reloadClones()
+
         let filtersScroll = NSScrollView()
         filtersScroll.hasVerticalScroller = true
         filtersScroll.documentView = filtersTable
         filtersScroll.translatesAutoresizingMaskIntoConstraints = false
         filtersScroll.heightAnchor.constraint(equalToConstant: 130).isActive = true
+
+        let clonesScroll = NSScrollView()
+        clonesScroll.hasVerticalScroller = true
+        clonesScroll.documentView = clonesTable
+        clonesScroll.translatesAutoresizingMaskIntoConstraints = false
+        clonesScroll.heightAnchor.constraint(equalToConstant: 110).isActive = true
+
+        let cloneButtons = NSStackView()
+        cloneButtons.orientation = .horizontal
+        cloneButtons.spacing = 8
+        cloneButtons.addArrangedSubview(
+            NSButton(title: "Add…", target: self, action: #selector(addClone(_:))))
+        cloneButtons.addArrangedSubview(
+            NSButton(title: "Remove", target: self, action: #selector(removeClone(_:))))
 
         let filterButtons = NSStackView()
         filterButtons.orientation = .horizontal
@@ -101,6 +135,22 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
                         wrappingLabelWithString:
                             "Named filters appear in the review queue's picker; "
                             + "the default runs when none is chosen.")
+                    hint.textColor = .secondaryLabelColor
+                    hint.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+                    return hint
+                }(),
+            ],
+            [NSTextField(labelWithString: "Editor:"), editorField],
+            [NSTextField(labelWithString: "Local clones:"), clonesScroll],
+            [NSTextField(labelWithString: ""), cloneButtons],
+            [
+                NSTextField(labelWithString: ""),
+                {
+                    let hint = NSTextField(
+                        wrappingLabelWithString:
+                            "Edit File Locally checks the branch out of the clone you "
+                            + "point at here, then opens the file in the editor — a URL "
+                            + "or a command, with {path}, {line}, and {dir}.")
                     hint.textColor = .secondaryLabelColor
                     hint.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
                     return hint
@@ -212,19 +262,109 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
         }
     }
 
+    // MARK: - Clones
+
+    private func reloadClones() {
+        clones = CoreConfig().clones.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
+        clonesTable.reloadData()
+    }
+
+    @objc private func editorChanged(_ sender: Any?) {
+        CoreConfig.setString(
+            "editor_command",
+            editorField.stringValue.trimmingCharacters(in: .whitespaces))
+    }
+
+    /// A clone is a repository plus a directory: ask for the directory
+    /// first, since `git remote` there usually names the repository too.
+    @objc private func addClone(_ sender: Any?) {
+        guard let window else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.message = "Choose a local clone"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Which repository is this?"
+        alert.informativeText =
+            "As the forge names it — owner/repo, or group/subgroup/repo."
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 380, height: 24))
+        field.placeholderString = "owner/repo"
+        field.stringValue = Self.slugFromOrigin(at: url.path) ?? ""
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            let slug = field.stringValue.trimmingCharacters(in: .whitespaces)
+            guard !slug.isEmpty else { return }
+            CoreConfig.setMapEntry("clones", slug, url.path)
+            self?.reloadClones()
+        }
+    }
+
+    @objc private func removeClone(_ sender: Any?) {
+        let row = clonesTable.selectedRow
+        guard clones.indices.contains(row) else { return }
+        CoreConfig.setMapEntry("clones", clones[row].0, "")
+        reloadClones()
+    }
+
+    /// `owner/repo` read out of the clone's origin remote, when it has one.
+    private static func slugFromOrigin(at path: String) -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["git", "-C", path, "config", "--get", "remote.origin.url"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        var remote = String(decoding: data, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !remote.isEmpty else { return nil }
+        if remote.hasSuffix(".git") {
+            remote = String(remote.dropLast(4))
+        }
+        // git@host:owner/repo and https://host/owner/repo both end in the
+        // slug; take everything after the host.
+        if let range = remote.range(of: "://") {
+            let rest = remote[range.upperBound...]
+            return rest.split(separator: "/").dropFirst().joined(separator: "/")
+        }
+        if let colon = remote.firstIndex(of: ":") {
+            return String(remote[remote.index(after: colon)...])
+        }
+        return nil
+    }
+
     // MARK: table
 
     func numberOfRows(in tableView: NSTableView) -> Int {
-        filters.count
+        tableView === clonesTable ? clones.count : filters.count
     }
 
     func tableView(
         _ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int
     ) -> NSView? {
-        let (name, filter) = filters[row]
-        let text = tableColumn?.identifier.rawValue == "name" ? name : filter
+        let text: String
+        if tableView === clonesTable {
+            let (slug, path) = clones[row]
+            text = tableColumn?.identifier.rawValue == "repo" ? slug : path
+        } else {
+            let (name, filter) = filters[row]
+            text = tableColumn?.identifier.rawValue == "name" ? name : filter
+        }
         let label = NSTextField(labelWithString: text)
         label.lineBreakMode = .byTruncatingTail
         return label
     }
+}
+
+/// The editor default, shown as the field's placeholder.
+enum CoreEditorDefaults {
+    static let template = "textchum://open?path={path}&line={line}"
 }

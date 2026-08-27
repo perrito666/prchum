@@ -65,6 +65,21 @@ lives in the Keymap source.
 - `forgejo_api_command` — le gabarit de transport Forgejo ; vide =
   le `fj` par défaut. Voir [Forges](forges.md).
 
+## Édition locale
+
+- `clones` — `owner/repo` → le clone local qui le contient
+  (`{"perrito666/prchum": "/Users/moi/src/prchum"}`), sans distinction
+  de casse. Settings (⌘,) gère la liste, et Edit File Locally propose
+  d'en choisir un quand le dépôt n'en a pas.
+- `editor_command` — comment ouvrir un fichier : une URL ou une
+  commande, avec `{path}`, `{line}` et `{dir}`. Vide signifie
+  `textchum://open?path={path}&line={line}` ; `code -g {path}:{line}` et
+  `nvim +{line} {path}` sont la forme commande.
+
+Les worktrees créés par prchum vivent dans `worktrees/` à côté des
+brouillons et sont inscrits dans `worktrees.json` — le registre de ce
+que prchum possède, donc de ce qu'il peut supprimer.
+
 ## Découverte
 
 - `list_engine` — `gh` (par défaut) ou `forgejo`.

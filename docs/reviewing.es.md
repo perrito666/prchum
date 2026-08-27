@@ -42,6 +42,7 @@ donde está el cursor decide a qué lado apunta un comentario.
 | ⌥⌘↩ | sugerir un cambio: el código seleccionado prellenado en un bloque ```suggestion |
 | ⌘R | responder — al hilo del servidor o a la conversación del borrador |
 | ⌘L | el navegador de la revisión: cada borrador e hilo; Retorno salta |
+| ⌃⌘E | editar el archivo actual localmente (véase abajo) |
 
 Una selección debe caer en un solo lado, al estilo de GitHub: un bloque
 de cambios se ancla a la DERECHA (los borrados simplemente no forman
@@ -52,6 +53,23 @@ línea; los hilos existentes del servidor, con `◆`.
 Descartar no es borrar: el veredicto viaja con la revisión — es la
 información que más necesita el otro lado de una conversación — pero un
 comentario descartado nunca se envía.
+
+## La edición local
+
+⌃⌘E abre el archivo del cursor en su editor, dentro de una copia local
+de la rama en revisión — en la línea del cursor cuando esa línea existe
+en el archivo (un borrado lo abre sin línea).
+
+La copia sale del clon que indique en la
+[configuración](configuration.md): si la rama ya está activa allí —en el
+propio clon o en un worktree suyo— se usa esa y no se toca; si no,
+prchum crea un worktree propio junto a su estado, descargando la punta
+de la solicitud cuando la rama todavía no es local. Solo se eliminan los
+worktrees que prchum creó, y solo cuando la solicitud se fusionó, se
+cerró o desapareció.
+
+Una comparación git no necesita clon: ya es una copia de trabajo, así
+que el archivo se abre ahí mismo.
 
 ## El envío
 

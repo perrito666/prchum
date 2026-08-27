@@ -60,6 +60,21 @@ Action names: `open`, `open-pr`, `open-git`, `review-queue`, `export`,
 - `forgejo_api_command` — the Forgejo transport template; empty means
   the built-in `fj` default. See [Forges](forges.md).
 
+## Local editing
+
+- `clones` — `owner/repo` → the local clone that holds it
+  (`{"perrito666/prchum": "/Users/me/src/prchum"}`), matched
+  case-insensitively. Settings (⌘,) manages the list, and Edit File
+  Locally offers to pick one when a repository has none.
+- `editor_command` — how to open a file: a URL or a command, with
+  `{path}`, `{line}`, and `{dir}` placeholders. Empty means
+  `textchum://open?path={path}&line={line}`; `code -g {path}:{line}` and
+  `nvim +{line} {path}` are the command form.
+
+Worktrees prchum creates live in `worktrees/` beside the drafts, and are
+tracked in `worktrees.json` — the record of what prchum owns, and so
+what it may remove when a request is finished.
+
 ## Discovery
 
 - `list_engine` — `gh` (default) or `forgejo`.

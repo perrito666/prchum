@@ -711,6 +711,90 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         window?.makeKeyAndOrderFront(nil)
     }
 
+    /// Opens the file under the caret in the configured editor, in a
+    /// local checkout of the branch under review — creating the worktree
+    /// when there is none yet. The caret's line comes along when it maps
+    /// to the file on disk (the new side; a deletion has no line there).
+    @objc func editFileLocally(_ sender: Any?) {
+        guard files.indices.contains(sidebarModel.selected) else { return }
+        let file = files[sidebarModel.selected]
+        if file.status == .deleted {
+            presentInfo("This file is deleted by the change — there is nothing to edit.")
+            return
+        }
+        let path = file.displayPath
+
+        // Only the new side exists on disk; a deletion row opens the file
+        // without a line rather than pointing at the wrong one.
+        let line =
+            rendered?.lineRefs.first {
+                $0.range.contains(caret) || $0.range.upperBound == caret
+            }?.newLine ?? 0
+
+        let config = CoreConfig()
+        let slug = session.repoSlug
+        let clone = slug.isEmpty ? "" : (config.clone(for: slug) ?? "")
+        if !slug.isEmpty && clone.isEmpty {
+            presentCloneMissing(slug: slug)
+            return
+        }
+        let template = config.editorCommand
+        let session = self.session
+
+        // Preparing the checkout is slow (git, sometimes a fetch) and goes
+        // off-main; launching the editor is not, and belongs on the main
+        // thread — NSWorkspace is no good from a background queue.
+        runBusy(message: "Preparing a local checkout…") {
+            Result {
+                let worktree = try session.localWorktree(clone: clone)
+                let full = (worktree.path as NSString).appendingPathComponent(path)
+                guard FileManager.default.fileExists(atPath: full) else {
+                    throw CoreError(
+                        message:
+                            "\(path) is not in the checkout — the branch may not have it yet")
+                }
+                return full
+            }
+        } then: { outcome in
+            switch outcome {
+            case .success(let full):
+                do {
+                    try CoreEditor.open(
+                        template: template, path: full, line: line,
+                        directory: (full as NSString).deletingLastPathComponent)
+                } catch {
+                    self.presentInfo("\(error)")
+                }
+            case .failure(let error):
+                self.presentInfo("\(error)")
+            }
+        }
+    }
+
+    /// No clone is configured for this repository: say so, and offer to
+    /// pick one right now rather than sending the user to a settings hunt.
+    private func presentCloneMissing(slug: String) {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.messageText = "No local clone for \(slug)"
+        alert.informativeText =
+            "Local editing checks the branch out of a clone you already have. "
+            + "Choose it now, or add it later in Settings."
+        alert.addButton(withTitle: "Choose Clone…")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { response in
+            guard response == .alertFirstButtonReturn else { return }
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.message = "Choose your clone of \(slug)"
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            CoreConfig.setMapEntry("clones", slug, url.path)
+            // Straight on to what they asked for.
+            self.editFileLocally(nil)
+        }
+    }
+
     @objc func exportNotes(_ sender: Any?) {
         guard let window else { return }
         let panel = NSSavePanel()
@@ -929,6 +1013,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         case #selector(showPRInfo(_:)), #selector(submitReview(_:)),
             #selector(submitApprove(_:)), #selector(submitRequestChanges(_:)):
             return session.isPullRequest
+        case #selector(editFileLocally(_:)):
+            return !files.isEmpty && files[sidebarModel.selected].status != .deleted
         default:
             return true
         }

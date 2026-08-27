@@ -42,6 +42,7 @@ panneau où se trouve le curseur décide du côté que vise un commentaire.
 | ⌥⌘↩ | suggérer un changement : le code sélectionné prérempli dans un bloc ```suggestion |
 | ⌘R | répondre — au fil du serveur ou à la conversation du brouillon |
 | ⌘L | le navigateur de revue : chaque brouillon et fil ; Retour saute |
+| ⌃⌘E | modifier le fichier courant localement (voir plus bas) |
 
 Une sélection doit tenir sur un seul côté, à la façon de GitHub : un
 bloc de changements s'ancre à DROITE (les suppressions ne font
@@ -52,6 +53,23 @@ avec la note en ligne ; les fils existants du serveur, par `◆`.
 Écarter n'est pas supprimer : le verdict voyage avec la revue — c'est
 l'information dont l'autre côté d'une conversation a le plus besoin —
 mais un commentaire écarté n'est jamais soumis.
+
+## L'édition locale
+
+⌃⌘E ouvre le fichier sous le curseur dans votre éditeur, dans une copie
+locale de la branche en revue — à la ligne du curseur quand cette ligne
+existe dans le fichier (une suppression l'ouvre sans ligne).
+
+La copie vient du clone que vous désignez dans la
+[configuration](configuration.md) : si la branche y est déjà extraite —
+dans le clone lui-même ou dans un worktree à vous — c'est celui-là qui
+sert, intact ; sinon prchum crée son propre worktree à côté de son état,
+en récupérant la tête de la demande quand la branche n'est pas encore
+locale. Seuls les worktrees créés par prchum sont supprimés, et
+seulement quand la demande est fusionnée, fermée ou disparue.
+
+Une comparaison git n'a besoin d'aucun clone : c'est déjà une copie de
+travail, le fichier s'ouvre sur place.
 
 ## La soumission
 

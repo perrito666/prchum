@@ -72,6 +72,7 @@ enum ActionID: String, CaseIterable {
     case openGitComparison = "open-git"
     case reviewQueue = "review-queue"
     case exportNotes = "export"
+    case editLocally = "edit-locally"
     case nextChange = "next-change"
     case previousChange = "prev-change"
     case nextHunk = "next-hunk"
@@ -108,6 +109,7 @@ enum ActionID: String, CaseIterable {
         case .openGitComparison: return "Review Git Repository…"
         case .reviewQueue: return "My Review Queue"
         case .exportNotes: return "Export Notes…"
+        case .editLocally: return "Edit File Locally"
         case .nextChange: return "Next Change"
         case .previousChange: return "Previous Change"
         case .nextHunk: return "Next Hunk"
@@ -148,6 +150,7 @@ enum ActionID: String, CaseIterable {
         case .openGitComparison: return #selector(AppDelegate.openGitComparison(_:))
         case .reviewQueue: return #selector(AppDelegate.showReviewQueue(_:))
         case .exportNotes: return #selector(ReviewWindowController.exportNotes(_:))
+        case .editLocally: return #selector(ReviewWindowController.editFileLocally(_:))
         case .nextChange: return #selector(ReviewWindowController.nextChange(_:))
         case .previousChange: return #selector(ReviewWindowController.previousChange(_:))
         case .nextHunk: return #selector(ReviewWindowController.nextHunk(_:))
@@ -186,6 +189,7 @@ enum ActionID: String, CaseIterable {
         case .openGitComparison: return KeyChord.parse("cmd+ctrl+o")
         case .reviewQueue: return KeyChord.parse("cmd+shift+l")
         case .exportNotes: return KeyChord.parse("cmd+shift+e")
+        case .editLocally: return KeyChord.parse("cmd+ctrl+e")
         case .nextChange: return KeyChord.parse("cmd+down")
         case .previousChange: return KeyChord.parse("cmd+up")
         case .nextHunk: return KeyChord.parse("cmd+alt+down")

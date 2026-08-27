@@ -734,6 +734,78 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
+    // Local editing: the editor invocation for both template kinds, and
+    // a git comparison answering with its own checkout.
+    do {
+        guard case .url(let url)? = CoreEditor.invocation(
+            template: "", path: "/tmp/a b.rs", line: 42, directory: "/tmp"),
+            url.hasPrefix("textchum://open?path="),
+            url.contains("%2Ftmp%2Fa%20b.rs"),
+            url.hasSuffix("&line=42")
+        else {
+            print("FAIL: default editor invocation")
+            return 1
+        }
+        guard case .command(let program, let args)? = CoreEditor.invocation(
+            template: "code -g {path}:{line}", path: "/tmp/a.rs", line: 7, directory: "/tmp"),
+            program == "code", args == ["-g", "/tmp/a.rs:7"]
+        else {
+            print("FAIL: command editor invocation")
+            return 1
+        }
+
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-wt-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        func git(_ arguments: [String]) throws {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["git", "-C", dir.path] + arguments
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
+        }
+        try git(["init", "-q", "-b", "main"])
+        try git(["config", "user.name", "Smoke"])
+        try git(["config", "user.email", "smoke@example.com"])
+        try "one\ntwo\n".write(
+            to: dir.appendingPathComponent("f.txt"), atomically: true, encoding: .utf8)
+        try git(["add", "."])
+        try git(["commit", "-q", "-m", "init"])
+        try "one\nchanged\n".write(
+            to: dir.appendingPathComponent("f.txt"), atomically: true, encoding: .utf8)
+
+        // A comparison is already a checkout: its own root, unmanaged.
+        let gitSession = try CoreSession(gitRepo: dir.path, comparison: .workingTree)
+        let worktree = try gitSession.localWorktree(clone: "")
+        guard !worktree.created,
+            try FileManager.default.contentsOfDirectory(atPath: worktree.path)
+                .contains("f.txt")
+        else {
+            print("FAIL: git comparison worktree: \(worktree)")
+            return 1
+        }
+        guard gitSession.repoSlug.isEmpty else {
+            print("FAIL: a git comparison has no forge slug")
+            return 1
+        }
+
+        // A patch has no repository at all — an error, not a crash.
+        let patchSession = try CoreSession(title: "p", patch: patch)
+        do {
+            _ = try patchSession.localWorktree(clone: dir.path)
+            print("FAIL: a patch offered a worktree")
+            return 1
+        } catch {}
+
+        try? FileManager.default.removeItem(at: dir)
+        print("local editing ok (invocations, comparison checkout, refusals)")
+    } catch {
+        print("FAIL: local editing: \(error)")
+        return 1
+    }
+
     // Async event round trip: core dispatch thread → main queue.
     var receivedSequence: UInt64?
     let coreApp = CoreApp { event in
