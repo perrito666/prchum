@@ -192,9 +192,26 @@ el mismo `config.json` que escribe la app de macOS; y
 que la forja aceptó sale de tus borradores aunque falle un paso
 posterior.
 
-!!! note "Lo que todavía no está"
+**Ctrl+R** responde a un hilo que la solicitud ya tiene, o a un borrador
+tuyo, y **Ctrl+Mayús+P** abre la conversación: los comentarios que
+pertenecen a la solicitud y no a una línea.
 
-    Dos cosas que sí tiene la app de macOS: responder dentro de un hilo
-    desde el diff, y la pantalla de conversación para los comentarios
-    que pertenecen a la solicitud y no a una línea. Los hilos se
-    muestran; lo que falta es contestarlos ahí mismo.
+## Compartir un enlace
+
+Hay dos cosas que vale la pena mandarle a alguien: dónde estás mirando
+en el código, y a qué conversación te refieres.
+
+**Ctrl+Mayús+C** (⇧⌘C en macOS) copia un enlace permanente a la línea
+bajo el cursor. Apunta al archivo tal como está en el commit de cabecera
+de la solicitud, no a la pestaña de archivos: las anclas que cada forja
+pone en un diff se escriben distinto y se mueven cuando la solicitud se
+actualiza, mientras que un blob en un commit concreto le funciona a
+quien se lo mandes, y sigue funcionando.
+
+**Ctrl+Alt+Mayús+C** (⌥⇧⌘C) copia el enlace propio de la forja al hilo
+bajo el cursor, para cuando te refieres a *esa conversación* y no a esa
+línea.
+
+Ambos necesitan un pull request detrás de la revisión: un parche o una
+comparación local no tienen a dónde apuntar, y lo dicen en lugar de
+copiar algo inútil.

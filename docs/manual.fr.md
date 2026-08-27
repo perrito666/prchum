@@ -194,9 +194,26 @@ même `config.json` qu'écrit l'application macOS ; et
 que la forge a accepté quitte vos brouillons même si une étape
 ultérieure échoue.
 
-!!! note "Ce qui manque encore"
+**Ctrl+R** répond à un fil que la demande porte déjà, ou à l'un de vos
+brouillons, et **Ctrl+Maj+P** ouvre la conversation : les commentaires
+qui appartiennent à la demande plutôt qu'à une ligne.
 
-    Deux choses que l'application macOS possède : répondre dans un fil
-    depuis le diff, et l'écran de conversation pour les commentaires qui
-    appartiennent à la demande plutôt qu'à une ligne. Les fils sont
-    affichés ; c'est y répondre sur place qui manque.
+## Partager un lien
+
+Deux choses valent la peine d'être envoyées : où vous regardez dans le
+code, et de quelle conversation vous parlez.
+
+**Ctrl+Maj+C** (⇧⌘C sous macOS) copie un lien permanent vers la ligne
+sous le curseur. Il pointe vers le fichier tel qu'il est au commit de
+tête de la demande, pas vers l'onglet des fichiers : les ancres que
+chaque forge pose sur un diff s'écrivent différemment et bougent quand
+la demande est mise à jour, alors qu'un blob à un commit précis
+fonctionne pour qui vous l'envoyez, et continue de fonctionner.
+
+**Ctrl+Alt+Maj+C** (⌥⇧⌘C) copie le lien propre à la forge vers le fil
+sous le curseur, quand vous parlez de *cette conversation* et non de
+cette ligne.
+
+Les deux exigent une pull request derrière la revue : un correctif ou
+une comparaison locale n'a nulle part où pointer, et le dit plutôt que
+de copier quelque chose d'inutile.
