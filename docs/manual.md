@@ -1,16 +1,18 @@
 # A guided tour
 
 A walk through a review from start to finish, with the windows you will
-actually see. The screenshots use the dark appearance and the `default`
-theme; the repository under review is a small chess move generator, and
-the reviewer is `ada`.
+actually see. The screenshots follow this page: light ones in light
+mode, dark ones in dark. They use the `default` syntax theme, the
+repository under review is a small chess move generator, and the
+reviewer is `ada`.
 
 ## The home screen
 
 Prchum opens on the home screen: four ways in across the top, and
 underneath, the reviews you have opened before.
 
-![The home screen](images/home.png)
+![The home screen](images/home-light.png#only-light)
+![The home screen](images/home-dark.png#only-dark)
 
 The history remembers where a review came from and whether you submitted
 it. Rows for requests that have since merged or closed are pruned, and
@@ -20,14 +22,16 @@ so are the worktrees prchum made for them.
 
 ⇧⌘L asks your forge which requests are waiting for you.
 
-![The review queue](images/review-queue.png)
+![The review queue](images/review-queue-light.png#only-light)
+![The review queue](images/review-queue-dark.png#only-dark)
 
 The picker at the top chooses the filter. Named filters come from the
 `list_filters` map in your configuration, the default one runs when you
 pick nothing, and **Custom…** takes a filter typed on the spot for the
 rest of the session.
 
-![The filter picker](images/queue-filters.png)
+![The filter picker](images/queue-filters-light.png#only-light)
+![The filter picker](images/queue-filters-dark.png#only-dark)
 
 Return, or a double click, opens the highlighted request.
 
@@ -36,7 +40,8 @@ Return, or a double click, opens the highlighted request.
 The review window is the sidebar of changed files, the toolbar, and the
 diff.
 
-![A review window](images/review-window.png)
+![A review window](images/review-window-light.png#only-light)
+![A review window](images/review-window-dark.png#only-dark)
 
 The sidebar counts additions and deletions per file, and marks files
 that carry comments. ⌘↓ and ⌘↑ step through changes, ⌥⌘↓ and ⌥⌘↑ through
@@ -47,44 +52,51 @@ colors correctly on both the old and the new text.
 Opening a pull request looks the same — the title bar names the request
 instead of the comparison.
 
-![A pull request](images/pull-request.png)
+![A pull request](images/pull-request-light.png#only-light)
+![A pull request](images/pull-request-dark.png#only-dark)
 
 ⌘I shows the request's description, rendered as Markdown, with the
 branch it merges into and a button to open it in a browser.
 
-![Pull request info](images/pr-info.png)
+![Pull request info](images/pr-info-light.png#only-light)
+![Pull request info](images/pr-info-dark.png#only-dark)
 
 ## Split view
 
 ⌥⌘T puts the two sides in parallel panels. The panel your caret sits in
 decides which side a new comment targets.
 
-![Split view](images/split-view.png)
+![Split view](images/split-view-light.png#only-light)
+![Split view](images/split-view-dark.png#only-dark)
 
 ## Full-file context
 
 A diff shows three lines around each change, which is often three lines
 too few.
 
-![The hunks alone](images/hunk-view.png)
+![The hunks alone](images/hunk-view-light.png#only-light)
+![The hunks alone](images/hunk-view-dark.png#only-dark)
 
 ⌥⌘C fetches the whole file and lays the hunks back into it, so you read
 the change where it lives. The code outside the diff is colored too, and
 the fetch happens off the main thread — the window stays live while it
 arrives.
 
-![Full-file context](images/context-view.png)
+![Full-file context](images/context-view-light.png#only-light)
+![Full-file context](images/context-view-dark.png#only-dark)
 
 ## Commenting
 
 ⌘↩ comments on the line under the caret, or on the selection.
 
-![The comment composer](images/comment-composer.png)
+![The comment composer](images/comment-composer-light.png#only-light)
+![The comment composer](images/comment-composer-dark.png#only-dark)
 
 A selection spanning several lines becomes a range comment, the way the
 forge understands it.
 
-![A multi-line comment](images/multiline-comment.png)
+![A multi-line comment](images/multiline-comment-light.png#only-light)
+![A multi-line comment](images/multiline-comment-dark.png#only-dark)
 
 Comments are not attached to a row on screen. They anchor to a semantic
 location — file, side, line range, and a short context anchor with a
@@ -94,7 +106,8 @@ moving under it.
 Drafts and the threads already on the request appear inline, framed,
 with their Markdown rendered.
 
-![A comment thread](images/comment.png)
+![A comment thread](images/comment-light.png#only-light)
+![A comment thread](images/comment-dark.png#only-dark)
 
 ⌘R replies into a thread, ⌘E edits the draft under the caret, ⇧⌘X
 dismisses one (kept locally, never submitted), and ⌘⌫ deletes it.
@@ -104,7 +117,8 @@ dismisses one (kept locally, never submitted), and ⌘⌫ deletes it.
 ⌘L lists every draft and thread in the review; Return jumps to the one
 you pick.
 
-![The review navigator](images/navigator.png)
+![The review navigator](images/navigator-light.png#only-light)
+![The review navigator](images/navigator-dark.png#only-dark)
 
 ## Submitting
 
@@ -122,7 +136,8 @@ never submitted, and the sheet says so before you commit to it.
 
 ⌘, holds the things worth changing.
 
-![Settings](images/settings.png)
+![Settings](images/settings-light.png#only-light)
+![Settings](images/settings-dark.png#only-dark)
 
 Appearance and theme; the name your drafts are attributed to; the
 default and named discovery filters; the editor template; and the map

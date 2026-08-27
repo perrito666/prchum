@@ -1,16 +1,18 @@
 # Visite guidée
 
 Une revue du début à la fin, avec les fenêtres que vous verrez vraiment.
-Les captures utilisent l'apparence sombre et le thème `default` ; le
-dépôt en revue est un petit générateur de coups d'échecs, et la
-relectrice est `ada`.
+Les captures suivent cette page : claires en mode clair, sombres en mode
+sombre. Elles utilisent le thème de coloration `default`, le dépôt en
+revue est un petit générateur de coups d'échecs, et la relectrice est
+`ada`.
 
 ## L'écran d'accueil
 
 Prchum s'ouvre sur l'écran d'accueil : quatre façons d'entrer en haut
 et, dessous, les revues déjà ouvertes.
 
-![L'écran d'accueil](images/home.png)
+![L'écran d'accueil](images/home-light.png#only-light)
+![L'écran d'accueil](images/home-dark.png#only-dark)
 
 L'historique retient d'où venait chaque revue et si vous l'avez envoyée.
 Les lignes des demandes fusionnées ou fermées depuis sont élaguées, et
@@ -20,14 +22,16 @@ avec elles les worktrees que prchum avait créés.
 
 ⇧⌘L demande à votre forge quelles demandes vous attendent.
 
-![La file de revue](images/review-queue.png)
+![La file de revue](images/review-queue-light.png#only-light)
+![La file de revue](images/review-queue-dark.png#only-dark)
 
 Le sélecteur en haut choisit le filtre. Les filtres nommés viennent de
 la table `list_filters` de votre configuration, le filtre par défaut
 s'exécute quand vous n'en choisissez aucun, et **Custom…** accepte un
 filtre tapé sur le moment pour le reste de la session.
 
-![Le sélecteur de filtres](images/queue-filters.png)
+![Le sélecteur de filtres](images/queue-filters-light.png#only-light)
+![Le sélecteur de filtres](images/queue-filters-dark.png#only-dark)
 
 Return, ou un double clic, ouvre la demande sélectionnée.
 
@@ -36,7 +40,8 @@ Return, ou un double clic, ouvre la demande sélectionnée.
 La fenêtre de revue, c'est la barre latérale des fichiers modifiés, la
 barre d'outils et le diff.
 
-![Une fenêtre de revue](images/review-window.png)
+![Une fenêtre de revue](images/review-window-light.png#only-light)
+![Une fenêtre de revue](images/review-window-dark.png#only-dark)
 
 La barre latérale compte les ajouts et les suppressions par fichier, et
 marque les fichiers porteurs de commentaires. ⌘↓ et ⌘↑ parcourent les
@@ -48,44 +53,51 @@ l'ancien texte comme sur le nouveau.
 Ouvrir une pull request donne la même chose — la barre de titre nomme la
 demande au lieu de la comparaison.
 
-![Une pull request](images/pull-request.png)
+![Une pull request](images/pull-request-light.png#only-light)
+![Une pull request](images/pull-request-dark.png#only-dark)
 
 ⌘I affiche la description de la demande, rendue en Markdown, avec la
 branche cible et un bouton pour l'ouvrir dans un navigateur.
 
-![Informations sur la pull request](images/pr-info.png)
+![Informations sur la pull request](images/pr-info-light.png#only-light)
+![Informations sur la pull request](images/pr-info-dark.png#only-dark)
 
 ## Vue côte à côte
 
 ⌥⌘T place les deux côtés dans des panneaux parallèles. Le panneau où se
 trouve le curseur décide du côté visé par un nouveau commentaire.
 
-![Vue côte à côte](images/split-view.png)
+![Vue côte à côte](images/split-view-light.png#only-light)
+![Vue côte à côte](images/split-view-dark.png#only-dark)
 
 ## Contexte du fichier entier
 
 Un diff montre trois lignes autour de chaque changement, souvent trois
 lignes de trop peu.
 
-![Les hunks seuls](images/hunk-view.png)
+![Les hunks seuls](images/hunk-view-light.png#only-light)
+![Les hunks seuls](images/hunk-view-dark.png#only-dark)
 
 ⌥⌘C récupère le fichier entier et y replace les hunks, pour que vous
 lisiez le changement là où il vit. Le code hors du diff est coloré lui
 aussi, et la récupération se fait hors du fil principal : la fenêtre
 reste vivante pendant ce temps.
 
-![Contexte du fichier entier](images/context-view.png)
+![Contexte du fichier entier](images/context-view-light.png#only-light)
+![Contexte du fichier entier](images/context-view-dark.png#only-dark)
 
 ## Commenter
 
 ⌘↩ commente la ligne sous le curseur, ou la sélection.
 
-![Le compositeur de commentaires](images/comment-composer.png)
+![Le compositeur de commentaires](images/comment-composer-light.png#only-light)
+![Le compositeur de commentaires](images/comment-composer-dark.png#only-dark)
 
 Une sélection sur plusieurs lignes devient un commentaire de plage,
 telle que la forge la comprend.
 
-![Un commentaire multi-lignes](images/multiline-comment.png)
+![Un commentaire multi-lignes](images/multiline-comment-light.png#only-light)
+![Un commentaire multi-lignes](images/multiline-comment-dark.png#only-dark)
 
 Les commentaires ne sont pas attachés à une ligne à l'écran. Ils
 s'ancrent à un emplacement sémantique — fichier, côté, plage de lignes,
@@ -96,7 +108,8 @@ branche sous lui.
 Les brouillons et les fils déjà présents sur la demande apparaissent en
 ligne, encadrés, leur Markdown rendu.
 
-![Un fil de commentaires](images/comment.png)
+![Un fil de commentaires](images/comment-light.png#only-light)
+![Un fil de commentaires](images/comment-dark.png#only-dark)
 
 ⌘R répond dans un fil, ⌘E modifie le brouillon sous le curseur, ⇧⌘X en
 écarte un (gardé en local, jamais envoyé) et ⌘⌫ le supprime.
@@ -106,7 +119,8 @@ ligne, encadrés, leur Markdown rendu.
 ⌘L liste tous les brouillons et fils de la revue ; Return saute à celui
 que vous choisissez.
 
-![Le navigateur de revue](images/navigator.png)
+![Le navigateur de revue](images/navigator-light.png#only-light)
+![Le navigateur de revue](images/navigator-dark.png#only-dark)
 
 ## Envoyer
 
@@ -125,7 +139,8 @@ vous engagiez.
 
 ⌘, garde ce qui vaut la peine d'être changé.
 
-![Réglages](images/settings.png)
+![Réglages](images/settings-light.png#only-light)
+![Réglages](images/settings-dark.png#only-dark)
 
 Apparence et thème ; le nom auquel vos brouillons sont attribués ; les
 filtres de découverte, celui par défaut et les filtres nommés ; le
