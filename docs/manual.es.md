@@ -208,9 +208,20 @@ pone en un diff se escriben distinto y se mueven cuando la solicitud se
 actualiza, mientras que un blob en un commit concreto le funciona a
 quien se lo mandes, y sigue funcionando.
 
-**Ctrl+Alt+Mayús+C** (⌥⇧⌘C) copia el enlace propio de la forja al hilo
-bajo el cursor, para cuando te refieres a *esa conversación* y no a esa
-línea.
+**Ctrl+Mayús+K** (⇧⌘K) copia el enlace propio de la forja al hilo bajo
+el cursor, para cuando te refieres a *esa conversación* y no a esa línea.
+
+Con **Alt** (Opción en macOS) cada uno abre el enlace en lugar de
+copiarlo: Ctrl+Alt+Mayús+C y Ctrl+Alt+Mayús+K. Alt significa «abrir en
+vez de copiar» en todos los casos, y por eso el par del hilo va en la K
+y no comparte la C.
+
+Los cuatro están también en el **menú contextual** del diff, así que no
+hay que recordarlos. En macOS el menú muestra uno de cada par y cambia
+copiar por abrir mientras mantienes Opción, como funcionan allí los
+elementos alternativos; en Linux se listan los cuatro. En ambos casos el
+cursor se mueve primero a donde hiciste clic, de modo que la acción es
+sobre la línea que señalaste.
 
 Ambos necesitan un pull request detrás de la revisión: un parche o una
 comparación local no tienen a dónde apuntar, y lo dicen en lugar de

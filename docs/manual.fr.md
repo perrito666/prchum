@@ -210,9 +210,20 @@ chaque forge pose sur un diff s'écrivent différemment et bougent quand
 la demande est mise à jour, alors qu'un blob à un commit précis
 fonctionne pour qui vous l'envoyez, et continue de fonctionner.
 
-**Ctrl+Alt+Maj+C** (⌥⇧⌘C) copie le lien propre à la forge vers le fil
-sous le curseur, quand vous parlez de *cette conversation* et non de
-cette ligne.
+**Ctrl+Maj+K** (⇧⌘K) copie le lien propre à la forge vers le fil sous le
+curseur, quand vous parlez de *cette conversation* et non de cette ligne.
+
+Avec **Alt** (Option sous macOS), chacun ouvre le lien au lieu de le
+copier : Ctrl+Alt+Maj+C et Ctrl+Alt+Maj+K. Alt veut dire « ouvrir plutôt
+que copier » partout, d'où le fait que la paire du fil soit sur K et ne
+partage pas le C.
+
+Les quatre figurent aussi dans le **menu contextuel** du diff, pour ne
+rien avoir à retenir. Sous macOS le menu affiche l'un de chaque paire et
+échange copier contre ouvrir tant qu'Option est enfoncée, comme le font
+les éléments alternatifs ; sous Linux les quatre sont listés. Dans les
+deux cas le curseur se place d'abord là où vous avez cliqué, si bien que
+l'action porte sur la ligne visée.
 
 Les deux exigent une pull request derrière la revue : un correctif ou
 une comparaison locale n'a nulle part où pointer, et le dit plutôt que

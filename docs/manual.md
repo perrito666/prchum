@@ -204,9 +204,19 @@ are spelled differently per host and move when the request is updated,
 while a blob at an explicit commit resolves for whoever you send it to
 and keeps resolving.
 
-**Ctrl+Alt+Shift+C** (⌥⇧⌘C) copies the forge's own link to the thread
-under the cursor, for when you mean *this conversation* rather than this
-line.
+**Ctrl+Shift+K** (⇧⌘K) copies the forge's own link to the thread under
+the cursor, for when you mean *this conversation* rather than this line.
+
+Hold **Alt** (Option on macOS) and each of those opens the link instead
+of copying it: Ctrl+Alt+Shift+C and Ctrl+Alt+Shift+K. Alt means "open
+rather than copy" throughout, which is why the thread pair sits on K
+rather than sharing C.
+
+All four are on the diff's **right-click menu** too, so none of it has
+to be remembered. On macOS the menu shows one of each pair and swaps
+copy for open while Option is held, the way alternate items work there;
+on Linux it lists all four. Either way the cursor moves to where you
+clicked first, so the action is about the line you pointed at.
 
 Both need a pull request behind the review: a patch or a local
 comparison has nowhere to point at, and says so rather than copying
