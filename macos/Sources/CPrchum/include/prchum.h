@@ -385,6 +385,12 @@ char *pc_config_list_filters_json(const struct PcConfig *config);
 char *pc_config_clones_json(const struct PcConfig *config);
 
 /**
+ * Who drafts are attributed to (empty = the account name). Release
+ * with [`pc_string_free`].
+ */
+char *pc_config_author(const struct PcConfig *config);
+
+/**
  * The editor template (empty = the built-in textchum URL). Release with
  * [`pc_string_free`].
  */

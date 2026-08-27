@@ -10,6 +10,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
 {
     private let appearancePicker = NSPopUpButton(frame: .zero, pullsDown: false)
     private let themePicker = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let authorField = NSTextField(string: "")
     private let defaultFilterField = NSTextField(string: "")
     private let filtersTable = NSTableView()
     /// (name, filter), sorted by name.
@@ -25,7 +26,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
     init(onChange: @escaping () -> Void) {
         self.onChange = onChange
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 470, height: 640),
+            contentRect: NSRect(x: 0, y: 0, width: 470, height: 720),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false)
@@ -49,6 +50,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
             themePicker.selectItem(at: 0)
         }
 
+        authorField.placeholderString = NSUserName()
+        authorField.stringValue = config.author == NSUserName() ? "" : config.author
+        authorField.target = self
+        authorField.action = #selector(authorChanged(_:))
+
         defaultFilterField.placeholderString = "engine default (review-requested:@me)"
         defaultFilterField.stringValue = config.listFilter
         defaultFilterField.target = self
@@ -63,6 +69,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
         filtersTable.dataSource = self
         filtersTable.delegate = self
         filtersTable.usesAlternatingRowBackgroundColors = true
+        // A scroll view leaves its document view at whatever size it
+        // arrives with, and a table built in code arrives at zero — which
+        // draws nothing at all, headers included.
+        filtersTable.frame = NSRect(x: 0, y: 0, width: 300, height: 130)
+        filtersTable.autoresizingMask = [.width]
         reloadFilters()
 
         editorField.placeholderString = CoreEditorDefaults.template
@@ -79,6 +90,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
         clonesTable.dataSource = self
         clonesTable.delegate = self
         clonesTable.usesAlternatingRowBackgroundColors = true
+        clonesTable.frame = NSRect(x: 0, y: 0, width: 300, height: 110)
+        clonesTable.autoresizingMask = [.width]
         reloadClones()
 
         let filtersScroll = NSScrollView()
@@ -120,6 +133,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
                     let hint = NSTextField(
                         wrappingLabelWithString:
                             "Themes are JSON files in the themes folder next to config.json.")
+                    hint.textColor = .secondaryLabelColor
+                    hint.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+                    return hint
+                }(),
+            ],
+            [NSTextField(labelWithString: "Author:"), authorField],
+            [
+                NSTextField(labelWithString: ""),
+                {
+                    let hint = NSTextField(
+                        wrappingLabelWithString:
+                            "Drafts are attributed to this name — your forge handle, "
+                            + "which is rarely the account name.")
                     hint.textColor = .secondaryLabelColor
                     hint.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
                     return hint
@@ -171,6 +197,18 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
         fatalError("not used")
     }
 
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender)
+        // The grid finishes laying out after the window is on screen, and
+        // a table sized during that pass is never marked dirty — the
+        // lower one comes up blank until the window is reopened. Ask for
+        // the rows again once the layout has settled.
+        DispatchQueue.main.async { [weak self] in
+            self?.filtersTable.reloadData()
+            self?.clonesTable.reloadData()
+        }
+    }
+
     func windowWillClose(_ notification: Notification) {
         onClose?()
     }
@@ -209,6 +247,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
         filters = CoreConfig().listFilters.sorted { $0.key < $1.key }
             .map { ($0.key, $0.value) }
         filtersTable.reloadData()
+    }
+
+    @objc private func authorChanged(_ sender: Any?) {
+        CoreConfig.setString(
+            "author", authorField.stringValue.trimmingCharacters(in: .whitespaces))
     }
 
     @objc private func defaultFilterChanged(_ sender: Any?) {
