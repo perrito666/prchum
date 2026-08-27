@@ -66,7 +66,7 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         if let warning = session.attachStore() {
             NSLog("drafts: %@ — starting fresh, the saved file is untouched", warning)
         }
-        session.setAuthor(NSUserName())
+        session.setAuthor(CoreConfig().author)
         comments = session.comments()
         threads = session.threads()
 
@@ -726,10 +726,10 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
 
         // Only the new side exists on disk; a deletion row opens the file
         // without a line rather than pointing at the wrong one.
+        let position = caret
         let line =
-            rendered?.lineRefs.first {
-                $0.range.contains(caret) || $0.range.upperBound == caret
-            }?.newLine ?? 0
+            (rendered?.lineRefs.first { $0.range.contains(position) }
+                ?? rendered?.lineRefs.last { $0.range.upperBound == position })?.newLine ?? 0
 
         let config = CoreConfig()
         let slug = session.repoSlug
@@ -883,9 +883,10 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
                         author: $0.author, date: $0.createdAt, body: $0.body,
                         draftID: nil, imageMap: $0.imageMap ?? [:])
                 }
+                let author = CoreConfig().author
                 items += session.generalDrafts().map {
                     ConversationWindowController.Item(
-                        author: NSUserName(), date: $0.at, body: $0.body,
+                        author: author, date: $0.at, body: $0.body,
                         draftID: $0.localID)
                 }
                 return items
@@ -1032,10 +1033,13 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         if let annotation = rendered.annotations.first(where: { $0.range.contains(caret) }) {
             return annotation.target
         }
+        // The row containing the caret wins; a row merely *ending* at it
+        // is the fallback for the very end of the text. Taking them in one
+        // pass would let the previous row claim every row boundary.
+        let position = caret
         guard
-            let ref = rendered.lineRefs.first(where: {
-                $0.range.contains(caret) || $0.range.upperBound == caret
-            })
+            let ref = rendered.lineRefs.first(where: { $0.range.contains(position) })
+                ?? rendered.lineRefs.last(where: { $0.range.upperBound == position })
         else { return nil }
         if let newLine = ref.newLine { return (.right, newLine) }
         if let oldLine = ref.oldLine { return (.left, oldLine) }
@@ -1100,15 +1104,26 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
 
     // MARK: - Content
 
-    /// Reloads review state and re-renders, keeping the caret in place.
+    /// Reloads review state and re-renders, keeping the caret on the line
+    /// it was on. Comment boxes appear and disappear between renders, so
+    /// the raw offset moves under the caret — the semantic (side, line)
+    /// does not, and that is what a reviewer means by "where I was".
     private func refreshReviewState() {
         comments = session.comments()
         threads = session.threads()
         updateBadges()
+        let target = caretTarget()
         let saved = diffTextView.selectedRange()
         renderCurrentFile()
         let length = diffTextView.textStorage?.length ?? 0
-        let location = min(saved.location, length)
+        var location = min(saved.location, length)
+        if let target,
+            let match = rendered?.lineRefs.first(where: {
+                target.side == .left ? $0.oldLine == target.line : $0.newLine == target.line
+            })
+        {
+            location = match.range.location
+        }
         diffTextView.setSelectedRange(NSRange(location: location, length: 0))
         diffTextView.scrollRangeToVisible(NSRange(location: location, length: 0))
     }
