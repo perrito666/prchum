@@ -1,0 +1,17 @@
+[package]
+name = "prchum-gtk"
+version = "0.1.0"
+edition = "2021"
+description = "Prchum's Linux shell: GTK4 + libadwaita over the same core"
+license = "MIT"
+
+# The Rust shell links the core as a crate — the C ABI's job is crossing
+# languages, and the Swift shell keeps that header honest. The split is
+# unchanged: the core owns the review, the shell owns presentation.
+[dependencies]
+prchum-core = { path = "../core/prchum-core" }
+gtk = { package = "gtk4", version = "0.9", features = ["v4_12"] }
+adw = { package = "libadwaita", version = "0.7", features = ["v1_5"] }
+
+[profile.release]
+lto = true

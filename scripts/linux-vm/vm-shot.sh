@@ -64,23 +64,24 @@ if [ -n "\$target" ]; then
     wid=\$(xdotool search --onlyvisible --name "\$target" | head -1)
     [ -n "\$wid" ] || { echo "no visible window matching: \$target" >&2; exit 1; }
 
-    # X11 reads a window's pixels out of the screen, so anything hanging
-    # off the edge comes back as the desktop behind it. Fit it first.
-    eval \$(xdotool getdisplaygeometry --shell)
+    # Resize only when asked. A GTK window's reported frame includes its
+    # shadow, so measuring that against the screen and "fitting" shrinks
+    # windows that were never too big — which crops the header bar off
+    # the top of the picture.
+    # Moving a maximized window un-maximizes it, so only reposition when
+    # a size was asked for and the window is being staged deliberately.
     if [ -n "\$size" ]; then
         xdotool windowsize "\$wid" \${size%x*} \${size#*x}
-    else
-        eval \$(xdotool getwindowgeometry --shell "\$wid")
-        [ "\$WIDTH" -gt "\$((SCREEN_WIDTH - 40))" ] && \
-            xdotool windowsize "\$wid" \$((SCREEN_WIDTH - 40)) "\$HEIGHT"
-        eval \$(xdotool getwindowgeometry --shell "\$wid")
-        [ "\$HEIGHT" -gt "\$((SCREEN_HEIGHT - 80))" ] && \
-            xdotool windowsize "\$wid" "\$WIDTH" \$((SCREEN_HEIGHT - 80))
+        xdotool windowmove "\$wid" 0 0
     fi
-    xdotool windowmove "\$wid" 20 40
     xdotool windowactivate "\$wid" 2>/dev/null || true
     sleep 1.5
     import -window "\$wid" /tmp/vm-shot.png
+    # A GTK window's drawable includes its shadow, which lands as a wide
+    # black margin once the desktop behind it is dark. Trim it back to
+    # the window itself.
+    convert /tmp/vm-shot.png -bordercolor black -border 1 \\
+        -fuzz 2% -trim +repage /tmp/vm-shot.png 2>/dev/null || true
 else
     import -window root /tmp/vm-shot.png
 fi
