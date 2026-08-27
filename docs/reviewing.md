@@ -41,6 +41,7 @@ is in decides which side a comment targets.
 | ⌥⌘↩ | suggest a change: the selection's code prefilled in a ```suggestion fence |
 | ⌘R | reply — to the host thread or the draft conversation at the caret |
 | ⌘L | the review navigator: every draft and thread, Return jumps |
+| ⌃⌘E | edit the current file locally (see below) |
 
 A selection must map onto one side, GitHub-style: a changed block
 anchors RIGHT (the deletions are simply not part of that side), a
@@ -50,6 +51,23 @@ with the note inline; existing host threads show as `◆`.
 Dismissed is not deleted: the verdict travels with the review — it is
 the information the other side of a conversation needs most — but a
 dismissed comment is never submitted.
+
+## Editing locally
+
+⌃⌘E opens the file under the caret in your editor, in a local checkout
+of the branch under review — at the caret's line when that line exists
+in the file (a deletion opens the file without one).
+
+The checkout comes from the clone you point at in
+[configuration](configuration.md): if the branch is already checked out
+there — in the clone itself or a worktree you made — that one is used and
+left alone; otherwise prchum creates a worktree of its own beside its
+state, fetching the request's head when the branch is not local yet.
+Only the worktrees prchum created are ever removed, and only when the
+request has merged, closed, or vanished.
+
+A git comparison needs no clone: it already is a checkout, so the file
+opens right there.
 
 ## Submitting
 

@@ -32,6 +32,11 @@ pub struct Config {
     list_host: String,
     /// Named discovery filters, pickable in the review queue.
     list_filters: BTreeMap<String, String>,
+    /// `owner/repo` → the local clone that holds it, for local editing.
+    clones: BTreeMap<String, String>,
+    /// The editor template for opening a file locally: a URL or a
+    /// command, with {path}, {line}, {dir}. Empty means textchum.
+    editor_command: String,
     /// The named keymap `keys` overlays (from `keymaps`).
     keymap: String,
     /// User-defined named keymaps: name → {action → key spec}.
@@ -116,6 +121,7 @@ impl Config {
             &mut config.list_filters,
             &mut config.load_warning,
         );
+        Self::read_string_map(object, "clones", &mut config.clones, &mut config.load_warning);
         for (key, target) in [
             ("forgejo_api_command", 0usize),
             ("list_engine", 1),
@@ -123,6 +129,7 @@ impl Config {
             ("list_host", 3),
             ("theme", 4),
             ("appearance", 5),
+            ("editor_command", 6),
         ] {
             let Some(value) = object.get(key) else { continue };
             match value.as_str() {
@@ -132,7 +139,8 @@ impl Config {
                     2 => config.list_filter = text.to_string(),
                     3 => config.list_host = text.to_string(),
                     4 => config.theme = text.to_string(),
-                    _ => config.appearance = text.to_string(),
+                    5 => config.appearance = text.to_string(),
+                    _ => config.editor_command = text.to_string(),
                 },
                 None => {
                     config.load_warning = Some(format!("{key} must be a string; ignored"));
@@ -226,6 +234,26 @@ impl Config {
 
     pub fn list_host(&self) -> &str {
         &self.list_host
+    }
+
+    /// The configured clones as a JSON object string.
+    pub fn clones_json(&self) -> String {
+        serde_json::to_string(&self.clones).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// The local clone configured for `owner/repo`, if any. The lookup is
+    /// case-insensitive: forges are, about repository names.
+    pub fn clone_for(&self, slug: &str) -> Option<&str> {
+        let needle = slug.to_ascii_lowercase();
+        self.clones
+            .iter()
+            .find(|(key, _)| key.to_ascii_lowercase() == needle)
+            .map(|(_, path)| path.as_str())
+    }
+
+    /// The editor template; empty means the built-in textchum default.
+    pub fn editor_command(&self) -> &str {
+        &self.editor_command
     }
 
     /// The named discovery filters as a JSON object string.
@@ -322,6 +350,8 @@ impl Default for Config {
             list_filter: String::new(),
             list_host: String::new(),
             list_filters: BTreeMap::new(),
+            clones: BTreeMap::new(),
+            editor_command: String::new(),
             theme: String::new(),
             appearance: String::new(),
             load_warning: None,
@@ -367,6 +397,19 @@ mod tests {
 
         let config = Config::from_json(r#"{"keys": []}"#);
         assert!(config.load_warning().is_some());
+    }
+
+    #[test]
+    fn clones_and_editor() {
+        let config = Config::from_json(
+            r#"{"clones": {"Owner/Repo": "/src/repo"},
+                "editor_command": "code -g {path}:{line}"}"#,
+        );
+        assert!(config.load_warning().is_none());
+        assert_eq!(config.clone_for("owner/repo"), Some("/src/repo"));
+        assert_eq!(config.clone_for("other/repo"), None);
+        assert_eq!(config.editor_command(), "code -g {path}:{line}");
+        assert!(Config::default().editor_command().is_empty());
     }
 
     #[test]

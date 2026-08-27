@@ -379,6 +379,18 @@ char *pc_config_keymap(const struct PcConfig *config, bool *exists_out);
 char *pc_config_list_filters_json(const struct PcConfig *config);
 
 /**
+ * The configured clones as a JSON object (`{"owner/repo": path}`).
+ * Release with [`pc_string_free`].
+ */
+char *pc_config_clones_json(const struct PcConfig *config);
+
+/**
+ * The editor template (empty = the built-in textchum URL). Release with
+ * [`pc_string_free`].
+ */
+char *pc_config_editor_command(const struct PcConfig *config);
+
+/**
  * The fallback discovery filter (empty = the engine's default).
  * Release with [`pc_string_free`].
  */
@@ -484,6 +496,55 @@ char *pc_history_prune_json(const char *dir,
                             uintptr_t dir_len,
                             const char *config_path,
                             uintptr_t config_path_len);
+
+/**
+ * The repository this session belongs to as `owner/repo`, or an empty
+ * string when it has none (patches, exchange documents). Release with
+ * [`pc_string_free`].
+ */
+char *pc_session_repo_slug(const struct PcSession *session);
+
+/**
+ * Finds or creates the local worktree to edit this session's files in,
+ * and returns `{path, branch, created}` as JSON.
+ *
+ * * A pull request checks its branch out of `clone` — reusing a
+ *   worktree that already has it (including the clone's own checkout,
+ *   which is then left alone), or creating one under `dir/worktrees/`
+ *   that prchum owns and later cleans up.
+ * * A git comparison already *is* a checkout: its repository root comes
+ *   back unmanaged, whatever `clone` says.
+ * * Patches and exchange documents have no repository — an error.
+ *
+ * Blocking (fetches when the branch is unknown locally); run off the UI
+ * thread. Null with `error_out` set on failure.
+ */
+char *pc_session_worktree_json(const struct PcSession *session,
+                               const char *dir,
+                               uintptr_t dir_len,
+                               const char *clone,
+                               uintptr_t clone_len,
+                               char **error_out);
+
+/**
+ * Removes the worktree prchum created for `key`, if any. Worktrees it
+ * did not create are never touched. `true` when one went away.
+ */
+bool pc_worktree_remove(const char *dir, uintptr_t dir_len, const char *key, uintptr_t key_len);
+
+/**
+ * The editor invocation for opening `path` at `line`: JSON
+ * `{"kind": "url", "url": …}` or `{"kind": "command", "program": …,
+ * "args": [...]}`. An empty template means the built-in textchum URL.
+ * Release with [`pc_string_free`].
+ */
+char *pc_editor_invocation_json(const char *template_,
+                                uintptr_t template_len,
+                                const char *path,
+                                uintptr_t path_len,
+                                uint32_t line,
+                                const char *dir,
+                                uintptr_t dir_len);
 
 /**
  * Built-in theme names, newline-joined, in presentation order.

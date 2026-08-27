@@ -921,6 +921,26 @@ pub unsafe extern "C" fn pc_config_list_filters_json(config: *const PcConfig) ->
     owned_c_string(config.inner.list_filters_json())
 }
 
+/// The configured clones as a JSON object (`{"owner/repo": path}`).
+/// Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_clones_json(config: *const PcConfig) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(config.inner.clones_json())
+}
+
+/// The editor template (empty = the built-in textchum URL). Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_editor_command(config: *const PcConfig) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(config.inner.editor_command().to_string())
+}
+
 /// The fallback discovery filter (empty = the engine's default).
 /// Release with [`pc_string_free`].
 #[no_mangle]
@@ -1221,6 +1241,8 @@ pub unsafe extern "C" fn pc_history_prune_json(
             Config::load(std::path::Path::new(config_path))
         };
         let kept = prchum_core::history::prune(dir, |entry| {
+            // A request that is finished with takes its worktree along —
+            // but only one prchum created (see worktree::remove_for_key).
             if entry.kind != "pr" {
                 // Files and comparisons only leave by hand.
                 return false;
@@ -1237,11 +1259,15 @@ pub unsafe extern "C" fn pc_history_prune_json(
                 ForgeKind::GitLab => Box::new(GlabForge::new()),
                 ForgeKind::GitHub => Box::new(GhForge::new()),
             };
-            match forge.pull_request(&pr_ref) {
+            let finished = match forge.pull_request(&pr_ref) {
                 Ok(pr) => pr.merged || pr.state == "closed",
                 // 404 means gone; anything else (auth, network) keeps it.
                 Err(error) => error.contains("404") || error.contains("Not Found"),
+            };
+            if finished {
+                let _ = prchum_core::worktree::remove_for_key(dir, &entry.key);
             }
+            finished
         });
         kept.map(|entries| serde_json::to_string(&entries).unwrap_or_default())
     }));
@@ -1249,6 +1275,172 @@ pub unsafe extern "C" fn pc_history_prune_json(
         Ok(Ok(json)) => owned_c_string(json),
         _ => std::ptr::null_mut(),
     }
+}
+
+/// The repository this session belongs to as `owner/repo`, or an empty
+/// string when it has none (patches, exchange documents). Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_repo_slug(session: *const PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let slug = session
+        .pr
+        .as_ref()
+        .map(|context| {
+            format!("{}/{}", context.reference.owner, context.reference.repo)
+        })
+        .unwrap_or_default();
+    owned_c_string(slug)
+}
+
+/// Finds or creates the local worktree to edit this session's files in,
+/// and returns `{path, branch, created}` as JSON.
+///
+/// * A pull request checks its branch out of `clone` — reusing a
+///   worktree that already has it (including the clone's own checkout,
+///   which is then left alone), or creating one under `dir/worktrees/`
+///   that prchum owns and later cleans up.
+/// * A git comparison already *is* a checkout: its repository root comes
+///   back unmanaged, whatever `clone` says.
+/// * Patches and exchange documents have no repository — an error.
+///
+/// Blocking (fetches when the branch is unknown locally); run off the UI
+/// thread. Null with `error_out` set on failure.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_worktree_json(
+    session: *const PcSession,
+    dir: *const c_char,
+    dir_len: usize,
+    clone: *const c_char,
+    clone_len: usize,
+    error_out: *mut *mut c_char,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(dir) = (unsafe { str_from_raw(dir, dir_len) }) else {
+        unsafe { write_error(error_out, "state directory is not valid UTF-8") };
+        return std::ptr::null_mut();
+    };
+    let clone = unsafe { str_from_raw(clone, clone_len) }.unwrap_or_default();
+
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let inner = session.lock();
+        match inner.kind() {
+            // The comparison's own checkout is already the right tree.
+            "git" => {
+                let root = inner
+                    .reopen_hint()
+                    .split('\u{1F}')
+                    .next()
+                    .unwrap_or_default()
+                    .to_string();
+                if root.is_empty() {
+                    return Err("this comparison has no repository on disk".to_string());
+                }
+                Ok(prchum_core::worktree::WorktreeInfo {
+                    path: root,
+                    branch: String::new(),
+                    created: false,
+                })
+            }
+            "pr" => {
+                if clone.is_empty() {
+                    return Err(
+                        "no local clone is configured for this repository — add one in Settings"
+                            .to_string(),
+                    );
+                }
+                let Some(context) = session.pr.as_ref() else {
+                    return Err("this session has no pull request".to_string());
+                };
+                let metadata: serde_json::Value =
+                    serde_json::from_str(inner.pr_json()).unwrap_or_default();
+                let branch = metadata["head_ref"].as_str().unwrap_or_default();
+                let number = context.reference.number;
+                // The forge's ref for a request's head — the way to reach
+                // a branch that lives on a fork.
+                let fetch_ref = match context.kind {
+                    ForgeKind::GitLab => format!("refs/merge-requests/{number}/head"),
+                    _ => format!("refs/pull/{number}/head"),
+                };
+                prchum_core::worktree::ensure(
+                    dir,
+                    inner.source_key(),
+                    clone,
+                    branch,
+                    number,
+                    &fetch_ref,
+                    inner.head_oid(),
+                )
+            }
+            _ => Err("this source has no repository to edit in".to_string()),
+        }
+    }));
+    match result {
+        Ok(Ok(info)) => owned_c_string(serde_json::to_string(&info).unwrap_or_default()),
+        Ok(Err(message)) => {
+            unsafe { write_error(error_out, &message) };
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            unsafe { write_error(error_out, "internal error preparing the worktree") };
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Removes the worktree prchum created for `key`, if any. Worktrees it
+/// did not create are never touched. `true` when one went away.
+#[no_mangle]
+pub unsafe extern "C" fn pc_worktree_remove(
+    dir: *const c_char,
+    dir_len: usize,
+    key: *const c_char,
+    key_len: usize,
+) -> bool {
+    let Some(dir) = (unsafe { str_from_raw(dir, dir_len) }) else {
+        return false;
+    };
+    let Some(key) = (unsafe { str_from_raw(key, key_len) }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| {
+        prchum_core::worktree::remove_for_key(dir, key).unwrap_or(false)
+    }))
+    .unwrap_or(false)
+}
+
+/// The editor invocation for opening `path` at `line`: JSON
+/// `{"kind": "url", "url": …}` or `{"kind": "command", "program": …,
+/// "args": [...]}`. An empty template means the built-in textchum URL.
+/// Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_editor_invocation_json(
+    template: *const c_char,
+    template_len: usize,
+    path: *const c_char,
+    path_len: usize,
+    line: u32,
+    dir: *const c_char,
+    dir_len: usize,
+) -> *mut c_char {
+    let template = unsafe { str_from_raw(template, template_len) }.unwrap_or_default();
+    let Some(path) = (unsafe { str_from_raw(path, path_len) }) else {
+        return std::ptr::null_mut();
+    };
+    let dir = unsafe { str_from_raw(dir, dir_len) }.unwrap_or_default();
+    let json = match prchum_core::editor::invocation(template, path, line, dir) {
+        prchum_core::editor::Invocation::Url(url) => {
+            serde_json::json!({ "kind": "url", "url": url })
+        }
+        prchum_core::editor::Invocation::Command { program, args } => {
+            serde_json::json!({ "kind": "command", "program": program, "args": args })
+        }
+    };
+    owned_c_string(json.to_string())
 }
 
 /// Built-in theme names, newline-joined, in presentation order.

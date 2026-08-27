@@ -6,7 +6,7 @@ import Foundation
 /// Loading never fails: a missing file is the defaults, and a broken file
 /// is the defaults plus `loadWarning` — the file on disk is never touched.
 public final class CoreConfig {
-    private let handle: OpaquePointer
+    let handle: OpaquePointer
 
     /// The default configuration file location.
     public static var defaultPath: String {

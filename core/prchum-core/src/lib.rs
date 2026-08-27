@@ -8,6 +8,7 @@ pub mod app;
 pub mod config;
 pub mod context;
 pub mod diff;
+pub mod editor;
 pub mod exchange;
 pub mod export;
 pub mod history;
@@ -17,6 +18,7 @@ pub mod session;
 pub mod source;
 pub mod syntax;
 pub mod util;
+pub mod worktree;
 
 pub use app::{App, Event, EventSender};
 pub use config::Config;
