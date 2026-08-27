@@ -168,9 +168,25 @@ jobs:
           tar -C stage -czf "$TARBALL" prchum-gtk share
           sha256sum "$TARBALL" > "$TARBALL.sha256"
 
+      - name: Native packages
+        # deb and rpm from the same staged tree, so the two cannot
+        # describe different contents. Arch is a PKGBUILD in the
+        # repository instead: there, a package is built from source on
+        # the machine that will run it, and a prebuilt binary would be
+        # the wrong shape.
+        run: |
+          sudo apt-get install -y rpm
+          VERSION="${GITHUB_REF_NAME#v}"
+          linux/packaging/deb.sh "$VERSION"
+          linux/packaging/rpm.sh "$VERSION"
+          cd linux/packaging/dist
+          for file in *.deb *.rpm; do sha256sum "$file" > "$file.sha256"; done
+          ls -1
+
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TARBALL="prchum-gtk-${GITHUB_REF_NAME}-linux-x86_64.tar.gz"
-          gh release upload "$GITHUB_REF_NAME" --clobber "$TARBALL" "$TARBALL.sha256"
+          gh release upload "$GITHUB_REF_NAME" --clobber \
+            "$TARBALL" "$TARBALL.sha256" linux/packaging/dist/*

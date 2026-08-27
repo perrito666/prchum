@@ -23,7 +23,7 @@ SSH=(ssh -i "$KEY" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new
 
 rsync -az --delete \
     --exclude '.git' --exclude 'target' --exclude '.build' --exclude 'site' \
-    --exclude 'scripts/linux-vm/build' \
+    --exclude 'scripts/linux-vm/build' --exclude 'linux/packaging/dist' \
     -e "${SSH[*]}" "$REPO/" "$VM_USER@$IP:~/prchum/"
 
 [[ $# -eq 0 ]] && { echo "synced to $IP"; exit 0; }
