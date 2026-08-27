@@ -148,3 +148,34 @@ is.
 Everything here writes through to `config.json`, which stays
 hand-editable: unknown keys survive every save, and a file prchum
 cannot parse is never overwritten.
+
+## On Linux
+
+The same review, in the GTK shell. Prchum's core is one portable
+library; what changes between platforms is the presentation, and it
+changes deliberately — this is a GNOME application, not a Mac one
+wearing a different theme.
+
+![The review window on Linux](images/linux-review-light.png#only-light)
+![The review window on Linux](images/linux-review-dark.png#only-dark)
+
+The rows are identical because the core decides them: the same files,
+the same markers and line numbers, the same tree-sitter colours from the
+same style table. What differs is everything around them — a libadwaita
+header bar carrying the title and the file, GNOME's own window controls,
+and its accent colours in the sidebar's counts. It follows the desktop's
+light and dark setting, as the picture above does.
+
+The chords differ too, and on purpose. Actions have the same names on
+both platforms and the same entries in the `keys` map, but a GNOME user
+presses Ctrl where a Mac user presses Command, so the defaults are
+Ctrl-shaped: **Ctrl+↑/↓** steps through changes, **Ctrl+Shift+↑/↓**
+through files.
+
+!!! note "Where this has got to"
+
+    The Linux shell reads reviews today — patches and git comparisons,
+    with the file list, the diff, syntax colouring and navigation.
+    Commenting, the review queue, settings and submitting are still
+    macOS-only; they are the next things to land, and the core behind
+    them is already shared.

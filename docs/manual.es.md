@@ -150,3 +150,35 @@ el archivo donde está tu cursor.
 Todo esto se escribe en `config.json`, que sigue siendo editable a mano:
 las claves desconocidas sobreviven cada guardado, y un archivo que
 prchum no puede interpretar nunca se sobrescribe.
+
+## En Linux
+
+La misma revisión, en la interfaz GTK. El núcleo de prchum es una sola
+biblioteca portable; lo que cambia entre plataformas es la presentación,
+y cambia a propósito: esta es una aplicación de GNOME, no una de Mac
+disfrazada.
+
+![La ventana de revisión en Linux](images/linux-review-light.png#only-light)
+![La ventana de revisión en Linux](images/linux-review-dark.png#only-dark)
+
+Las filas son idénticas porque las decide el núcleo: los mismos
+archivos, los mismos marcadores y números de línea, los mismos colores
+de tree-sitter salidos de la misma tabla de estilos. Lo que cambia es
+todo lo que las rodea: una barra de cabecera de libadwaita con el título
+y el archivo, los controles de ventana propios de GNOME y sus colores de
+acento en los contadores de la barra lateral. Sigue el ajuste claro u
+oscuro del escritorio, como se ve arriba.
+
+Los atajos también cambian, y a propósito. Las acciones tienen el mismo
+nombre en ambas plataformas y las mismas entradas en el mapa `keys`,
+pero quien usa GNOME pulsa Ctrl donde quien usa Mac pulsa Command, así
+que los valores por defecto son de Ctrl: **Ctrl+↑/↓** recorre los
+cambios, **Ctrl+Mayús+↑/↓** los archivos.
+
+!!! note "Hasta dónde llega esto"
+
+    Hoy la interfaz de Linux lee revisiones: parches y comparaciones de
+    git, con la lista de archivos, el diff, el coloreado de sintaxis y
+    la navegación. Comentar, la cola de revisión, los ajustes y el envío
+    siguen siendo solo de macOS; son lo siguiente en llegar, y el núcleo
+    que hay detrás ya es compartido.

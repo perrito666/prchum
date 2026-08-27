@@ -151,3 +151,35 @@ branche et ouvrir le fichier là où est votre curseur.
 Tout cela est écrit dans `config.json`, qui reste modifiable à la main :
 les clés inconnues survivent à chaque enregistrement, et un fichier que
 prchum ne sait pas lire n'est jamais écrasé.
+
+## Sous Linux
+
+La même revue, dans l'interface GTK. Le cœur de prchum est une seule
+bibliothèque portable ; ce qui change d'une plateforme à l'autre, c'est
+la présentation, et cela change délibérément : ceci est une application
+GNOME, pas une application Mac déguisée.
+
+![La fenêtre de revue sous Linux](images/linux-review-light.png#only-light)
+![La fenêtre de revue sous Linux](images/linux-review-dark.png#only-dark)
+
+Les lignes sont identiques parce que c'est le cœur qui les décide : les
+mêmes fichiers, les mêmes marqueurs et numéros de ligne, les mêmes
+couleurs tree-sitter issues de la même table de styles. Ce qui diffère,
+c'est tout ce qui les entoure : une barre d'en-tête libadwaita portant
+le titre et le fichier, les boutons de fenêtre propres à GNOME, et ses
+couleurs d'accent dans les compteurs de la barre latérale. Elle suit le
+réglage clair ou sombre du bureau, comme ci-dessus.
+
+Les raccourcis diffèrent aussi, à dessein. Les actions portent les mêmes
+noms sur les deux plateformes et les mêmes entrées dans la table `keys`,
+mais sous GNOME on appuie sur Ctrl là où sur Mac on appuie sur Command :
+les valeurs par défaut sont donc en Ctrl. **Ctrl+↑/↓** parcourt les
+changements, **Ctrl+Maj+↑/↓** les fichiers.
+
+!!! note "Où cela en est"
+
+    L'interface Linux lit aujourd'hui les revues : correctifs et
+    comparaisons git, avec la liste des fichiers, le diff, la coloration
+    syntaxique et la navigation. Commenter, la file de revue, les
+    réglages et l'envoi restent propres à macOS ; ce sont les prochaines
+    étapes, et le cœur qui les porte est déjà partagé.
