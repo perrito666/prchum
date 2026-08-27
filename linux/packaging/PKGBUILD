@@ -6,6 +6,10 @@
 # on the machine that will use the result.
 #
 #   makepkg -si
+#
+# pkgver and sha256sums are stamped from the tag when a release is built,
+# so the copy attached to each release is the current one. This copy is
+# whatever was last stamped into the repository, which may be behind.
 pkgname=prchum
 pkgver=0.4.0
 pkgrel=1
@@ -24,7 +28,7 @@ optdepends=(
     'glab: reviewing GitLab merge requests'
 )
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('d9fc43ab0d6d34200bd8165a320c40928196eb579a11dbb60d143a1c9e5b040d')
 
 prepare() {
     cd "$srcdir/$pkgname-$pkgver/linux"
