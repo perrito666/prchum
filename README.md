@@ -71,10 +71,12 @@ make app                    # a double-clickable Prchum.app in dist/
 
 Requires a Rust toolchain and Xcode (macOS 14+).
 
-Releases build from `v*` tags. They ship unsigned until the Apple
-signing secrets exist in the repository — `scripts/setup-signing` loads
-them (certificate, password, and notary auth) via `gh secret set`, and
-the release workflow signs and notarizes by itself from then on.
+Releases build from `v*` tags, and the macOS app is signed and
+notarized: the workflow does it by itself from the Apple secrets in the
+repository, which `scripts/setup-signing` loads (certificate, password,
+and notary auth) via `gh secret set`. Without those secrets it still
+builds, and says in the release notes that the app is unsigned. Linux
+releases carry a `prchum-gtk` tarball alongside.
 
 ## The icon
 

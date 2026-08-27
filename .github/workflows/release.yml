@@ -9,6 +9,14 @@ on:
 permissions:
   contents: write
 
+# One run per tag. v0.3.1 went out twice — two runs raced, the first
+# created the release and the second died on "a release with the same tag
+# name already exists". Queueing rather than cancelling, because a run
+# that is already signing and notarizing should be allowed to finish.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 # Cost note: macOS minutes bill at 10x, but a release is rare and needs
 # a Mac end to end (release core, release Swift build, icns, ditto).
 jobs:
@@ -110,9 +118,54 @@ jobs:
           else
             MAC_NOTE="The app is not code-signed — on first launch, right-click Prchum.app and choose Open (or clear quarantine with \`xattr -d com.apple.quarantine Prchum.app\`); requires macOS 14+ on Apple Silicon."
           fi
-          gh release create "$GITHUB_REF_NAME" \
-            --title "Prchum $GITHUB_REF_NAME" \
-            --generate-notes \
-            --notes "$MAC_NOTE Reviewing pull requests needs the forge CLI installed and authenticated: gh for GitHub, fj for Forgejo." \
-            "Prchum-${GITHUB_REF_NAME}.zip" \
-            "Prchum-${GITHUB_REF_NAME}.zip.sha256"
+          NOTE="$MAC_NOTE Reviewing pull requests needs the forge CLI installed and authenticated: gh for GitHub, fj for Forgejo."
+          # Idempotent on purpose: a re-run must finish the job rather
+          # than fail because the first one already created the release.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" --clobber \
+              "Prchum-${GITHUB_REF_NAME}.zip" \
+              "Prchum-${GITHUB_REF_NAME}.zip.sha256"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "Prchum $GITHUB_REF_NAME" \
+              --generate-notes \
+              --notes "$NOTE" \
+              "Prchum-${GITHUB_REF_NAME}.zip" \
+              "Prchum-${GITHUB_REF_NAME}.zip.sha256"
+          fi
+
+  # The GTK shell, shipped as a tarball. It runs after the macOS job has
+  # created the release, so a failure here costs the Linux binary and not
+  # the release itself.
+  linux:
+    name: Build the GTK shell
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: linux
+
+      - name: GTK development packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev
+
+      - name: Build
+        run: cargo build --release --manifest-path linux/Cargo.toml
+
+      - name: Package
+        run: |
+          TARBALL="prchum-gtk-${GITHUB_REF_NAME}-linux-x86_64.tar.gz"
+          install -Dm755 linux/target/release/prchum-gtk "stage/prchum-gtk"
+          tar -C stage -czf "$TARBALL" prchum-gtk
+          sha256sum "$TARBALL" > "$TARBALL.sha256"
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TARBALL="prchum-gtk-${GITHUB_REF_NAME}-linux-x86_64.tar.gz"
+          gh release upload "$GITHUB_REF_NAME" --clobber "$TARBALL" "$TARBALL.sha256"
