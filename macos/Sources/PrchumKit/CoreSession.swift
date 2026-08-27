@@ -481,6 +481,30 @@ public final class CoreSession: @unchecked Sendable {
         }
     }
 
+    /// A shareable permalink to `path` at the request's head revision,
+    /// anchored at `line` when it is given.
+    ///
+    /// Nil for a session with no forge behind it: a patch or a local
+    /// comparison has nowhere to point at.
+    public func lineURL(path: String, line: Int?) -> String? {
+        let url = path.withCString { pointer -> String? in
+            takeString(
+                pc_session_line_url(
+                    handle, pointer, UInt(strlen(pointer)), UInt32(line ?? 0)))
+        }
+        guard let url, !url.isEmpty else { return nil }
+        return url
+    }
+
+    /// The request's own Files tab, for sharing the review rather than a
+    /// line of it.
+    public var filesURL: String? {
+        guard let url = takeString(pc_session_files_url(handle)), !url.isEmpty else {
+            return nil
+        }
+        return url
+    }
+
     public func comments() -> [DraftComment] {
         guard let json = takeString(pc_session_comments_json(handle)) else { return [] }
         return (try? decode([DraftComment].self, from: json)) ?? []

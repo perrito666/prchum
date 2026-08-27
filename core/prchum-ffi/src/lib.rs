@@ -461,19 +461,14 @@ pub unsafe extern "C" fn pc_session_add_comment(
         return std::ptr::null_mut();
     };
     let result = catch_unwind(AssertUnwindSafe(|| {
-        let id = session.lock().add_comment(
+        let id = session.lock().add_thread_reply(
             file_index,
             side_from(side),
             start_line,
             end_line,
             body.to_string(),
+            reply_to,
         )?;
-        if reply_to != 0 {
-            if let Some(comment) = session.lock().draft_mut().comment_mut(&id) {
-                comment.reply_to = Some(reply_to);
-            }
-            session.lock().persist()?;
-        }
         Ok::<String, String>(id)
     }));
     match result {
@@ -1194,6 +1189,56 @@ pub unsafe extern "C" fn pc_session_repo_slug(session: *const PcSession) -> *mut
         })
         .unwrap_or_default();
     owned_c_string(slug)
+}
+
+/// A shareable permalink to `path` at the request's head revision,
+/// anchored at `line` when it is non-zero.
+///
+/// Empty for a session with no forge behind it: a patch or a local git
+/// comparison has nowhere to point at. Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_line_url(
+    session: *const PcSession,
+    path: *const c_char,
+    path_len: usize,
+    line: u32,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(path) = (unsafe { str_from_raw(path, path_len) }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(context) = session.pr.as_ref() else {
+        return owned_c_string(String::new());
+    };
+    let head = session.lock().head_oid().to_string();
+    if head.is_empty() {
+        return owned_c_string(String::new());
+    }
+    let url = context.reference.blob_url(
+        context.kind,
+        &head,
+        path,
+        if line == 0 { None } else { Some(line) },
+    );
+    owned_c_string(url)
+}
+
+/// The request's own Files tab, for sharing the review rather than a
+/// line of it. Empty when the session has no forge. Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_files_url(session: *const PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let url = session
+        .pr
+        .as_ref()
+        .map(|context| context.reference.files_url(context.kind))
+        .unwrap_or_default();
+    owned_c_string(url)
 }
 
 /// Finds or creates the local worktree to edit this session's files in,

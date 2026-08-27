@@ -511,6 +511,25 @@ char *pc_history_prune_json(const char *dir,
 char *pc_session_repo_slug(const struct PcSession *session);
 
 /**
+ * A shareable permalink to `path` at the request's head revision,
+ * anchored at `line` when it is non-zero.
+ *
+ * Empty for a session with no forge behind it: a patch or a local git
+ * comparison has nowhere to point at. Release with [`pc_string_free`].
+ */
+char *pc_session_line_url(const struct PcSession *session,
+                          const char *path,
+                          uintptr_t path_len,
+                          uint32_t line);
+
+/**
+ * The request's own Files tab, for sharing the review rather than a
+ * line of it. Empty when the session has no forge. Release with
+ * [`pc_string_free`].
+ */
+char *pc_session_files_url(const struct PcSession *session);
+
+/**
  * Finds or creates the local worktree to edit this session's files in,
  * and returns `{path, branch, created}` as JSON.
  *

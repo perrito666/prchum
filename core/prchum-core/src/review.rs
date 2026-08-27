@@ -51,7 +51,8 @@ pub struct DraftComment {
 }
 
 /// A conversation-level (not line-anchored) draft, PR mode.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GeneralDraft {
     pub local_id: String,
     pub body: String,

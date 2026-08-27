@@ -432,6 +432,31 @@ impl Session {
         Ok(id)
     }
 
+    /// A draft that answers a thread the host already has.
+    ///
+    /// It is anchored like any other comment — the location is what
+    /// relocation and rendering work from — but carries the root
+    /// comment's id, which is what makes it post as a reply into that
+    /// conversation rather than as a new one beside it.
+    pub fn add_thread_reply(
+        &mut self,
+        file_index: usize,
+        side: Side,
+        start_line: u32,
+        end_line: u32,
+        body: String,
+        reply_to: i64,
+    ) -> Result<String, String> {
+        let id = self.add_comment(file_index, side, start_line, end_line, body)?;
+        if reply_to != 0 {
+            if let Some(comment) = self.draft.comment_mut(&id) {
+                comment.reply_to = Some(reply_to);
+            }
+            self.persist()?;
+        }
+        Ok(id)
+    }
+
     pub fn update_comment(&mut self, local_id: &str, body: String) -> Result<(), String> {
         if !self.draft.update_comment(local_id, body) {
             return Err("no such comment".to_string());
