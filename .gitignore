@@ -12,3 +12,6 @@ dist/
 # Docs build output
 site/
 .docs-venv/
+
+# Linux VM images and generated seeds
+scripts/linux-vm/build/

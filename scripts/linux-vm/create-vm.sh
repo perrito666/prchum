@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Builds the Linux VM prchum's GTK shell is developed and photographed
+# in. The machine is meant to be disposable: delete it and run this
+# again rather than repairing it by hand.
+#
+#   ./create-vm.sh            build it
+#   ./create-vm.sh --delete   throw it away
+#
+# QEMU backend rather than Apple Virtualization: it boots a stock cloud
+# image from UEFI without a separate kernel and initrd, and on Apple
+# silicon an aarch64 guest still runs on the hardware hypervisor, so the
+# predictability costs nothing.
+set -euo pipefail
+
+VM_NAME="${VM_NAME:-prchum-linux}"
+MEMORY_MIB="${MEMORY_MIB:-8192}"
+CPU_CORES="${CPU_CORES:-4}"
+DISK_SIZE="${DISK_SIZE:-64G}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519.pub}"
+
+# Ubuntu 24.04 LTS: GNOME 46, GTK 4.14, libadwaita 1.5, and the same
+# distribution the Linux CI job would run on.
+IMAGE_URL="https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILD="$HERE/build"
+# UTM ships qemu-img as a library it loads in-process, not as something
+# that can be run, so the host needs its own copy. It is wanted for one
+# thing only: the cloud image's disk is about 3.5 GiB, which a desktop
+# does not fit into.
+QEMU_IMG="$(command -v qemu-img || true)"
+UTMCTL="/Applications/UTM.app/Contents/MacOS/utmctl"
+
+die() { echo "error: $*" >&2; exit 1; }
+
+vm_exists() { "$UTMCTL" list | awk 'NR>1 {$1=""; $2=""; sub(/^ +/,""); print}' | grep -qx "$VM_NAME"; }
+
+if [[ "${1:-}" == "--delete" ]]; then
+    vm_exists && "$UTMCTL" stop "$VM_NAME" 2>/dev/null || true
+    vm_exists && "$UTMCTL" delete "$VM_NAME"
+    rm -rf "$BUILD"
+    echo "deleted $VM_NAME"
+    exit 0
+fi
+
+[[ -x "$UTMCTL" ]] || die "UTM not found in /Applications"
+[[ -n "$QEMU_IMG" ]] || die "qemu-img not found — brew install qemu"
+[[ -f "$SSH_KEY" ]] || die "no public key at $SSH_KEY (set SSH_KEY=...)"
+vm_exists && die "$VM_NAME already exists — ./create-vm.sh --delete first"
+
+mkdir -p "$BUILD"
+
+echo "==> Base image"
+BASE="$BUILD/$(basename "$IMAGE_URL")"
+if [[ ! -f "$BASE" ]]; then
+    curl -fL --progress-bar -o "$BASE.part" "$IMAGE_URL"
+    mv "$BASE.part" "$BASE"
+fi
+
+echo "==> Disk"
+DISK="$BUILD/$VM_NAME.qcow2"
+if [[ ! -f "$DISK" ]]; then
+    cp "$BASE" "$DISK"
+    "$QEMU_IMG" resize "$DISK" "$DISK_SIZE"
+fi
+
+echo "==> cloud-init seed"
+# The public key is read at build time rather than committed: the
+# template stays free of anything identifying.
+SEED_SRC="$BUILD/seed"
+rm -rf "$SEED_SRC" && mkdir -p "$SEED_SRC"
+sed "s|__SSH_PUBLIC_KEY__|$(cat "$SSH_KEY")|" \
+    "$HERE/user-data.template" > "$SEED_SRC/user-data"
+cat > "$SEED_SRC/meta-data" <<EOF
+instance-id: $VM_NAME
+local-hostname: $VM_NAME
+EOF
+SEED="$BUILD/seed.iso"
+rm -f "$SEED"
+# cloud-init finds the drive by its CIDATA volume label, and it scans
+# every block device for it — so the seed rides in as an ordinary VirtIO
+# disk. Attaching it as removable media instead makes UTM import an
+# empty drive, and the guest then boots with no user and no key.
+hdiutil makehybrid -iso -joliet -default-volume-name CIDATA \
+    -o "${SEED%.iso}" "$SEED_SRC" >/dev/null
+
+echo "==> Creating the virtual machine"
+osascript <<APPLESCRIPT
+tell application "UTM"
+    set vm to make new virtual machine with properties {backend:qemu, configuration:{name:"$VM_NAME", architecture:"aarch64", memory:$MEMORY_MIB, cpu cores:$CPU_CORES, hypervisor:true, uefi:true, drives:{{removable:false, interface:VirtIO, source:POSIX file "$DISK"}, {removable:false, interface:VirtIO, source:POSIX file "$SEED"}}}}
+    start vm
+end tell
+APPLESCRIPT
+
+echo "==> Waiting for the guest to come up"
+IP=""
+for _ in $(seq 1 60); do
+    IP="$("$UTMCTL" ip-address "$VM_NAME" 2>/dev/null | grep -E '^(192|10|172)\.' | head -1 || true)"
+    [[ -n "$IP" ]] && break
+    sleep 10
+done
+[[ -n "$IP" ]] || die "the guest never reported an address; open UTM and look at the console"
+
+echo "==> Provisioning through the guest agent"
+# Not over SSH: the agent's channel is virtio-serial and always
+# reachable, while host-to-guest networking depends on a macOS privacy
+# permission the script cannot grant. See README.md.
+"$UTMCTL" file push "$VM_NAME" /root/provision.sh < "$HERE/provision.sh"
+"$UTMCTL" exec "$VM_NAME" --cmd /bin/sh -c \
+    'cp /root/provision.sh /home/prchum/ \
+     && chown prchum:prchum /home/prchum/provision.sh \
+     && chmod +x /home/prchum/provision.sh \
+     && setsid su - prchum -c "/home/prchum/provision.sh > /home/prchum/provision.log 2>&1" \
+        < /dev/null > /dev/null 2>&1 &'
+
+cat <<EOF
+
+$VM_NAME is up at $IP, and provisioning has started in the background.
+
+Watch it:
+
+    ./vm-exec.sh 'tail -f provision.log'
+
+It installs GNOME, the GTK4 and libadwaita development packages, the
+AT-SPI testing harness and Rust, which takes a while. Reboot when it
+finishes and the machine comes up logged into GNOME:
+
+    ./vm-exec.sh 'sudo reboot'
+
+If ssh prchum@$IP says "no route to host" while the guest itself has a
+working network, the guest is fine: macOS is withholding local network
+access from your terminal. Grant it under System Settings > Privacy &
+Security > Local Network. Everything here works without it.
+
+EOF
