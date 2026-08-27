@@ -675,6 +675,39 @@ fn install_shortcuts(
         }),
         // Not Ctrl+Alt+T: GNOME keeps that one for opening a terminal,
         // and a chord the desktop has reserved never reaches the app.
+        ("review-queue", &["<Ctrl><Shift>l"], {
+            let widgets = widgets.clone();
+            Box::new(move || {
+                let Some(dir) = crate::state_dir() else { return };
+                let config = prchum_core::Config::load(std::path::Path::new(&format!(
+                    "{dir}/config.json"
+                )));
+                let window = widgets.window.clone();
+                crate::queue::present(&window.clone(), &config, move |reference| {
+                    // A request opens in its own window: the queue is a
+                    // way in, not a replacement for what you are reading.
+                    if let Some(app) = window.application() {
+                        if let Ok(app) = app.downcast::<adw::Application>() {
+                            crate::open_request(&app, &reference);
+                        }
+                    }
+                });
+            })
+        }),
+        ("settings", &["<Ctrl>comma"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || {
+                let Some(dir) = crate::state_dir() else { return };
+                let state = state.clone();
+                let widgets = widgets.clone();
+                crate::settings::present(&widgets.window.clone(), &dir, move || {
+                    // The author is read when a draft is made, so a
+                    // repaint is enough to show the change.
+                    let index = state.borrow().current;
+                    show_file(&state, &widgets, index, None);
+                });
+            })
+        }),
         ("toggle-split", &["<Ctrl><Shift>t"], {
             let (state, widgets) = (state.clone(), widgets.clone());
             Box::new(move || {

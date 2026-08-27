@@ -7,6 +7,8 @@
 
 mod comment;
 mod diffview;
+mod queue;
+mod settings;
 mod submit;
 mod threads;
 mod window;
@@ -41,23 +43,7 @@ fn main() -> glib::ExitCode {
                 // Drafts outlive the window: they go beside the config,
                 // in the same place the macOS app keeps them, so a
                 // review survives being closed.
-                if let Some(dir) = state_dir() {
-                    // The forge handle you are known by, which is rarely
-                    // the account name; empty falls back to the latter.
-                    let config = prchum_core::Config::load(std::path::Path::new(
-                        &format!("{dir}/config.json"),
-                    ));
-                    let author = if config.author().is_empty() {
-                        std::env::var("USER").unwrap_or_default()
-                    } else {
-                        config.author().to_string()
-                    };
-                    session.set_author(&author);
-
-                    if let Some(warning) = session.attach_store(&dir) {
-                        eprintln!("prchum: {warning}");
-                    }
-                }
+                prepare(&mut session);
                 let window = window::build(app, session, context);
                 window.present();
                 0
@@ -72,9 +58,54 @@ fn main() -> glib::ExitCode {
     app.run()
 }
 
+/// Attaches the draft store and settles who drafts belong to.
+///
+/// Every way in goes through here, so a review opened from the queue
+/// persists exactly as one opened from the command line does.
+fn prepare(session: &mut Session) {
+    let Some(dir) = state_dir() else { return };
+
+    // The forge handle you are known by, which is rarely the account
+    // name; empty falls back to the latter.
+    let config = prchum_core::Config::load(std::path::Path::new(&format!(
+        "{dir}/config.json"
+    )));
+    let author = if config.author().is_empty() {
+        std::env::var("USER").unwrap_or_default()
+    } else {
+        config.author().to_string()
+    };
+    session.set_author(&author);
+
+    if let Some(warning) = session.attach_store(&dir) {
+        eprintln!("prchum: {warning}");
+    }
+}
+
+/// Opens a request in a new window, reporting rather than exiting if the
+/// forge cannot be reached — the reviewer still has the window they came
+/// from.
+pub fn open_request(app: &adw::Application, reference: &str) {
+    match open(Some(reference)) {
+        Ok((mut session, context)) => {
+            prepare(&mut session);
+            window::build(app, session, context).present();
+        }
+        Err(message) => {
+            if let Some(parent) = app.active_window() {
+                if let Ok(parent) = parent.downcast::<adw::ApplicationWindow>() {
+                    comment::report(&parent, "Could not open that request", &message);
+                    return;
+                }
+            }
+            eprintln!("prchum: {message}");
+        }
+    }
+}
+
 /// Where drafts and configuration live, following the XDG layout rather
 /// than the macOS one — same core, each platform's own conventions.
-fn state_dir() -> Option<String> {
+pub fn state_dir() -> Option<String> {
     let base = match std::env::var("XDG_DATA_HOME") {
         Ok(value) if !value.is_empty() => value,
         _ => format!("{}/.local/share", std::env::var("HOME").ok()?),
