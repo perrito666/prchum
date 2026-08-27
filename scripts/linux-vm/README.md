@@ -49,26 +49,28 @@ placeholder, and your public key is read at build time.
 
 ## Working with it
 
-Commands go over the guest agent's virtio-serial channel, not the
-network:
-
 ```sh
-./vm-exec.sh 'cargo build'
-./vm-exec.sh 'tail -20 provision.log'
+./vm-ssh.sh                     a shell in the guest
+./vm-ssh.sh 'cargo build'       one command
+./vm-shot.sh shot.png           a picture of its screen
+./vm-exec.sh 'systemctl status' when the network is not up yet
 ```
 
-Screenshots are taken on the host, of the window UTM already draws:
+`vm-ssh.sh` looks the address up every time, and uses a key generated
+for this machine alone. Both of those are deliberate.
 
-```sh
-./vm-shot.sh shot.png
-```
+The address changes: the guest takes a fresh DHCP lease when it reboots,
+and a remembered address then fails as **no route to host** — which
+reads like a broken network rather than a stale number. It cost an
+afternoon here, so nothing in this directory hardcodes it.
 
-`ssh prchum@<address>` is nicer for long sessions and does work — but
-only once macOS has been told to allow it. If ssh says "no route to
-host" while the guest's own network is fine, the guest is not the
-problem: macOS withholds local network access from the terminal until
-you grant it under System Settings > Privacy & Security > Local Network.
-Nothing in this directory depends on it.
+The key is the machine's own, without a passphrase, kept in `build/`.
+A personal key usually has a passphrase and needs an agent that scripts
+do not have, and a disposable VM has no business holding one.
+
+`vm-exec.sh` goes over the guest agent's virtio-serial channel instead
+of the network, which is what you want before the guest has an address,
+or when it has stopped answering and you need to find out why.
 
 ## Why screenshots come from the host
 

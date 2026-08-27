@@ -16,7 +16,10 @@ VM_NAME="${VM_NAME:-prchum-linux}"
 MEMORY_MIB="${MEMORY_MIB:-8192}"
 CPU_CORES="${CPU_CORES:-4}"
 DISK_SIZE="${DISK_SIZE:-64G}"
-SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519.pub}"
+# The machine gets its own key, generated on first build. A personal
+# key usually carries a passphrase, which needs an agent no script has,
+# and a disposable VM has no business holding one anyway.
+VM_KEY_NAME="id_ed25519"
 
 # Ubuntu 24.04 LTS: GNOME 46, GTK 4.14, libadwaita 1.5, and the same
 # distribution the Linux CI job would run on.
@@ -45,7 +48,6 @@ fi
 
 [[ -x "$UTMCTL" ]] || die "UTM not found in /Applications"
 [[ -n "$QEMU_IMG" ]] || die "qemu-img not found — brew install qemu"
-[[ -f "$SSH_KEY" ]] || die "no public key at $SSH_KEY (set SSH_KEY=...)"
 vm_exists && die "$VM_NAME already exists — ./create-vm.sh --delete first"
 
 mkdir -p "$BUILD"
@@ -64,12 +66,16 @@ if [[ ! -f "$DISK" ]]; then
     "$QEMU_IMG" resize "$DISK" "$DISK_SIZE"
 fi
 
+echo "==> Machine key"
+KEY="$BUILD/$VM_KEY_NAME"
+[[ -f "$KEY" ]] || ssh-keygen -t ed25519 -N "" -C "$VM_NAME vm" -f "$KEY" >/dev/null
+
 echo "==> cloud-init seed"
-# The public key is read at build time rather than committed: the
-# template stays free of anything identifying.
+# The key is read at build time rather than committed: the template
+# stays free of anything identifying.
 SEED_SRC="$BUILD/seed"
 rm -rf "$SEED_SRC" && mkdir -p "$SEED_SRC"
-sed "s|__SSH_PUBLIC_KEY__|$(cat "$SSH_KEY")|" \
+sed "s|__SSH_PUBLIC_KEY__|$(cat "$KEY.pub")|" \
     "$HERE/user-data.template" > "$SEED_SRC/user-data"
 cat > "$SEED_SRC/meta-data" <<EOF
 instance-id: $VM_NAME
@@ -130,9 +136,13 @@ finishes and the machine comes up logged into GNOME:
 
     ./vm-exec.sh 'sudo reboot'
 
-If ssh prchum@$IP says "no route to host" while the guest itself has a
-working network, the guest is fine: macOS is withholding local network
-access from your terminal. Grant it under System Settings > Privacy &
-Security > Local Network. Everything here works without it.
+Then:
+
+    ./vm-ssh.sh              a shell in the guest
+    ./vm-shot.sh shot.png    a picture of its screen
+
+Use those rather than a remembered address: the guest takes a new DHCP
+lease when it reboots, and yesterday's address fails as "no route to
+host", which reads like a broken network rather than a stale number.
 
 EOF
