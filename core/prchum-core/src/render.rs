@@ -23,6 +23,9 @@ pub enum RowKind {
     Deletion,
     /// `\ No newline at end of file` and friends.
     Meta,
+    /// Nothing on this side: the padding that keeps two panels level
+    /// when one side has more lines than the other.
+    Blank,
 }
 
 impl RowKind {
@@ -31,7 +34,7 @@ impl RowKind {
         match self {
             RowKind::Addition => '+',
             RowKind::Deletion => '-',
-            RowKind::HunkHeader | RowKind::Context | RowKind::Meta => ' ',
+            RowKind::HunkHeader | RowKind::Context | RowKind::Meta | RowKind::Blank => ' ',
         }
     }
 }
@@ -229,6 +232,46 @@ diff --git a/src/lib.rs b/src/lib.rs
     }
 
     #[test]
+    fn the_two_panels_stay_level() {
+        let files = parse(PATCH, 4).unwrap();
+        let (left, right) = render_split(&files[0], None);
+
+        // Whatever the shapes of the runs, the panels must be the same
+        // height or a caret in one names the wrong line in the other.
+        assert_eq!(left.rows.len(), right.rows.len());
+
+        // One deletion against two additions: the left side is padded.
+        let blanks = left.rows.iter().filter(|r| r.kind == RowKind::Blank).count();
+        assert_eq!(blanks, 1);
+        assert_eq!(
+            right.rows.iter().filter(|r| r.kind == RowKind::Blank).count(),
+            0
+        );
+
+        // Context appears on both sides, headers on both.
+        assert_eq!(left.rows[0].kind, RowKind::HunkHeader);
+        assert_eq!(right.rows[0].kind, RowKind::HunkHeader);
+        assert_eq!(left.hunk_starts, right.hunk_starts);
+    }
+
+    #[test]
+    fn a_split_row_names_a_line_on_its_own_side() {
+        let files = parse(PATCH, 4).unwrap();
+        let (left, right) = render_split(&files[0], None);
+
+        // The deletion sits on the left at old line 2, and the row
+        // opposite it on the right is the first addition, new line 2.
+        let row = left.row_for(false, 2).expect("a left row");
+        assert_eq!(left.rows[row].kind, RowKind::Deletion);
+        assert_eq!(right.rows[row].kind, RowKind::Addition);
+        assert_eq!(right.rows[row].new_line, Some(2));
+
+        // A blank names nothing, which is what stops it being commented on.
+        let blank = left.rows.iter().find(|r| r.kind == RowKind::Blank).unwrap();
+        assert!(blank.old_line.is_none() && blank.new_line.is_none());
+    }
+
+    #[test]
     fn missing_highlights_render_as_plain_rows() {
         let files = parse(PATCH, 4).unwrap();
         // A table too short for the file: rows still render, without spans.
@@ -254,4 +297,86 @@ diff --git a/src/lib.rs b/src/lib.rs
         );
         assert!(file.rows[1].spans.is_empty());
     }
+}
+
+/// The two sides of a file, laid out level with each other.
+///
+/// A change of three deletions against five additions leaves the left
+/// panel two rows short; those become [`RowKind::Blank`], so row *n* on
+/// one side is opposite row *n* on the other and a caret in either panel
+/// names a line on that panel's side. Without the padding the two views
+/// drift apart and a comment lands on whatever happens to be level with
+/// it, which is the bug this exists to prevent.
+pub fn render_split(
+    file: &FileDiff,
+    highlights: Option<&[Vec<Vec<LineSpan>>]>,
+) -> (RenderedFile, RenderedFile) {
+    let unified = render_file(file, highlights);
+    let mut left = RenderedFile::default();
+    let mut right = RenderedFile::default();
+
+    let blank = |hunk: usize| Row {
+        kind: RowKind::Blank,
+        old_line: None,
+        new_line: None,
+        text: String::new(),
+        spans: Vec::new(),
+        hunk,
+    };
+
+    // A run of deletions followed by additions is one change: the two
+    // are placed opposite each other, then whichever ran shorter is
+    // padded out.
+    let mut index = 0;
+    while index < unified.rows.len() {
+        let row = &unified.rows[index];
+        match row.kind {
+            RowKind::HunkHeader => {
+                left.hunk_starts.push(left.rows.len());
+                right.hunk_starts.push(right.rows.len());
+                left.rows.push(row.clone());
+                right.rows.push(row.clone());
+                index += 1;
+            }
+            RowKind::Deletion | RowKind::Addition => {
+                let start = index;
+                while index < unified.rows.len()
+                    && unified.rows[index].kind == RowKind::Deletion
+                {
+                    index += 1;
+                }
+                let deletions = &unified.rows[start..index];
+                let additions_start = index;
+                while index < unified.rows.len()
+                    && unified.rows[index].kind == RowKind::Addition
+                {
+                    index += 1;
+                }
+                let additions = &unified.rows[additions_start..index];
+
+                let height = deletions.len().max(additions.len());
+                for step in 0..height {
+                    left.rows.push(
+                        deletions
+                            .get(step)
+                            .cloned()
+                            .unwrap_or_else(|| blank(row.hunk)),
+                    );
+                    right.rows.push(
+                        additions
+                            .get(step)
+                            .cloned()
+                            .unwrap_or_else(|| blank(row.hunk)),
+                    );
+                }
+            }
+            _ => {
+                left.rows.push(row.clone());
+                right.rows.push(row.clone());
+                index += 1;
+            }
+        }
+    }
+
+    (left, right)
 }

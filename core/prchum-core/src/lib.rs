@@ -25,6 +25,6 @@ pub use app::{App, Event, EventSender};
 pub use config::Config;
 pub use diff::{DiffLine, FileDiff, FileStatus, Hunk, LineKind, Side};
 pub use location::{Location, RelocateResult};
-pub use render::{render_file, RenderedFile, Row, RowKind, StyledSpan};
+pub use render::{render_file, render_split, RenderedFile, Row, RowKind, StyledSpan};
 pub use review::{DraftComment, DraftReview, DraftState, ReviewEvent};
 pub use session::Session;

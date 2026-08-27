@@ -113,6 +113,12 @@ fn install_tags(buffer: &TextBuffer, dark: bool) {
         .build();
     table.add(&thread_byline);
 
+    let blank = TextTag::builder()
+        .name("blank")
+        .background(if dark { "#1a1d23" } else { "#f6f7f9" })
+        .build();
+    table.add(&blank);
+
     let dismissed = TextTag::builder()
         .name("dismissed")
         .strikethrough(true)
@@ -359,6 +365,9 @@ pub fn paint(
             RowKind::Addition => Some("addition"),
             RowKind::Deletion => Some("deletion"),
             RowKind::HunkHeader => Some("header"),
+            // Padding is drawn as nothing at all, so the eye reads the
+            // gap rather than an empty line of code.
+            RowKind::Blank => Some("blank"),
             _ => None,
         };
         if let Some(tint) = tint {

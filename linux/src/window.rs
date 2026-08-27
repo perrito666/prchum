@@ -7,7 +7,7 @@ use adw::prelude::*;
 use gtk::{Label, ListBox, ListBoxRow, Orientation, PolicyType, ScrolledWindow, TextView};
 
 use prchum_core::diff::{FileDiff, LineKind, Side};
-use prchum_core::render::{render_file, RenderedFile, RowKind};
+use prchum_core::render::{render_file, render_split, RenderedFile, RowKind};
 use prchum_core::review::DraftState;
 use prchum_core::session::Session;
 use prchum_core::syntax;
@@ -26,6 +26,11 @@ pub struct Review {
     offsets: Vec<i32>,
     rendered: RenderedFile,
     current: usize,
+    /// Whole file with the hunks laid back into it, rather than the
+    /// hunks alone.
+    context_view: bool,
+    /// The two sides in parallel panels rather than one column.
+    split_view: bool,
 }
 
 /// Where the caret is, in the terms a comment is anchored by.
@@ -38,6 +43,10 @@ struct Target {
 struct Widgets {
     window: adw::ApplicationWindow,
     view: TextView,
+    /// The old side, shown only in split view.
+    left_view: TextView,
+    left_scroll: ScrolledWindow,
+    panels: gtk::Paned,
     files: ListBox,
     title: adw::WindowTitle,
     drafts: Label,
@@ -58,6 +67,8 @@ pub fn build(
         offsets: Vec::new(),
         rendered: RenderedFile::default(),
         current: 0,
+        context_view: false,
+        split_view: false,
     }));
 
     let view = TextView::builder()
@@ -66,6 +77,21 @@ pub fn build(
         .cursor_visible(true)
         .left_margin(8)
         .top_margin(6)
+        .build();
+
+    let left_view = TextView::builder()
+        .editable(false)
+        .monospace(true)
+        .cursor_visible(true)
+        .left_margin(8)
+        .top_margin(6)
+        .build();
+    let left_scroll = ScrolledWindow::builder()
+        .hscrollbar_policy(PolicyType::Automatic)
+        .vscrollbar_policy(PolicyType::External)
+        .hexpand(true)
+        .vexpand(true)
+        .child(&left_view)
         .build();
 
     let diff_scroll = ScrolledWindow::builder()
@@ -88,10 +114,23 @@ pub fn build(
         .child(&files)
         .build();
 
+    // The two panels scroll as one: reading a change means reading both
+    // sides at once, and panels that drift apart are worse than useless.
+    diff_scroll.set_vadjustment(Some(&left_scroll.vadjustment()));
+
+    let panels = gtk::Paned::builder()
+        .orientation(Orientation::Horizontal)
+        .start_child(&left_scroll)
+        .end_child(&diff_scroll)
+        .resize_start_child(true)
+        .resize_end_child(true)
+        .build();
+    left_scroll.set_visible(false);
+
     let split = gtk::Paned::builder()
         .orientation(Orientation::Horizontal)
         .start_child(&sidebar)
-        .end_child(&diff_scroll)
+        .end_child(&panels)
         .position(260)
         .resize_start_child(false)
         .build();
@@ -122,6 +161,9 @@ pub fn build(
     let widgets = Rc::new(Widgets {
         window: window.clone(),
         view,
+        left_view,
+        left_scroll,
+        panels: panels.clone(),
         files: files.clone(),
         title: title_widget,
         drafts,
@@ -215,14 +257,64 @@ fn show_file(
     restore: Option<Target>,
 ) {
     let dark = adw::StyleManager::default().is_dark();
-    let (file, path) = {
-        let state = state.borrow();
-        let Some(file) = state.session.files().get(index).cloned() else { return };
-        let path = file.display_path().to_string();
-        (file, path)
+    let context_view = state.borrow().context_view;
+
+    // The projection is fetched through the source, which for a request
+    // means the network: it is cached in the core after the first ask.
+    let projected = if context_view {
+        let mut inner = state.borrow_mut();
+        match inner.session.context_file(index) {
+            Ok(file) => {
+                let file = file.clone();
+                let highlights = inner.session.context_highlights(index).ok().flatten();
+                Some((file, highlights))
+            }
+            Err(error) => {
+                inner.context_view = false;
+                drop(inner);
+                comment::report(&widgets.window, "No whole-file view here", &error);
+                None
+            }
+        }
+    } else {
+        None
     };
 
-    let highlights = syntax::highlight_file(&file);
+    let (file, path, highlights) = match projected {
+        Some((file, highlights)) => {
+            let path = file.display_path().to_string();
+            (file, path, highlights)
+        }
+        None => {
+            let state = state.borrow();
+            let Some(file) = state.session.files().get(index).cloned() else { return };
+            let path = file.display_path().to_string();
+            let highlights = syntax::highlight_file(&file);
+            (file, path, highlights)
+        }
+    };
+
+    let split_view = state.borrow().split_view;
+    if split_view {
+        let (left, right) = render_split(&file, highlights.as_deref());
+        diffview::paint(&widgets.left_view, &left, &[], dark);
+        let painted = diffview::paint(&widgets.view, &right, &[], dark);
+        let mut inner = state.borrow_mut();
+        inner.rendered = right;
+        inner.offsets = painted.offsets;
+        inner.current = index;
+        drop(inner);
+        widgets.left_scroll.set_visible(true);
+        // A Paned gives a hidden child no width; it has to be told where
+        // the divider goes once the panel is actually shown.
+        let width = widgets.panels.width().max(600);
+        widgets.panels.set_position(width / 2);
+        widgets.title.set_subtitle(&path);
+        update_badge(state, widgets);
+        return;
+    }
+    widgets.left_scroll.set_visible(false);
+
     let rendered = render_file(&file, highlights.as_deref());
 
     let painted = {
@@ -580,6 +672,30 @@ fn install_shortcuts(
         ("delete-comment", &["<Ctrl>Delete", "<Ctrl>BackSpace"], {
             let (state, widgets) = (state.clone(), widgets.clone());
             Box::new(move || delete_comment(&state, &widgets))
+        }),
+        // Not Ctrl+Alt+T: GNOME keeps that one for opening a terminal,
+        // and a chord the desktop has reserved never reaches the app.
+        ("toggle-split", &["<Ctrl><Shift>t"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || {
+                let index = {
+                    let mut inner = state.borrow_mut();
+                    inner.split_view = !inner.split_view;
+                    inner.current
+                };
+                show_file(&state, &widgets, index, None);
+            })
+        }),
+        ("toggle-context", &["<Ctrl><Alt>c"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || {
+                let index = {
+                    let mut inner = state.borrow_mut();
+                    inner.context_view = !inner.context_view;
+                    inner.current
+                };
+                show_file(&state, &widgets, index, None);
+            })
         }),
         ("submit", &["<Ctrl><Shift>Return"], {
             let (state, widgets) = (state.clone(), widgets.clone());
