@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 import PrchumKit
 import SwiftUI
 
@@ -1079,10 +1080,12 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
                             "Posted \(result.posted); \(result.remaining) kept as drafts.\n\(error)")
                     } else {
                         // Submitted: stamp the history and land back home.
+                        // Success is told, not asked about — a sheet here
+                        // stood between the reviewer and the door for no
+                        // reason, since there is nothing to decide.
                         self.session.recordHistory(submitted: true)
-                        self.presentInfo(
-                            "Review submitted (\(result.posted) item\(result.posted == 1 ? "" : "s") posted)."
-                        ) { self.close() }
+                        self.notifySubmitted(result.posted)
+                        self.close()
                     }
                 case .failure(let error):
                     self.presentInfo("\(error)")
@@ -1476,6 +1479,30 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             if !body.isEmpty {
                 onSave(body)
             }
+        }
+    }
+
+    /// Says a review went out, without demanding a click for it.
+    ///
+    /// Only the good news goes here. A partial failure still raises a
+    /// sheet, because that is a thing the reviewer has to see and decide
+    /// about; this is a thing they merely need told.
+    private func notifySubmitted(_ posted: Int) {
+        // No bundle identifier means a development run straight from the
+        // binary, where the notification centre is unavailable and
+        // touching it would trap.
+        guard Bundle.main.bundleIdentifier != nil else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Review submitted"
+        content.body = "\(posted) item\(posted == 1 ? "" : "s") posted."
+
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert]) { granted, _ in
+            guard granted else { return }
+            center.add(
+                UNNotificationRequest(
+                    identifier: UUID().uuidString, content: content, trigger: nil))
         }
     }
 

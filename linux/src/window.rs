@@ -649,6 +649,21 @@ fn open_link(widgets: &Rc<Widgets>, url: &str) {
     launcher.launch(Some(&widgets.window), gtk::gio::Cancellable::NONE, |_| {});
 }
 
+/// A desktop notification, which sits in the shade rather than in the
+/// way. Falls back to a toast if the window has no application behind
+/// it, which only happens in tests.
+fn notify(widgets: &Rc<Widgets>, title: &str, body: &str) {
+    let Some(app) = widgets.window.application() else {
+        widgets.toasts.add_toast(adw::Toast::new(title));
+        return;
+    };
+    let notification = gtk::gio::Notification::new(title);
+    notification.set_body(Some(body));
+    // A stable id so a second submission replaces the first rather than
+    // stacking another card in the shade.
+    app.send_notification(Some("review-submitted"), &notification);
+}
+
 fn copy(widgets: &Rc<Widgets>, text: &str, what: &str) {
     widgets.window.clipboard().set_text(text);
     let toast = adw::Toast::new(&format!("{what} copied"));
@@ -719,8 +734,12 @@ fn submit_review(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
                 .unwrap_or(0);
             show_file(&state, &widgets, index, None);
             if complete {
-                comment::report(
-                    &widgets.window,
+                // Success is told, not asked about: a dialog here would
+                // stand in the way for something with nothing to decide.
+                // A partial failure still raises one, because that is a
+                // thing the reviewer has to see.
+                notify(
+                    &widgets,
                     "Review submitted",
                     &format!(
                         "{posted} comment{} posted, {remaining} still local.",

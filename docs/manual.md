@@ -132,6 +132,11 @@ land, so a submission that fails halfway can be retried without posting
 anything twice. Orphaned drafts — the ones whose code is gone — are
 never submitted, and the sheet says so before you commit to it.
 
+When it goes out cleanly you get a notification rather than a dialog:
+there is nothing to decide, so nothing stands between you and the next
+thing. A submission that only partly landed still asks, because that is
+something you have to see.
+
 ## Settings
 
 ⌘, holds the things worth changing.

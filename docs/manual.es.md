@@ -134,6 +134,11 @@ puede reintentar sin publicar nada dos veces. Los borradores huérfanos
 —aquellos cuyo código ya no está— nunca se envían, y la hoja te lo dice
 antes de que te decidas.
 
+Cuando sale bien recibes una notificación, no un diálogo: no hay nada
+que decidir, así que nada se interpone entre tú y lo siguiente. Un envío
+que solo llegó a medias sí pregunta, porque eso es algo que tienes que
+ver.
+
 ## Ajustes
 
 ⌘, guarda lo que vale la pena cambiar.

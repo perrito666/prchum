@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=Prchum
+GenericName=Code Review
+Comment=Review pull requests and patches
+# Must match the application id the shell registers, or the desktop has
+# nothing to attach a notification's name and icon to.
+Exec=prchum-gtk %u
+Icon=eu.dumontix.prchum
+Terminal=false
+Categories=Development;RevisionControl;
+Keywords=review;diff;pull request;patch;
+StartupNotify=true
+StartupWMClass=prchum-gtk
+# The scheme the `prchum://` links open with, once this file is
+# installed and the MIME database has been refreshed.
+MimeType=x-scheme-handler/prchum;

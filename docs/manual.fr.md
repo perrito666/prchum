@@ -135,6 +135,11 @@ publier deux fois. Les brouillons orphelins — ceux dont le code a
 disparu — ne sont jamais envoyés, et la feuille le dit avant que vous
 vous engagiez.
 
+Quand tout part correctement, vous recevez une notification plutôt
+qu'une boîte de dialogue : il n'y a rien à décider, donc rien ne
+s'interpose. Un envoi qui n'est passé qu'à moitié pose toujours la
+question, parce que c'est quelque chose qu'il faut voir.
+
 ## Réglages
 
 ⌘, garde ce qui vaut la peine d'être changé.
