@@ -37,6 +37,9 @@ pub struct Config {
     /// The editor template for opening a file locally: a URL or a
     /// command, with {path}, {line}, {dir}. Empty means textchum.
     editor_command: String,
+    /// The name drafts are attributed to — your forge handle, which is
+    /// rarely the macOS account name. Empty means the account name.
+    author: String,
     /// The named keymap `keys` overlays (from `keymaps`).
     keymap: String,
     /// User-defined named keymaps: name → {action → key spec}.
@@ -130,6 +133,7 @@ impl Config {
             ("theme", 4),
             ("appearance", 5),
             ("editor_command", 6),
+            ("author", 7),
         ] {
             let Some(value) = object.get(key) else { continue };
             match value.as_str() {
@@ -140,7 +144,8 @@ impl Config {
                     3 => config.list_host = text.to_string(),
                     4 => config.theme = text.to_string(),
                     5 => config.appearance = text.to_string(),
-                    _ => config.editor_command = text.to_string(),
+                    6 => config.editor_command = text.to_string(),
+                    _ => config.author = text.to_string(),
                 },
                 None => {
                     config.load_warning = Some(format!("{key} must be a string; ignored"));
@@ -256,6 +261,11 @@ impl Config {
         &self.editor_command
     }
 
+    /// Who drafts are attributed to; empty means the account name.
+    pub fn author(&self) -> &str {
+        &self.author
+    }
+
     /// The named discovery filters as a JSON object string.
     pub fn list_filters_json(&self) -> String {
         serde_json::to_string(&self.list_filters).unwrap_or_else(|_| "{}".to_string())
@@ -352,6 +362,7 @@ impl Default for Config {
             list_filters: BTreeMap::new(),
             clones: BTreeMap::new(),
             editor_command: String::new(),
+            author: String::new(),
             theme: String::new(),
             appearance: String::new(),
             load_warning: None,
@@ -410,6 +421,11 @@ mod tests {
         assert_eq!(config.clone_for("other/repo"), None);
         assert_eq!(config.editor_command(), "code -g {path}:{line}");
         assert!(Config::default().editor_command().is_empty());
+        assert_eq!(
+            Config::from_json(r#"{"author": "ada"}"#).author(),
+            "ada"
+        );
+        assert!(Config::default().author().is_empty());
     }
 
     #[test]
@@ -497,3 +513,4 @@ mod tests {
         assert_eq!(config.keys_json(), r#"{"open":"cmd+o"}"#);
     }
 }
+

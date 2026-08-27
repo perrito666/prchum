@@ -931,6 +931,16 @@ pub unsafe extern "C" fn pc_config_clones_json(config: *const PcConfig) -> *mut 
     owned_c_string(config.inner.clones_json())
 }
 
+/// Who drafts are attributed to (empty = the account name). Release
+/// with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_config_author(config: *const PcConfig) -> *mut c_char {
+    let Some(config) = (unsafe { config.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    owned_c_string(config.inner.author().to_string())
+}
+
 /// The editor template (empty = the built-in textchum URL). Release with
 /// [`pc_string_free`].
 #[no_mangle]

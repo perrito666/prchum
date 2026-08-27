@@ -165,4 +165,11 @@ extension CoreConfig {
     public var editorCommand: String {
         takeString(pc_config_editor_command(handle)) ?? ""
     }
+
+    /// Who drafts are attributed to. Falls back to the macOS account
+    /// name, which is a guess — your forge handle is usually different.
+    public var author: String {
+        let configured = takeString(pc_config_author(handle)) ?? ""
+        return configured.isEmpty ? NSUserName() : configured
+    }
 }
