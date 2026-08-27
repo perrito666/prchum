@@ -185,12 +185,18 @@ sous GNOME on appuie sur Ctrl là où sur Mac on appuie sur Command : les
 valeurs par défaut sont donc en Ctrl. **Ctrl+↑/↓** parcourt les
 changements, **Ctrl+Maj+↑/↓** les fichiers.
 
-!!! note "Où cela en est"
+Le reste y est aussi. **Ctrl+Alt+C** replace les hunks dans le fichier
+entier ; **Ctrl+Maj+T** met les deux côtés dans des panneaux parallèles
+qui défilent ensemble ; **Ctrl+Maj+L** demande à la forge ce qui attend
+et ouvre ce que vous choisissez ; **Ctrl+,** garde les réglages, dans le
+même `config.json` qu'écrit l'application macOS ; et
+**Ctrl+Maj+Return** envoie, avec la même sûreté en cas de reprise : ce
+que la forge a accepté quitte vos brouillons même si une étape
+ultérieure échoue.
 
-    L'interface Linux lit et annote aujourd'hui les revues : correctifs
-    et comparaisons git, avec la liste des fichiers, le diff, la
-    coloration syntaxique, la navigation et les brouillons. Les fils
-    d'une pull request, la file de revue, les réglages, la vue côte à
-    côte, le contexte complet et l'envoi restent propres à macOS ; le
-    cœur qui les porte est déjà partagé, il ne reste que la
-    présentation.
+!!! note "Ce qui manque encore"
+
+    Deux choses que l'application macOS possède : répondre dans un fil
+    depuis le diff, et l'écran de conversation pour les commentaires qui
+    appartiennent à la demande plutôt qu'à une ligne. Les fils sont
+    affichés ; c'est y répondre sur place qui manque.

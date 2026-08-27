@@ -180,11 +180,17 @@ presses Ctrl where a Mac user presses Command, so the defaults are
 Ctrl-shaped: **Ctrl+↑/↓** steps through changes, **Ctrl+Shift+↑/↓**
 through files.
 
-!!! note "Where this has got to"
+The rest is here too. **Ctrl+Alt+C** lays the hunks back into the whole
+file; **Ctrl+Shift+T** puts the two sides in parallel panels that scroll
+together; **Ctrl+Shift+L** asks the forge what is waiting and opens what
+you pick; **Ctrl+,** holds the settings, written to the same
+`config.json` the macOS app writes; and **Ctrl+Shift+Return** submits,
+with the same retry-safety — whatever the forge accepted leaves your
+drafts even if a later step fails.
 
-    The Linux shell reads and annotates reviews today — patches and git
-    comparisons, with the file list, the diff, syntax colouring,
-    navigation and drafts. Threads on a pull request, the review queue,
-    settings, split view, full-file context and submitting are still
-    macOS-only; the core behind them is already shared, so what remains
-    is presentation.
+!!! note "What is not there yet"
+
+    Two things the macOS app has and this does not: replying into a
+    thread from the diff, and the conversation screen for comments that
+    belong to the request rather than to a line. Threads themselves are
+    shown; it is answering them in place that is missing.

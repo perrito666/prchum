@@ -183,12 +183,18 @@ usa GNOME pulsa Ctrl donde quien usa Mac pulsa Command, así que los
 valores por defecto son de Ctrl: **Ctrl+↑/↓** recorre los cambios,
 **Ctrl+Mayús+↑/↓** los archivos.
 
-!!! note "Hasta dónde llega esto"
+El resto también está. **Ctrl+Alt+C** vuelve a colocar los hunks dentro
+del archivo entero; **Ctrl+Mayús+T** pone los dos lados en paneles
+paralelos que se desplazan juntos; **Ctrl+Mayús+L** le pregunta a la
+forja qué espera y abre lo que elijas; **Ctrl+,** guarda los ajustes, en
+el mismo `config.json` que escribe la app de macOS; y
+**Ctrl+Mayús+Return** envía, con la misma seguridad ante reintentos: lo
+que la forja aceptó sale de tus borradores aunque falle un paso
+posterior.
 
-    Hoy la interfaz de Linux lee y anota revisiones: parches y
-    comparaciones de git, con la lista de archivos, el diff, el
-    coloreado de sintaxis, la navegación y los borradores. Los hilos de
-    un pull request, la cola de revisión, los ajustes, la vista dividida,
-    el contexto completo y el envío siguen siendo solo de macOS; el
-    núcleo que hay detrás ya es compartido, así que lo que falta es
-    presentación.
+!!! note "Lo que todavía no está"
+
+    Dos cosas que sí tiene la app de macOS: responder dentro de un hilo
+    desde el diff, y la pantalla de conversación para los comentarios
+    que pertenecen a la solicitud y no a una línea. Los hilos se
+    muestran; lo que falta es contestarlos ahí mismo.
