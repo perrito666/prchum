@@ -21,6 +21,13 @@ En Arch, se compila como se hace en Arch, con el `PKGBUILD` de
 makepkg -si
 ```
 
+Con Nix, el repositorio es un flake:
+
+```sh
+nix run github:perrito666/prchum          # probarlo
+nix profile install github:perrito666/prchum   # quedárselo
+```
+
 O compile desde el código en cualquier sistema:
 
 ```sh

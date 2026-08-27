@@ -21,6 +21,13 @@ On Arch, build it the way Arch does, from the `PKGBUILD` in
 makepkg -si
 ```
 
+With Nix, the repository is a flake:
+
+```sh
+nix run github:perrito666/prchum          # try it
+nix profile install github:perrito666/prchum   # keep it
+```
+
 Or build from source anywhere:
 
 ```sh

@@ -21,6 +21,13 @@ Sous Arch, on construit comme le fait Arch, avec le `PKGBUILD` de
 makepkg -si
 ```
 
+Avec Nix, le dépôt est un flake :
+
+```sh
+nix run github:perrito666/prchum          # l'essayer
+nix profile install github:perrito666/prchum   # le garder
+```
+
 Ou compilez depuis les sources, partout :
 
 ```sh
