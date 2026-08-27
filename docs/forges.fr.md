@@ -72,3 +72,17 @@ requested » — dans l'ordre, un échec indiquant combien sont déjà
 publiés. Les blocs de suggestion sont réécrits dans la forme à
 intervalle de GitLab pour que les sélections multilignes remplacent tout
 l'intervalle.
+
+## Dans un Flatpak
+
+Prchum emprunte les CLI que vous avez déjà authentifiées, ce qui marche
+parce qu'elles et lui vivent dans le même monde. Un Flatpak est un autre
+monde : le bac à sable a son propre système de fichiers et son propre
+`PATH`, et aucun des outils de l'hôte ne s'y trouve — un simple `git` y
+échoue avec « command not found ».
+
+Le Flatpak demande donc `--talk-name=org.freedesktop.Flatpak` et lance
+chaque sous-processus via `flatpak-spawn --host`. L'application détecte
+elle-même qu'elle est confinée ; il n'y a rien à configurer.
+L'alternative serait que prchum détienne ses propres identifiants, ce
+qu'il est précisément conçu pour ne pas faire.

@@ -21,7 +21,7 @@ pub struct ProcessRunner;
 
 impl Runner for ProcessRunner {
     fn run(&self, program: &str, args: &[String], stdin: Option<&[u8]>) -> Result<String, String> {
-        let mut command = Command::new(program);
+        let mut command = prchum_core::host::command(program);
         command.args(args);
         command.stdout(Stdio::piped());
         command.stderr(Stdio::piped());

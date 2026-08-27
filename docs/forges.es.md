@@ -71,3 +71,17 @@ nota, Approve aprueba y Request changes publica una nota de «Changes
 requested» — en orden, y un fallo informa cuántos se publicaron ya. Los
 bloques de sugerencia se reescriben a la forma con rango de GitLab para
 que las selecciones multilínea reemplacen el rango completo.
+
+## Dentro de un Flatpak
+
+Prchum toma prestadas las CLI que ya has autenticado, y eso funciona
+porque él y ellas viven en el mismo mundo. Un Flatpak es otro mundo: el
+sandbox tiene su propio sistema de archivos y su propio `PATH`, y
+ninguna de las herramientas del anfitrión está en él — un `git` a secas
+falla ahí con «command not found».
+
+Por eso el Flatpak pide `--talk-name=org.freedesktop.Flatpak` y ejecuta
+cada subproceso a través de `flatpak-spawn --host`. La aplicación se da
+cuenta de que está en un sandbox y lo hace sola; no hay nada que
+configurar. La alternativa sería que prchum guardara credenciales
+propias, que es justo lo que está construido para no hacer.

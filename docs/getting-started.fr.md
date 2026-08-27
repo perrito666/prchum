@@ -5,9 +5,11 @@
 Téléchargez `Prchum.app` depuis les
 [releases](https://github.com/perrito666/prchum/releases) : elle est
 signée et notarisée, il suffit donc de télécharger, décompresser et
-double-cliquer ; Apple Silicon, macOS 14+. Sous Linux, prenez l'archive
-`prchum-gtk` au même endroit ; elle demande GTK 4.12 et libadwaita 1.5
-ou plus récents. Ou compilez depuis les sources :
+double-cliquer ; Apple Silicon, macOS 14+. Sous Linux, deux possibilités. Le paquet `.flatpak` s'installe avec
+`flatpak install prchum-*.flatpak` et embarque son propre GTK ; ou
+prenez l'archive `prchum-gtk`, qui utilise celui du système et demande
+GTK 4.12 et libadwaita 1.5 ou plus récents. Ou compilez depuis les
+sources :
 
 ```sh
 make run ARGS=changement.diff   # compile cœur + app et ouvre un patch

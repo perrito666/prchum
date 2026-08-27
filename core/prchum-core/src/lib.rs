@@ -12,6 +12,7 @@ pub mod editor;
 pub mod exchange;
 pub mod export;
 pub mod history;
+pub mod host;
 pub mod location;
 pub mod render;
 pub mod review;

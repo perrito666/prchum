@@ -15,3 +15,9 @@ site/
 
 # Linux VM images and generated seeds
 scripts/linux-vm/build/
+
+# Flatpak build input: reproducible from the lockfile.
+linux/vendor/
+
+# Flatpak build tree.
+.flatpak-builder/

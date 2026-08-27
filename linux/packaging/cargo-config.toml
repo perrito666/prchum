@@ -1,0 +1,9 @@
+# Points cargo at the vendored crates that `vendor.sh` writes, so the
+# Flatpak build needs no network — which flatpak-builder does not give a
+# module, and Flathub would not accept.
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+# Relative to the build root, which is the repository, not linux/.
+directory = "linux/vendor"

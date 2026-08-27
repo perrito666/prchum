@@ -117,7 +117,7 @@ pub fn git_diff(repo: &str, spec: &GitSpec, context: u32) -> Result<GitDiff, Str
 /// Runs git in `repo`, returning stdout; a nonzero exit is an error carrying
 /// stderr.
 pub fn git_in(repo: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
+    let output = crate::host::command("git")
         .arg("-C")
         .arg(repo)
         .args(args)

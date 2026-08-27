@@ -1,0 +1,72 @@
+# Flatpak manifest for the GTK shell.
+#
+#   flatpak-builder --user --install --force-clean build linux/packaging/eu.dumontix.prchum.yml
+#
+# The sandbox is the interesting part. Prchum stores no credentials; it
+# borrows the CLIs you have already authenticated. Those live on the
+# host, so the app has to be able to reach out to them — see the
+# finish-args below, and prchum-core's `host` module, which routes every
+# subprocess through `flatpak-spawn --host` when it finds itself inside
+# a sandbox.
+id: eu.dumontix.prchum
+runtime: org.gnome.Platform
+runtime-version: "47"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: prchum-gtk
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/prchum/cargo
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+
+  # Talking to forges is the whole point, and the CLIs it delegates to
+  # need the network as much as it does.
+  - --share=network
+
+  # Reviews are of repositories that live wherever the reviewer keeps
+  # them, and local editing checks branches out into worktrees beside
+  # them. There is no narrower filesystem permission that leaves the app
+  # able to do its job.
+  - --filesystem=host
+
+  # The escape hatch that makes the CLIs reachable at all: without it,
+  # `git` and `gh` simply are not in the sandbox, and prchum would have
+  # to carry credentials itself — which is exactly what it refuses to do.
+  - --talk-name=org.freedesktop.Flatpak
+
+modules:
+  - name: prchum
+    buildsystem: simple
+    build-commands:
+      - cargo --offline fetch --manifest-path linux/Cargo.toml --verbose
+      - cargo --offline build --release --manifest-path linux/Cargo.toml
+      - install -Dm755 linux/target/release/prchum-gtk /app/bin/prchum-gtk
+      - install -Dm644 linux/data/eu.dumontix.prchum.desktop
+        /app/share/applications/eu.dumontix.prchum.desktop
+      - install -Dm644 linux/data/eu.dumontix.prchum.metainfo.xml
+        /app/share/metainfo/eu.dumontix.prchum.metainfo.xml
+      - install -Dm644 linux/data/icons/eu.dumontix.prchum-512.png
+        /app/share/icons/hicolor/512x512/apps/eu.dumontix.prchum.png
+      - install -Dm644 linux/data/icons/eu.dumontix.prchum-256.png
+        /app/share/icons/hicolor/256x256/apps/eu.dumontix.prchum.png
+      - install -Dm644 linux/data/icons/eu.dumontix.prchum-128.png
+        /app/share/icons/hicolor/128x128/apps/eu.dumontix.prchum.png
+    sources:
+      - type: dir
+        path: ../..
+      # Written by `linux/packaging/vendor.sh`, which is what makes the
+      # build above work offline — flatpak-builder gives a module no
+      # network, and a build that reached for crates.io would be neither
+      # reproducible nor acceptable to Flathub.
+      - type: file
+        path: cargo-config.toml
+        dest-filename: config.toml
+        dest: .cargo

@@ -64,3 +64,17 @@ note, Approve approves, and Request changes posts a "Changes requested"
 note — in order, with a failure reporting how many were already
 published. Suggestion fences are rewritten into GitLab's ranged form so
 multi-line selections replace the whole range.
+
+## Inside a Flatpak
+
+Prchum borrows the CLIs you have already authenticated, which works
+because it and they live in the same world. A Flatpak is a different
+world: the sandbox has its own filesystem and its own `PATH`, and none
+of the host's tools are on it — a plain `git` there fails with "command
+not found".
+
+So the Flatpak asks for `--talk-name=org.freedesktop.Flatpak` and runs
+every subprocess through `flatpak-spawn --host`. The app notices it is
+sandboxed and does this by itself; nothing needs configuring. The
+alternative would be for prchum to hold credentials of its own, which is
+the one thing it is built not to do.

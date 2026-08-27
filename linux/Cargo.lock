@@ -538,12 +538,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "prchum-forge"
+version = "0.2.0"
+dependencies = [
+ "prchum-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "prchum-gtk"
 version = "0.1.0"
 dependencies = [
  "gtk4",
  "libadwaita",
  "prchum-core",
+ "prchum-forge",
+ "serde_json",
 ]
 
 [[package]]

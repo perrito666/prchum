@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>eu.dumontix.prchum</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>Prchum</name>
+  <summary>Review pull requests and patches</summary>
+
+  <description>
+    <p>
+      Prchum reviews code: pull requests from GitHub, Forgejo and GitLab,
+      git comparisons, and plain patch files. Comments anchor to a
+      semantic location rather than to a position in a diff, so a draft
+      survives the branch moving under it, and nothing you have written
+      is lost when the request is updated.
+    </p>
+    <p>
+      It never asks for a token. Forges are reached through the command
+      line tools you have already authenticated — gh, glab or fj — so
+      credentials stay where you put them.
+    </p>
+    <p>Reviewing includes:</p>
+    <ul>
+      <li>Drafts that persist, with relocation when the code moves</li>
+      <li>Threads already on the request, answered in place</li>
+      <li>Syntax colouring, split view, and the whole file behind a hunk</li>
+      <li>A queue of what is waiting for you</li>
+      <li>Submission that can be retried without posting anything twice</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">eu.dumontix.prchum.desktop</launchable>
+
+  <url type="homepage">https://github.com/perrito666/prchum</url>
+  <url type="bugtracker">https://github.com/perrito666/prchum/issues</url>
+  <url type="help">https://perrito666.github.io/prchum/</url>
+
+  <developer id="eu.dumontix">
+    <name>Horacio Duran</name>
+  </developer>
+
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.4.0" date="2026-08-27">
+      <description>
+        <p>
+          First Flatpak release, and the first with a Linux shell at all:
+          a GTK4 and libadwaita application over the same core the macOS
+          app uses.
+        </p>
+      </description>
+    </release>
+  </releases>
+</component>
