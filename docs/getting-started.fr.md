@@ -3,9 +3,11 @@
 ## Installer
 
 Téléchargez `Prchum.app` depuis les
-[releases](https://github.com/perrito666/prchum/releases) (non signée :
-clic droit → Ouvrir au premier lancement ; Apple Silicon, macOS 14+),
-ou compilez depuis les sources :
+[releases](https://github.com/perrito666/prchum/releases) : elle est
+signée et notarisée, il suffit donc de télécharger, décompresser et
+double-cliquer ; Apple Silicon, macOS 14+. Sous Linux, prenez l'archive
+`prchum-gtk` au même endroit ; elle demande GTK 4.12 et libadwaita 1.5
+ou plus récents. Ou compilez depuis les sources :
 
 ```sh
 make run ARGS=changement.diff   # compile cœur + app et ouvre un patch
