@@ -32,3 +32,20 @@ jobs:
           workspaces: core
       - name: Smoke test
         run: make smoke
+
+  # The GTK shell builds on every change, because it links the core as a
+  # crate: a change there that breaks it would otherwise be found only
+  # by someone on Linux, long afterwards.
+  linux-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: linux
+      - name: GTK development packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libadwaita-1-dev
+      - name: Build
+        run: cargo build --manifest-path linux/Cargo.toml
