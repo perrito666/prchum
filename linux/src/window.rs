@@ -17,7 +17,7 @@ use crate::diffview::{self, Annotation, Note};
 use crate::threads;
 
 pub struct Review {
-    session: Session,
+    pub(crate) session: Session,
     /// Present for a pull request: where a submission has to reach.
     context: Option<prchum_forge::open::PrContext>,
     /// Threads the host already has, decoded once when the session opens.
@@ -50,6 +50,7 @@ struct Widgets {
     files: ListBox,
     title: adw::WindowTitle,
     drafts: Label,
+    toasts: adw::ToastOverlay,
 }
 
 /// Builds the window and wires it to `session`.
@@ -143,9 +144,13 @@ pub fn build(
     header.set_title_widget(Some(&title_widget));
     header.pack_end(&drafts);
 
+    // Copying is silent otherwise, and silence reads as failure.
+    let toasts = adw::ToastOverlay::new();
+    toasts.set_child(Some(&split));
+
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&header);
-    toolbar.set_content(Some(&split));
+    toolbar.set_content(Some(&toasts));
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
@@ -167,6 +172,7 @@ pub fn build(
         files: files.clone(),
         title: title_widget,
         drafts,
+        toasts,
     });
 
     {
@@ -407,6 +413,29 @@ fn caret_target(state: &Rc<RefCell<Review>>, view: &TextView) -> Option<Target> 
     }
 }
 
+/// The host thread the caret sits in, if any.
+fn thread_at(
+    state: &Rc<RefCell<Review>>,
+    target: Target,
+) -> Option<prchum_forge::ThreadInfo> {
+    let state = state.borrow();
+    let path = state
+        .session
+        .files()
+        .get(state.current)?
+        .display_path()
+        .to_string();
+    state
+        .host_threads
+        .iter()
+        .find(|thread| {
+            thread.path == path
+                && threads::is_new_side(thread) == (target.side == Side::Right)
+                && thread.line == Some(target.line)
+        })
+        .cloned()
+}
+
 /// The draft anchored at the caret, if there is one.
 fn draft_at(state: &Rc<RefCell<Review>>, target: Target) -> Option<String> {
     let state = state.borrow();
@@ -509,6 +538,116 @@ fn delete_comment(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
             Err(error) => comment::report(&widgets.window, "Could not delete that", &error),
         }
     });
+}
+
+/// Answers a thread the request already has, or a draft of your own.
+fn reply(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let Some(target) = caret_target(state, &widgets.view) else { return };
+
+    if let Some(thread) = thread_at(state, target) {
+        let state = state.clone();
+        let widgets = widgets.clone();
+        let parent = widgets.window.clone();
+        let heading = format!("Reply to @{}", 
+            thread.comments.first().map(|c| c.author.clone()).unwrap_or_default());
+        comment::compose(&parent, &heading, "", "Reply", move |body| {
+            let index = state.borrow().current;
+            let result = state.borrow_mut().session.add_thread_reply(
+                index,
+                target.side,
+                target.line,
+                target.line,
+                body,
+                thread.id,
+            );
+            match result {
+                Ok(_) => show_file(&state, &widgets, index, Some(target)),
+                Err(error) => comment::report(&widgets.window, "Could not reply", &error),
+            }
+        });
+        return;
+    }
+
+    let Some(id) = draft_at(state, target) else {
+        comment::report(
+            &widgets.window,
+            "Nothing here to reply to",
+            "Put the cursor on a thread from the request, or on a draft of your own.",
+        );
+        return;
+    };
+
+    let state = state.clone();
+    let widgets = widgets.clone();
+    let parent = widgets.window.clone();
+    comment::compose(&parent, "Reply", "", "Reply", move |body| {
+        let index = state.borrow().current;
+        let result = state.borrow_mut().session.add_reply(&id, body);
+        match result {
+            Ok(()) => show_file(&state, &widgets, index, Some(target)),
+            Err(error) => comment::report(&widgets.window, "Could not reply", &error),
+        }
+    });
+}
+
+/// Copies a permalink to the line under the caret.
+fn copy_line_link(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let Some(target) = caret_target(state, &widgets.view) else {
+        comment::report(
+            &widgets.window,
+            "Put the cursor on a line of the diff",
+            "A hunk header does not stand for a line in either file.",
+        );
+        return;
+    };
+
+    let url = {
+        let inner = state.borrow();
+        let Some(context) = inner.context.as_ref() else {
+            comment::report(
+                &widgets.window,
+                "Nothing to link to",
+                "This review has no forge behind it.",
+            );
+            return;
+        };
+        let Some(file) = inner.session.files().get(inner.current) else { return };
+        // A blob permalink at the head, not a link into the Files tab:
+        // diff anchors differ per host and move when the request is
+        // updated, while a commit resolves for whoever you send it to.
+        context.reference.blob_url(
+            context.kind,
+            inner.session.head_oid(),
+            file.display_path(),
+            Some(target.line),
+        )
+    };
+    copy(widgets, &url, "Link to the line");
+}
+
+/// Copies the forge's own link to the thread under the caret.
+fn copy_comment_link(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let Some(target) = caret_target(state, &widgets.view) else { return };
+    let Some(thread) = thread_at(state, target) else {
+        comment::report(
+            &widgets.window,
+            "No thread here",
+            "Put the cursor on a thread from the request.",
+        );
+        return;
+    };
+    let url = thread.comments.first().map(|c| c.url.clone()).unwrap_or_default();
+    if url.is_empty() {
+        comment::report(&widgets.window, "No link", "That thread came without one.");
+        return;
+    }
+    copy(widgets, &url, "Link to the thread");
+}
+
+fn copy(widgets: &Rc<Widgets>, text: &str, what: &str) {
+    widgets.window.clipboard().set_text(text);
+    let toast = adw::Toast::new(&format!("{what} copied"));
+    widgets.toasts.add_toast(toast);
 }
 
 fn dismiss_comment(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
@@ -675,6 +814,33 @@ fn install_shortcuts(
         }),
         // Not Ctrl+Alt+T: GNOME keeps that one for opening a terminal,
         // and a chord the desktop has reserved never reaches the app.
+        ("conversation", &["<Ctrl><Shift>p"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || {
+                let state_inner = state.clone();
+                let widgets_inner = widgets.clone();
+                crate::conversation::present(
+                    &widgets.window.clone(),
+                    state.clone(),
+                    move || {
+                        let index = state_inner.borrow().current;
+                        show_file(&state_inner, &widgets_inner, index, None);
+                    },
+                );
+            })
+        }),
+        ("reply", &["<Ctrl>r"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || reply(&state, &widgets))
+        }),
+        ("copy-line-link", &["<Ctrl><Shift>c"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || copy_line_link(&state, &widgets))
+        }),
+        ("copy-comment-link", &["<Ctrl><Alt><Shift>c"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || copy_comment_link(&state, &widgets))
+        }),
         ("review-queue", &["<Ctrl><Shift>l"], {
             let widgets = widgets.clone();
             Box::new(move || {
