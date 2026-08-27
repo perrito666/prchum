@@ -160,7 +160,12 @@ jobs:
         run: |
           TARBALL="prchum-gtk-${GITHUB_REF_NAME}-linux-x86_64.tar.gz"
           install -Dm755 linux/target/release/prchum-gtk "stage/prchum-gtk"
-          tar -C stage -czf "$TARBALL" prchum-gtk
+          # The desktop file rides along: without one installed, the
+          # desktop has no name or icon to put on a notification, and no
+          # handler to route prchum:// links to.
+          install -Dm644 linux/data/eu.dumontix.prchum.desktop \
+            "stage/share/applications/eu.dumontix.prchum.desktop"
+          tar -C stage -czf "$TARBALL" prchum-gtk share
           sha256sum "$TARBALL" > "$TARBALL.sha256"
 
       - name: Attach to the release

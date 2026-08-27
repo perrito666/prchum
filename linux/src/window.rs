@@ -196,6 +196,7 @@ pub fn build(
         });
     }
 
+    install_context_menu(&widgets);
     files.select_row(files.row_at_index(0).as_ref());
     install_shortcuts(app, &state, &widgets);
     window
@@ -590,58 +591,77 @@ fn reply(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
     });
 }
 
-/// Copies a permalink to the line under the caret.
-fn copy_line_link(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+/// The permalink to the line under the caret, or None with the reason
+/// already reported.
+fn line_link(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) -> Option<String> {
     let Some(target) = caret_target(state, &widgets.view) else {
         comment::report(
             &widgets.window,
             "Put the cursor on a line of the diff",
             "A hunk header does not stand for a line in either file.",
         );
-        return;
+        return None;
     };
 
-    let url = {
-        let inner = state.borrow();
-        let Some(context) = inner.context.as_ref() else {
-            comment::report(
-                &widgets.window,
-                "Nothing to link to",
-                "This review has no forge behind it.",
-            );
-            return;
-        };
-        let Some(file) = inner.session.files().get(inner.current) else { return };
-        // A blob permalink at the head, not a link into the Files tab:
-        // diff anchors differ per host and move when the request is
-        // updated, while a commit resolves for whoever you send it to.
-        context.reference.blob_url(
-            context.kind,
-            inner.session.head_oid(),
-            file.display_path(),
-            Some(target.line),
-        )
+    let inner = state.borrow();
+    let Some(context) = inner.context.as_ref() else {
+        comment::report(
+            &widgets.window,
+            "Nothing to link to",
+            "This review has no forge behind it.",
+        );
+        return None;
     };
-    copy(widgets, &url, "Link to the line");
+    let file = inner.session.files().get(inner.current)?;
+    // A blob permalink at the head, not a link into the Files tab: diff
+    // anchors differ per host and move when the request is updated,
+    // while a commit resolves for whoever you send it to.
+    Some(context.reference.blob_url(
+        context.kind,
+        inner.session.head_oid(),
+        file.display_path(),
+        Some(target.line),
+    ))
 }
 
-/// Copies the forge's own link to the thread under the caret.
-fn copy_comment_link(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
-    let Some(target) = caret_target(state, &widgets.view) else { return };
+/// The forge's own link to the thread under the caret.
+fn comment_link(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) -> Option<String> {
+    let target = caret_target(state, &widgets.view)?;
     let Some(thread) = thread_at(state, target) else {
         comment::report(
             &widgets.window,
             "No thread here",
             "Put the cursor on a thread from the request.",
         );
-        return;
+        return None;
     };
     let url = thread.comments.first().map(|c| c.url.clone()).unwrap_or_default();
     if url.is_empty() {
         comment::report(&widgets.window, "No link", "That thread came without one.");
-        return;
+        return None;
     }
-    copy(widgets, &url, "Link to the thread");
+    Some(url)
+}
+
+/// Hands the link to the desktop, which decides what a browser is.
+fn open_link(widgets: &Rc<Widgets>, url: &str) {
+    let launcher = gtk::UriLauncher::new(url);
+    launcher.launch(Some(&widgets.window), gtk::gio::Cancellable::NONE, |_| {});
+}
+
+/// A desktop notification, which sits in the shade rather than in the
+/// way. Falls back to a toast if the window has no application behind
+/// it, which only happens in tests.
+fn notify(widgets: &Rc<Widgets>, title: &str, body: &str) {
+    let Some(app) = widgets.window.application() else {
+        widgets.toasts.add_toast(adw::Toast::new(title));
+        return;
+    };
+    let notification = gtk::gio::Notification::new(title);
+    notification.set_body(Some(body));
+    // A stable id so a second submission replaces the first rather than
+    // stacking another card in the shade.
+    app.send_notification(Some("review-submitted"), &notification);
 }
 
 fn copy(widgets: &Rc<Widgets>, text: &str, what: &str) {
@@ -714,8 +734,12 @@ fn submit_review(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
                 .unwrap_or(0);
             show_file(&state, &widgets, index, None);
             if complete {
-                comment::report(
-                    &widgets.window,
+                // Success is told, not asked about: a dialog here would
+                // stand in the way for something with nothing to decide.
+                // A partial failure still raises one, because that is a
+                // thing the reviewer has to see.
+                notify(
+                    &widgets,
                     "Review submitted",
                     &format!(
                         "{posted} comment{} posted, {remaining} still local.",
@@ -768,6 +792,46 @@ fn step_file(state: &Rc<RefCell<Review>>, files: &ListBox, forward: bool) {
         current.saturating_sub(1)
     };
     files.select_row(files.row_at_index(next as i32).as_ref());
+}
+
+/// The diff's right-click menu.
+///
+/// Added to the text view's own menu rather than shown beside it: GTK
+/// already puts one there, and a second popover on top of it is two
+/// menus for one click.
+///
+/// The caret moves to the pointer first, in the capture phase, because
+/// every one of these acts on where the cursor is — a menu that acted
+/// somewhere other than where you clicked would be a trap.
+fn install_context_menu(widgets: &Rc<Widgets>) {
+    let links = gtk::gio::Menu::new();
+    links.append(Some("Copy Link to Line"), Some("win.copy-line-link"));
+    links.append(Some("Open Link to Line"), Some("win.open-line-link"));
+    links.append(Some("Copy Link to Comment"), Some("win.copy-comment-link"));
+    links.append(Some("Open Link to Comment"), Some("win.open-comment-link"));
+
+    let review = gtk::gio::Menu::new();
+    review.append(Some("Comment…"), Some("win.comment"));
+    review.append(Some("Reply…"), Some("win.reply"));
+    review.append(Some("Edit Comment…"), Some("win.edit-comment"));
+
+    let menu = gtk::gio::Menu::new();
+    menu.append_section(None, &links);
+    menu.append_section(None, &review);
+    widgets.view.set_extra_menu(Some(&menu));
+
+    let gesture = gtk::GestureClick::new();
+    gesture.set_button(gtk::gdk::BUTTON_SECONDARY);
+    gesture.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let view = widgets.view.clone();
+    gesture.connect_pressed(move |_, _, x, y| {
+        let (bx, by) =
+            view.window_to_buffer_coords(gtk::TextWindowType::Widget, x as i32, y as i32);
+        if let Some(iter) = view.iter_at_location(bx, by) {
+            view.buffer().place_cursor(&iter);
+        }
+    });
+    widgets.view.add_controller(gesture);
 }
 
 fn install_shortcuts(
@@ -833,13 +897,39 @@ fn install_shortcuts(
             let (state, widgets) = (state.clone(), widgets.clone());
             Box::new(move || reply(&state, &widgets))
         }),
+        // Alt means "open rather than copy", consistently — which is why
+        // the comment pair sits on K rather than sharing C.
         ("copy-line-link", &["<Ctrl><Shift>c"], {
             let (state, widgets) = (state.clone(), widgets.clone());
-            Box::new(move || copy_line_link(&state, &widgets))
+            Box::new(move || {
+                if let Some(url) = line_link(&state, &widgets) {
+                    copy(&widgets, &url, "Link to the line");
+                }
+            })
         }),
-        ("copy-comment-link", &["<Ctrl><Alt><Shift>c"], {
+        ("open-line-link", &["<Ctrl><Alt><Shift>c"], {
             let (state, widgets) = (state.clone(), widgets.clone());
-            Box::new(move || copy_comment_link(&state, &widgets))
+            Box::new(move || {
+                if let Some(url) = line_link(&state, &widgets) {
+                    open_link(&widgets, &url);
+                }
+            })
+        }),
+        ("copy-comment-link", &["<Ctrl><Shift>k"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || {
+                if let Some(url) = comment_link(&state, &widgets) {
+                    copy(&widgets, &url, "Link to the thread");
+                }
+            })
+        }),
+        ("open-comment-link", &["<Ctrl><Alt><Shift>k"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || {
+                if let Some(url) = comment_link(&state, &widgets) {
+                    open_link(&widgets, &url);
+                }
+            })
         }),
         ("review-queue", &["<Ctrl><Shift>l"], {
             let widgets = widgets.clone();

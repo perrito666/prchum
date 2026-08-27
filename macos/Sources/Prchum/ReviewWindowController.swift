@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 import PrchumKit
 import SwiftUI
 
@@ -61,6 +62,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             defer: false)
         window.title = session.title
         super.init(window: window)
+        // Built after super.init because its items target the responder
+        // chain, which needs self to exist.
+        diffTextView.menu = makeDiffMenu()
         window.delegate = self
 
         if let warning = session.attachStore() {
@@ -629,6 +633,34 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
 
     /// Reply: to the host thread at the caret (PR mode), else to the draft
     /// conversation at the caret.
+    /// The permalink to the line under the caret, or nil with the
+    /// reason already reported.
+    private func lineLink() -> String? {
+        let file = files[sidebarModel.selected]
+        guard let target = caretTarget() else {
+            presentInfo("Put the cursor on a line of the diff.")
+            return nil
+        }
+        guard let url = session.lineURL(path: file.displayPath, line: target.line) else {
+            presentInfo("This review has no forge behind it, so there is no link to share.")
+            return nil
+        }
+        return url
+    }
+
+    /// The forge's own link to the thread under the caret.
+    private func commentLink() -> String? {
+        guard let thread = threadAtCaret(), let root = thread.comments.first else {
+            presentInfo("Put the cursor on a thread from the pull request.")
+            return nil
+        }
+        guard !root.url.isEmpty else {
+            presentInfo("That thread did not come with a link.")
+            return nil
+        }
+        return root.url
+    }
+
     /// Copies a permalink to the line under the caret.
     ///
     /// A blob permalink at the request's head rather than a link into
@@ -637,29 +669,25 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
     /// while a blob at an explicit commit resolves for whoever you send
     /// it to.
     @objc func copyLineLink(_ sender: Any?) {
-        let file = files[sidebarModel.selected]
-        guard let target = caretTarget() else {
-            presentInfo("Put the cursor on a line of the diff.")
-            return
-        }
-        guard let url = session.lineURL(path: file.displayPath, line: target.line) else {
-            presentInfo("This review has no forge behind it, so there is no link to share.")
-            return
-        }
-        copyToPasteboard(url, describing: "Link to \(file.displayPath):\(target.line)")
+        guard let url = lineLink() else { return }
+        copyToPasteboard(url, describing: "Link to the line")
+    }
+
+    /// Opens that same permalink instead of copying it.
+    @objc func openLineLink(_ sender: Any?) {
+        guard let url = lineLink(), let target = URL(string: url) else { return }
+        NSWorkspace.shared.open(target)
     }
 
     /// Copies the forge's own link to the thread under the caret.
     @objc func copyCommentLink(_ sender: Any?) {
-        guard let thread = threadAtCaret(), let root = thread.comments.first else {
-            presentInfo("Put the cursor on a thread from the pull request.")
-            return
-        }
-        guard !root.url.isEmpty else {
-            presentInfo("That thread did not come with a link.")
-            return
-        }
-        copyToPasteboard(root.url, describing: "Link to the thread")
+        guard let url = commentLink() else { return }
+        copyToPasteboard(url, describing: "Link to the thread")
+    }
+
+    @objc func openCommentLink(_ sender: Any?) {
+        guard let url = commentLink(), let target = URL(string: url) else { return }
+        NSWorkspace.shared.open(target)
     }
 
     private func copyToPasteboard(_ text: String, describing what: String) {
@@ -667,6 +695,40 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
         presentInfo("\(what) copied.")
+    }
+
+    /// The diff's context menu: the actions that need a place to be
+    /// clicked, with Option turning each copy into an open.
+    ///
+    /// Alternate items are how macOS spells "the same command, modified"
+    /// — the menu shows one of each pair and swaps them as Option goes
+    /// down, rather than listing four things that look like four
+    /// commands.
+    private func makeDiffMenu() -> NSMenu {
+        let menu = NSMenu()
+        let pairs: [(ActionID, ActionID)] = [
+            (.copyLineLink, .openLineLink),
+            (.copyCommentLink, .openCommentLink),
+        ]
+        for (copy, open) in pairs {
+            menu.addItem(menuItem(for: copy, alternate: false))
+            menu.addItem(menuItem(for: open, alternate: true))
+        }
+        menu.addItem(.separator())
+        for action in [ActionID.comment, .reply, .editComment, .editLocally] {
+            menu.addItem(menuItem(for: action, alternate: false))
+        }
+        return menu
+    }
+
+    private func menuItem(for action: ActionID, alternate: Bool) -> NSMenuItem {
+        let item = NSMenuItem(title: action.title, action: action.selector, keyEquivalent: "")
+        item.target = nil
+        if alternate {
+            item.isAlternate = true
+            item.keyEquivalentModifierMask = .option
+        }
+        return item
     }
 
     @objc func replyAtCursor(_ sender: Any?) {
@@ -1018,10 +1080,12 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
                             "Posted \(result.posted); \(result.remaining) kept as drafts.\n\(error)")
                     } else {
                         // Submitted: stamp the history and land back home.
+                        // Success is told, not asked about — a sheet here
+                        // stood between the reviewer and the door for no
+                        // reason, since there is nothing to decide.
                         self.session.recordHistory(submitted: true)
-                        self.presentInfo(
-                            "Review submitted (\(result.posted) item\(result.posted == 1 ? "" : "s") posted)."
-                        ) { self.close() }
+                        self.notifySubmitted(result.posted)
+                        self.close()
                     }
                 case .failure(let error):
                     self.presentInfo("\(error)")
@@ -1415,6 +1479,30 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             if !body.isEmpty {
                 onSave(body)
             }
+        }
+    }
+
+    /// Says a review went out, without demanding a click for it.
+    ///
+    /// Only the good news goes here. A partial failure still raises a
+    /// sheet, because that is a thing the reviewer has to see and decide
+    /// about; this is a thing they merely need told.
+    private func notifySubmitted(_ posted: Int) {
+        // No bundle identifier means a development run straight from the
+        // binary, where the notification centre is unavailable and
+        // touching it would trap.
+        guard Bundle.main.bundleIdentifier != nil else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Review submitted"
+        content.body = "\(posted) item\(posted == 1 ? "" : "s") posted."
+
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert]) { granted, _ in
+            guard granted else { return }
+            center.add(
+                UNNotificationRequest(
+                    identifier: UUID().uuidString, content: content, trigger: nil))
         }
     }
 
