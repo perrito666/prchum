@@ -47,13 +47,47 @@ Everything downloaded or generated lands in `build/`, which is ignored.
 Nothing identifying is committed: `user-data.template` carries a
 placeholder, and your public key is read at build time.
 
-## Driving the app inside it
+## Working with it
+
+Commands go over the guest agent's virtio-serial channel, not the
+network:
+
+```sh
+./vm-exec.sh 'cargo build'
+./vm-exec.sh 'tail -20 provision.log'
+```
+
+Screenshots are taken on the host, of the window UTM already draws:
+
+```sh
+./vm-shot.sh shot.png
+```
+
+`ssh prchum@<address>` is nicer for long sessions and does work — but
+only once macOS has been told to allow it. If ssh says "no route to
+host" while the guest's own network is fine, the guest is not the
+problem: macOS withholds local network access from the terminal until
+you grant it under System Settings > Privacy & Security > Local Network.
+Nothing in this directory depends on it.
+
+## Why screenshots come from the host
+
+Because GNOME will not take one for you. `Shell.Screenshot` over D-Bus
+answers *"Screenshot is not allowed"* to anything that is not an
+interactive user action, and `grim` is useless here because Mutter
+implements none of the wlroots screencopy protocol it relies on.
+
+Capturing UTM's window sidesteps all of that, and it lands somewhere
+better than a workaround: it is the same `screencapture -l` used to
+photograph the macOS app, so both platforms are photographed the same
+way, at the same retina scale.
+
+## Driving the app
 
 The harness mirrors the macOS one. There, the shell is driven through
-the Accessibility API and photographed with `screencapture`; here, GTK
-publishes the same kind of widget tree over **AT-SPI**, so a script can
-find a button by its label, click it, read a list's row count, and then
-capture the window with `grim` or `gnome-screenshot`.
+the Accessibility API; here, GTK publishes the same kind of widget tree
+over **AT-SPI**, so a script can find a button by its label, click it,
+and read a list's row count.
 
 That correspondence is the point. The bug that prompted this — a
 settings table holding rows that were never painted — was found by

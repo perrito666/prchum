@@ -32,6 +32,7 @@ echo "==> Testing harness"
 # gnome-screenshot covers the desktop one.
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
     at-spi2-core \
+    libatspi2.0-dev \
     python3-pyatspi \
     weston \
     grim \
@@ -64,6 +65,13 @@ sudo tee /etc/environment.d/90-a11y.conf >/dev/null <<'CONF'
 GTK_A11Y=atspi
 CONF
 gsettings set org.gnome.desktop.interface toolkit-accessibility true || true
+
+echo "==> Silencing the first-run wizard"
+# Ubuntu's welcome tour sits on top of everything, which is no way to
+# photograph an application.
+sudo mkdir -p /home/prchum/.config
+echo "yes" | sudo tee /home/prchum/.config/gnome-initial-setup-done >/dev/null
+sudo chown -R prchum:prchum /home/prchum/.config
 
 echo "==> Graphical target"
 sudo systemctl set-default graphical.target

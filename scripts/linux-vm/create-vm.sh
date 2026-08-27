@@ -85,9 +85,12 @@ hdiutil makehybrid -iso -joliet -default-volume-name CIDATA \
     -o "${SEED%.iso}" "$SEED_SRC" >/dev/null
 
 echo "==> Creating the virtual machine"
+# The display is not optional: created without one, the machine boots
+# fine and GNOME never starts a session, because there is no graphics
+# device for it to open.
 osascript <<APPLESCRIPT
 tell application "UTM"
-    set vm to make new virtual machine with properties {backend:qemu, configuration:{name:"$VM_NAME", architecture:"aarch64", memory:$MEMORY_MIB, cpu cores:$CPU_CORES, hypervisor:true, uefi:true, drives:{{removable:false, interface:VirtIO, source:POSIX file "$DISK"}, {removable:false, interface:VirtIO, source:POSIX file "$SEED"}}}}
+    set vm to make new virtual machine with properties {backend:qemu, configuration:{name:"$VM_NAME", architecture:"aarch64", memory:$MEMORY_MIB, cpu cores:$CPU_CORES, hypervisor:true, uefi:true, displays:{{hardware:"virtio-gpu-pci", dynamic resolution:true, native resolution:false}}, drives:{{removable:false, interface:VirtIO, source:POSIX file "$DISK"}, {removable:false, interface:VirtIO, source:POSIX file "$SEED"}}}}
     start vm
 end tell
 APPLESCRIPT
