@@ -169,16 +169,26 @@ y el archivo, los controles de ventana propios de GNOME y sus colores de
 acento en los contadores de la barra lateral. Sigue el ajuste claro u
 oscuro del escritorio, como se ve arriba.
 
-Los atajos también cambian, y a propósito. Las acciones tienen el mismo
-nombre en ambas plataformas y las mismas entradas en el mapa `keys`,
-pero quien usa GNOME pulsa Ctrl donde quien usa Mac pulsa Command, así
-que los valores por defecto son de Ctrl: **Ctrl+↑/↓** recorre los
-cambios, **Ctrl+Mayús+↑/↓** los archivos.
+Comentar funciona como en macOS, porque lo hace el mismo núcleo:
+**Ctrl+Return** abre el compositor en la línea bajo el cursor,
+**Ctrl+E** edita un borrador, **Ctrl+Supr** lo borra y
+**Ctrl+Mayús+X** lo descarta. Los borradores aparecen en línea bajo
+la línea a la que pertenecen y sobreviven al cierre de la ventana: se
+escriben junto a la configuración, en `~/.local/share/prchum`, según
+la disposición XDG y no la de macOS.
+
+Los atajos cambian, y a propósito. Las acciones tienen el mismo nombre
+en ambas plataformas y las mismas entradas en el mapa `keys`, pero quien
+usa GNOME pulsa Ctrl donde quien usa Mac pulsa Command, así que los
+valores por defecto son de Ctrl: **Ctrl+↑/↓** recorre los cambios,
+**Ctrl+Mayús+↑/↓** los archivos.
 
 !!! note "Hasta dónde llega esto"
 
-    Hoy la interfaz de Linux lee revisiones: parches y comparaciones de
-    git, con la lista de archivos, el diff, el coloreado de sintaxis y
-    la navegación. Comentar, la cola de revisión, los ajustes y el envío
-    siguen siendo solo de macOS; son lo siguiente en llegar, y el núcleo
-    que hay detrás ya es compartido.
+    Hoy la interfaz de Linux lee y anota revisiones: parches y
+    comparaciones de git, con la lista de archivos, el diff, el
+    coloreado de sintaxis, la navegación y los borradores. Los hilos de
+    un pull request, la cola de revisión, los ajustes, la vista dividida,
+    el contexto completo y el envío siguen siendo solo de macOS; el
+    núcleo que hay detrás ya es compartido, así que lo que falta es
+    presentación.

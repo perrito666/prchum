@@ -170,16 +170,27 @@ le titre et le fichier, les boutons de fenêtre propres à GNOME, et ses
 couleurs d'accent dans les compteurs de la barre latérale. Elle suit le
 réglage clair ou sombre du bureau, comme ci-dessus.
 
-Les raccourcis diffèrent aussi, à dessein. Les actions portent les mêmes
-noms sur les deux plateformes et les mêmes entrées dans la table `keys`,
-mais sous GNOME on appuie sur Ctrl là où sur Mac on appuie sur Command :
-les valeurs par défaut sont donc en Ctrl. **Ctrl+↑/↓** parcourt les
+Commenter fonctionne comme sous macOS, parce que c'est le même cœur qui
+s'en charge : **Ctrl+Return** ouvre le compositeur sur la ligne sous le
+curseur, **Ctrl+E** modifie un brouillon, **Ctrl+Suppr** le supprime et
+**Ctrl+Maj+X** l'écarte. Les brouillons apparaissent en ligne sous la
+ligne à laquelle ils se rattachent et survivent à la fermeture de la
+fenêtre : ils sont écrits à côté de la configuration, dans
+`~/.local/share/prchum`, suivant la disposition XDG et non celle de
+macOS.
+
+Les raccourcis diffèrent, à dessein. Les actions portent les mêmes noms
+sur les deux plateformes et les mêmes entrées dans la table `keys`, mais
+sous GNOME on appuie sur Ctrl là où sur Mac on appuie sur Command : les
+valeurs par défaut sont donc en Ctrl. **Ctrl+↑/↓** parcourt les
 changements, **Ctrl+Maj+↑/↓** les fichiers.
 
 !!! note "Où cela en est"
 
-    L'interface Linux lit aujourd'hui les revues : correctifs et
-    comparaisons git, avec la liste des fichiers, le diff, la coloration
-    syntaxique et la navigation. Commenter, la file de revue, les
-    réglages et l'envoi restent propres à macOS ; ce sont les prochaines
-    étapes, et le cœur qui les porte est déjà partagé.
+    L'interface Linux lit et annote aujourd'hui les revues : correctifs
+    et comparaisons git, avec la liste des fichiers, le diff, la
+    coloration syntaxique, la navigation et les brouillons. Les fils
+    d'une pull request, la file de revue, les réglages, la vue côte à
+    côte, le contexte complet et l'envoi restent propres à macOS ; le
+    cœur qui les porte est déjà partagé, il ne reste que la
+    présentation.

@@ -5,6 +5,7 @@
 //! lives in `prchum-core`; this decides how it looks and how it is
 //! driven, in the shapes a GNOME user expects rather than a Mac one.
 
+mod comment;
 mod diffview;
 mod window;
 
@@ -33,7 +34,27 @@ fn main() -> glib::ExitCode {
             .find(|argument| !argument.starts_with('-'));
 
         match open(target.as_deref()) {
-            Ok(session) => {
+            Ok(mut session) => {
+                // Drafts outlive the window: they go beside the config,
+                // in the same place the macOS app keeps them, so a
+                // review survives being closed.
+                if let Some(dir) = state_dir() {
+                    // The forge handle you are known by, which is rarely
+                    // the account name; empty falls back to the latter.
+                    let config = prchum_core::Config::load(std::path::Path::new(
+                        &format!("{dir}/config.json"),
+                    ));
+                    let author = if config.author().is_empty() {
+                        std::env::var("USER").unwrap_or_default()
+                    } else {
+                        config.author().to_string()
+                    };
+                    session.set_author(&author);
+
+                    if let Some(warning) = session.attach_store(&dir) {
+                        eprintln!("prchum: {warning}");
+                    }
+                }
                 let window = window::build(app, session);
                 window.present();
                 0
@@ -46,6 +67,16 @@ fn main() -> glib::ExitCode {
     });
 
     app.run()
+}
+
+/// Where drafts and configuration live, following the XDG layout rather
+/// than the macOS one — same core, each platform's own conventions.
+fn state_dir() -> Option<String> {
+    let base = match std::env::var("XDG_DATA_HOME") {
+        Ok(value) if !value.is_empty() => value,
+        _ => format!("{}/.local/share", std::env::var("HOME").ok()?),
+    };
+    Some(format!("{base}/prchum"))
 }
 
 /// A directory is a git repository to compare; anything else is a patch.

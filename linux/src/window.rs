@@ -4,19 +4,38 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use adw::prelude::*;
-use gtk::glib;
 use gtk::{Label, ListBox, ListBoxRow, Orientation, PolicyType, ScrolledWindow, TextView};
 
-use prchum_core::render::{render_file, RenderedFile};
+use prchum_core::diff::{FileDiff, LineKind, Side};
+use prchum_core::render::{render_file, RenderedFile, RowKind};
+use prchum_core::review::DraftState;
 use prchum_core::session::Session;
 use prchum_core::syntax;
 
+use crate::comment;
+use crate::diffview::{self, Annotation};
+
 pub struct Review {
     session: Session,
-    /// Row offsets of the file on screen, for moving the caret by row.
+    /// Character offset of each row on screen, for moving the caret.
     offsets: Vec<i32>,
     rendered: RenderedFile,
     current: usize,
+}
+
+/// Where the caret is, in the terms a comment is anchored by.
+#[derive(Clone, Copy, PartialEq)]
+struct Target {
+    side: Side,
+    line: u32,
+}
+
+struct Widgets {
+    window: adw::ApplicationWindow,
+    view: TextView,
+    files: ListBox,
+    title: adw::WindowTitle,
+    drafts: Label,
 }
 
 /// Builds the window and wires it to `session`.
@@ -49,38 +68,7 @@ pub fn build(app: &adw::Application, session: Session) -> adw::ApplicationWindow
         .selection_mode(gtk::SelectionMode::Single)
         .css_classes(vec!["navigation-sidebar".to_string()])
         .build();
-
-    for file in state.borrow().session.files() {
-        let row = ListBoxRow::new();
-        let box_ = gtk::Box::new(Orientation::Horizontal, 8);
-        box_.set_margin_start(6);
-        box_.set_margin_end(6);
-        box_.set_margin_top(3);
-        box_.set_margin_bottom(3);
-
-        let name = Label::builder()
-            .label(file.display_path())
-            .xalign(0.0)
-            .hexpand(true)
-            .ellipsize(gtk::pango::EllipsizeMode::Start)
-            .build();
-        box_.append(&name);
-
-        let (added, removed) = counts(file);
-        if added > 0 {
-            let label = Label::new(Some(&format!("+{added}")));
-            label.add_css_class("success");
-            box_.append(&label);
-        }
-        if removed > 0 {
-            let label = Label::new(Some(&format!("−{removed}")));
-            label.add_css_class("error");
-            box_.append(&label);
-        }
-
-        row.set_child(Some(&box_));
-        files.append(&row);
-    }
+    fill_sidebar(&files, state.borrow().session.files());
 
     let sidebar = ScrolledWindow::builder()
         .hscrollbar_policy(PolicyType::Never)
@@ -96,9 +84,13 @@ pub fn build(app: &adw::Application, session: Session) -> adw::ApplicationWindow
         .resize_start_child(false)
         .build();
 
-    let header = adw::HeaderBar::new();
     let title_widget = adw::WindowTitle::new(&title, "");
+    let drafts = Label::new(None);
+    drafts.add_css_class("dim-label");
+
+    let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&title_widget));
+    header.pack_end(&drafts);
 
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&header);
@@ -115,35 +107,82 @@ pub fn build(app: &adw::Application, session: Session) -> adw::ApplicationWindow
     // window by.
     window.set_title(Some(&title));
 
-    // Selecting a file paints it.
+    let widgets = Rc::new(Widgets {
+        window: window.clone(),
+        view,
+        files: files.clone(),
+        title: title_widget,
+        drafts,
+    });
+
     {
         let state = state.clone();
-        let view = view.clone();
-        let title_widget = title_widget.clone();
+        let widgets = widgets.clone();
         files.connect_row_selected(move |_, row| {
             let Some(row) = row else { return };
-            let index = row.index() as usize;
-            show_file(&state, &view, index);
-            let state = state.borrow();
-            if let Some(file) = state.session.files().get(index) {
-                title_widget.set_subtitle(file.display_path());
-            }
+            show_file(&state, &widgets, row.index() as usize, None);
+        });
+    }
+
+    // Repaint when the desktop's light/dark setting changes, and once
+    // shortly after opening: libadwaita may not have resolved the scheme
+    // by the time the first file is painted.
+    {
+        let state = state.clone();
+        let widgets = widgets.clone();
+        adw::StyleManager::default().connect_dark_notify(move |_| {
+            let index = state.borrow().current;
+            show_file(&state, &widgets, index, None);
         });
     }
 
     files.select_row(files.row_at_index(0).as_ref());
-    install_shortcuts(&window, &state, &view, &files);
+    install_shortcuts(app, &state, &widgets);
     window
 }
 
-fn counts(file: &prchum_core::diff::FileDiff) -> (usize, usize) {
+fn fill_sidebar(files: &ListBox, diffs: &[FileDiff]) {
+    for file in diffs {
+        let row = ListBoxRow::new();
+        let line = gtk::Box::new(Orientation::Horizontal, 8);
+        line.set_margin_start(6);
+        line.set_margin_end(6);
+        line.set_margin_top(3);
+        line.set_margin_bottom(3);
+
+        let name = Label::builder()
+            .label(file.display_path())
+            .xalign(0.0)
+            .hexpand(true)
+            .ellipsize(gtk::pango::EllipsizeMode::Start)
+            .build();
+        line.append(&name);
+
+        let (added, removed) = counts(file);
+        if added > 0 {
+            let label = Label::new(Some(&format!("+{added}")));
+            label.add_css_class("success");
+            line.append(&label);
+        }
+        if removed > 0 {
+            let label = Label::new(Some(&format!("−{removed}")));
+            label.add_css_class("error");
+            line.append(&label);
+        }
+
+        row.set_child(Some(&line));
+        files.append(&row);
+    }
+}
+
+fn counts(file: &FileDiff) -> (usize, usize) {
     let mut added = 0;
     let mut removed = 0;
     for hunk in &file.hunks {
         for line in &hunk.lines {
             match line.kind {
-                prchum_core::diff::LineKind::Addition => added += 1,
-                prchum_core::diff::LineKind::Deletion => removed += 1,
+                LineKind::Addition => added += 1,
+                LineKind::Deletion => removed += 1,
                 _ => {}
             }
         }
@@ -151,23 +190,223 @@ fn counts(file: &prchum_core::diff::FileDiff) -> (usize, usize) {
     (added, removed)
 }
 
-fn show_file(state: &Rc<RefCell<Review>>, view: &TextView, index: usize) {
+/// Paints file `index`, optionally putting the caret back on a line
+/// rather than at an offset.
+///
+/// The distinction matters after a comment is added or removed: boxes
+/// appear and disappear between renders, so a raw offset drifts under
+/// the caret while the (side, line) it stood on does not.
+fn show_file(
+    state: &Rc<RefCell<Review>>,
+    widgets: &Rc<Widgets>,
+    index: usize,
+    restore: Option<Target>,
+) {
     let dark = adw::StyleManager::default().is_dark();
-    let mut state = state.borrow_mut();
-    let Some(file) = state.session.files().get(index).cloned() else { return };
+    let (file, path) = {
+        let state = state.borrow();
+        let Some(file) = state.session.files().get(index).cloned() else { return };
+        let path = file.display_path().to_string();
+        (file, path)
+    };
 
     let highlights = syntax::highlight_file(&file);
     let rendered = render_file(&file, highlights.as_deref());
-    let offsets = crate::diffview::paint(view, &rendered, dark);
 
-    state.rendered = rendered;
-    state.offsets = offsets;
-    state.current = index;
+    let painted = {
+        let state = state.borrow();
+        let mut annotations: Vec<Annotation> = Vec::new();
+        for entry in state
+            .session
+            .draft()
+            .comments
+            .iter()
+            .filter(|c| c.location.path == path)
+        {
+            let is_new = entry.location.side == Side::Right;
+            if let Some(row) = rendered.row_for(is_new, entry.location.end_line) {
+                annotations.push(Annotation { row, comment: entry });
+            }
+        }
+        annotations.sort_by_key(|a| a.row);
+        diffview::paint(&widgets.view, &rendered, &annotations, dark)
+    };
 
-    // Start at the top of the file rather than wherever the last one
-    // left the caret.
+    {
+        let mut state = state.borrow_mut();
+        state.rendered = rendered;
+        state.offsets = painted.offsets;
+        state.current = index;
+    }
+
+    widgets.title.set_subtitle(&path);
+    update_badge(state, widgets);
+
+    let buffer = widgets.view.buffer();
+    let offset = restore
+        .and_then(|target| {
+            let state = state.borrow();
+            state
+                .rendered
+                .row_for(target.side == Side::Right, target.line)
+                .and_then(|row| state.offsets.get(row).copied())
+        })
+        .unwrap_or(0);
+    buffer.place_cursor(&buffer.iter_at_offset(offset));
+    widgets
+        .view
+        .scroll_to_iter(&mut buffer.iter_at_offset(offset), 0.2, false, 0.0, 0.5);
+}
+
+fn update_badge(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let state = state.borrow();
+    let count = state
+        .session
+        .draft()
+        .comments
+        .iter()
+        .filter(|c| c.state != DraftState::Dismissed)
+        .count();
+    widgets.drafts.set_label(&match count {
+        0 => String::new(),
+        1 => "1 draft".to_string(),
+        many => format!("{many} drafts"),
+    });
+}
+
+/// The row the caret sits on, as a side and a line.
+///
+/// A hunk header stands for no line on either side, so it has no target
+/// and commenting there is refused rather than guessed at.
+fn caret_target(state: &Rc<RefCell<Review>>, view: &TextView) -> Option<Target> {
+    let state = state.borrow();
     let buffer = view.buffer();
-    buffer.place_cursor(&buffer.start_iter());
+    let caret = buffer.iter_at_mark(&buffer.get_insert()).offset();
+    let index = state.offsets.iter().rposition(|offset| *offset <= caret)?;
+    let row = state.rendered.rows.get(index)?;
+    match row.kind {
+        RowKind::HunkHeader => None,
+        RowKind::Deletion => row.old_line.map(|line| Target { side: Side::Left, line }),
+        _ => row
+            .new_line
+            .map(|line| Target { side: Side::Right, line })
+            .or_else(|| row.old_line.map(|line| Target { side: Side::Left, line })),
+    }
+}
+
+/// The draft anchored at the caret, if there is one.
+fn draft_at(state: &Rc<RefCell<Review>>, target: Target) -> Option<String> {
+    let state = state.borrow();
+    let path = state
+        .session
+        .files()
+        .get(state.current)?
+        .display_path()
+        .to_string();
+    state
+        .session
+        .draft()
+        .comments
+        .iter()
+        .find(|c| {
+            c.location.path == path
+                && c.location.side == target.side
+                && c.location.start_line <= target.line
+                && target.line <= c.location.end_line
+        })
+        .map(|c| c.local_id.clone())
+}
+
+fn add_comment(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let Some(target) = caret_target(state, &widgets.view) else {
+        comment::report(
+            &widgets.window,
+            "Put the cursor on a line of the diff",
+            "A hunk header does not stand for a line in either file.",
+        );
+        return;
+    };
+
+    let side = if target.side == Side::Right { "RIGHT" } else { "LEFT" };
+    let heading = format!("Comment on line {} ({side})", target.line);
+    let state = state.clone();
+    let widgets = widgets.clone();
+    let parent = widgets.window.clone();
+    comment::compose(&parent, &heading, "", "Comment", move |body| {
+        let index = state.borrow().current;
+        let result =
+            state
+                .borrow_mut()
+                .session
+                .add_comment(index, target.side, target.line, target.line, body);
+        match result {
+            Ok(_) => show_file(&state, &widgets, index, Some(target)),
+            Err(error) => comment::report(&widgets.window, "Could not add that comment", &error),
+        }
+    });
+}
+
+fn edit_comment(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let Some(target) = caret_target(state, &widgets.view) else { return };
+    let Some(id) = draft_at(state, target) else {
+        comment::report(
+            &widgets.window,
+            "No draft here",
+            "Put the cursor on a line you have commented on.",
+        );
+        return;
+    };
+    let existing = {
+        let state = state.borrow();
+        state
+            .session
+            .draft()
+            .comments
+            .iter()
+            .find(|c| c.local_id == id)
+            .map(|c| c.body.clone())
+            .unwrap_or_default()
+    };
+
+    let state = state.clone();
+    let widgets = widgets.clone();
+    let parent = widgets.window.clone();
+    comment::compose(&parent, "Edit comment", &existing, "Save", move |body| {
+        let index = state.borrow().current;
+        let result = state.borrow_mut().session.update_comment(&id, body);
+        match result {
+            Ok(()) => show_file(&state, &widgets, index, Some(target)),
+            Err(error) => comment::report(&widgets.window, "Could not save that", &error),
+        }
+    });
+}
+
+fn delete_comment(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let Some(target) = caret_target(state, &widgets.view) else { return };
+    let Some(id) = draft_at(state, target) else { return };
+
+    let state = state.clone();
+    let widgets = widgets.clone();
+    let parent = widgets.window.clone();
+    comment::confirm(&parent, "Delete this draft?", "Delete", move || {
+        let index = state.borrow().current;
+        let result = state.borrow_mut().session.delete_comment(&id);
+        match result {
+            Ok(()) => show_file(&state, &widgets, index, Some(target)),
+            Err(error) => comment::report(&widgets.window, "Could not delete that", &error),
+        }
+    });
+}
+
+fn dismiss_comment(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let Some(target) = caret_target(state, &widgets.view) else { return };
+    let Some(id) = draft_at(state, target) else { return };
+    let index = state.borrow().current;
+    let result = state.borrow_mut().session.toggle_dismiss(&id);
+    match result {
+        Ok(()) => show_file(state, widgets, index, Some(target)),
+        Err(error) => comment::report(&widgets.window, "Could not dismiss that", &error),
+    }
 }
 
 /// Moves the caret to the next or previous row that is part of a change.
@@ -191,9 +430,9 @@ fn step_change(state: &Rc<RefCell<Review>>, view: &TextView, forward: bool) {
     };
 
     if let Some(row) = candidate {
-        let iter = buffer.iter_at_offset(state.offsets[row]);
-        buffer.place_cursor(&iter);
-        view.scroll_to_iter(&mut buffer.iter_at_offset(state.offsets[row]), 0.2, false, 0.0, 0.5);
+        let offset = state.offsets[row];
+        buffer.place_cursor(&buffer.iter_at_offset(offset));
+        view.scroll_to_iter(&mut buffer.iter_at_offset(offset), 0.2, false, 0.0, 0.5);
     }
 }
 
@@ -214,31 +453,57 @@ fn step_file(state: &Rc<RefCell<Review>>, files: &ListBox, forward: bool) {
 }
 
 fn install_shortcuts(
-    window: &adw::ApplicationWindow,
+    app: &adw::Application,
     state: &Rc<RefCell<Review>>,
-    view: &TextView,
-    files: &ListBox,
+    widgets: &Rc<Widgets>,
 ) {
-    // Ctrl-shaped rather than the macOS Command shapes: the action names
-    // are shared with the other shell, the chords are not.
-    let controller = gtk::EventControllerKey::new();
-    let state = state.clone();
-    let view = view.clone();
-    let files = files.clone();
-    controller.connect_key_pressed(move |_, key, _, modifier| {
-        let ctrl = modifier.contains(gtk::gdk::ModifierType::CONTROL_MASK);
-        let shift = modifier.contains(gtk::gdk::ModifierType::SHIFT_MASK);
-        if !ctrl {
-            return glib::Propagation::Proceed;
-        }
-        match key {
-            gtk::gdk::Key::Down if shift => step_file(&state, &files, true),
-            gtk::gdk::Key::Up if shift => step_file(&state, &files, false),
-            gtk::gdk::Key::Down => step_change(&state, &view, true),
-            gtk::gdk::Key::Up => step_change(&state, &view, false),
-            _ => return glib::Propagation::Proceed,
-        }
-        glib::Propagation::Stop
-    });
-    window.add_controller(controller);
+    // Actions with accelerators rather than a key controller: a
+    // controller on the window sits behind the focused widget, and the
+    // text view swallows the arrows before it ever sees them. Actions
+    // also give the names their own identity, which is what the `keys`
+    // map in the config talks about.
+    //
+    // Ctrl-shaped chords, not the macOS Command ones. The names are
+    // shared between the shells; the chords belong to the platform.
+    let actions: Vec<(&str, &[&str], Box<dyn Fn()>)> = vec![
+        ("next-change", &["<Ctrl>Down"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || step_change(&state, &widgets.view, true))
+        }),
+        ("prev-change", &["<Ctrl>Up"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || step_change(&state, &widgets.view, false))
+        }),
+        ("next-file", &["<Ctrl><Shift>Down"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || step_file(&state, &widgets.files, true))
+        }),
+        ("prev-file", &["<Ctrl><Shift>Up"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || step_file(&state, &widgets.files, false))
+        }),
+        ("comment", &["<Ctrl>Return"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || add_comment(&state, &widgets))
+        }),
+        ("edit-comment", &["<Ctrl>e"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || edit_comment(&state, &widgets))
+        }),
+        ("delete-comment", &["<Ctrl>Delete", "<Ctrl>BackSpace"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || delete_comment(&state, &widgets))
+        }),
+        ("dismiss-comment", &["<Ctrl><Shift>x"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || dismiss_comment(&state, &widgets))
+        }),
+    ];
+
+    for (name, accels, run) in actions {
+        let action = gtk::gio::SimpleAction::new(name, None);
+        action.connect_activate(move |_, _| run());
+        widgets.window.add_action(&action);
+        app.set_accels_for_action(&format!("win.{name}"), accels);
+    }
 }

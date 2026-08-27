@@ -1,0 +1,8 @@
+/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/deps/tree_sitter_html-d0c79dc1aaeab0af.d: /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/lib.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../src/node-types.json /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../queries/highlights.scm /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../queries/injections.scm
+
+/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/deps/libtree_sitter_html-d0c79dc1aaeab0af.rmeta: /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/lib.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../src/node-types.json /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../queries/highlights.scm /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../queries/injections.scm
+
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/lib.rs:
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../src/node-types.json:
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../queries/highlights.scm:
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/../../queries/injections.scm:

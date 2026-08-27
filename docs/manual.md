@@ -166,16 +166,25 @@ header bar carrying the title and the file, GNOME's own window controls,
 and its accent colours in the sidebar's counts. It follows the desktop's
 light and dark setting, as the picture above does.
 
-The chords differ too, and on purpose. Actions have the same names on
-both platforms and the same entries in the `keys` map, but a GNOME user
+Commenting works as it does on macOS, because it is the same core doing
+it: **Ctrl+Return** opens the composer on the line under the cursor,
+**Ctrl+E** edits a draft, **Ctrl+Delete** removes one, and
+**Ctrl+Shift+X** dismisses it. Drafts appear inline under the line they
+belong to and survive closing the window — they are written beside the
+configuration, under `~/.local/share/prchum`, following the XDG layout
+rather than the macOS one.
+
+The chords differ, and on purpose. Actions have the same names on both
+platforms and the same entries in the `keys` map, but a GNOME user
 presses Ctrl where a Mac user presses Command, so the defaults are
 Ctrl-shaped: **Ctrl+↑/↓** steps through changes, **Ctrl+Shift+↑/↓**
 through files.
 
 !!! note "Where this has got to"
 
-    The Linux shell reads reviews today — patches and git comparisons,
-    with the file list, the diff, syntax colouring and navigation.
-    Commenting, the review queue, settings and submitting are still
-    macOS-only; they are the next things to land, and the core behind
-    them is already shared.
+    The Linux shell reads and annotates reviews today — patches and git
+    comparisons, with the file list, the diff, syntax colouring,
+    navigation and drafts. Threads on a pull request, the review queue,
+    settings, split view, full-file context and submitting are still
+    macOS-only; the core behind them is already shared, so what remains
+    is presentation.

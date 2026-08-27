@@ -9,11 +9,25 @@ use gtk::prelude::*;
 use gtk::{TextBuffer, TextTag, TextView};
 
 use prchum_core::render::{RenderedFile, RowKind};
+use prchum_core::review::DraftComment;
 use prchum_core::syntax;
 
 /// Width of the two line-number columns, which keeps the marker column
 /// and the code aligned down the file.
 const NUMBER_WIDTH: usize = 5;
+
+/// A draft shown inline, and the row it hangs under.
+pub struct Annotation<'a> {
+    pub row: usize,
+    pub comment: &'a DraftComment,
+}
+
+/// Where the caret can be, and what it points at.
+pub struct Painted {
+    /// Character offset of each row of the diff, indexed as the core's
+    /// rows are. Comment boxes are not rows and do not appear here.
+    pub offsets: Vec<i32>,
+}
 
 fn rgba(color: u32) -> String {
     // Core colours are 0xRRGGBBAA; alpha is carried but always opaque in
@@ -27,7 +41,7 @@ fn rgba(color: u32) -> String {
 }
 
 /// Creates the tags a rendered file needs: one per syntax style, plus
-/// the row tints and the gutter.
+/// the row tints, the gutter and the comment box.
 ///
 /// `dark` picks which half of the core's style table to use. It is
 /// passed in rather than read here so the caller can rebuild the buffer
@@ -62,6 +76,28 @@ fn install_tags(buffer: &TextBuffer, dark: bool) {
         .build();
     table.add(&header);
 
+    // A draft reads as a quiet block rather than as more diff: a wash
+    // that works in both appearances without fighting the tints.
+    let comment = TextTag::builder()
+        .name("comment")
+        .background(if dark { "#242a36" } else { "#f1f3f5" })
+        .build();
+    table.add(&comment);
+
+    let byline = TextTag::builder()
+        .name("byline")
+        .foreground(if dark { "#e0904a" } else { "#a1571c" })
+        .weight(700)
+        .build();
+    table.add(&byline);
+
+    let dismissed = TextTag::builder()
+        .name("dismissed")
+        .strikethrough(true)
+        .foreground(if dark { "#6b7280" } else { "#9ca3af" })
+        .build();
+    table.add(&dismissed);
+
     for (index, style) in syntax::styles().iter().enumerate() {
         let colour = if dark { style.dark } else { style.light };
         let tag = TextTag::builder()
@@ -85,18 +121,122 @@ fn number(value: Option<u32>) -> String {
     }
 }
 
-/// Fills `view` with `file`, returning the character offset at which
-/// each row starts so the caller can move the caret by row.
-pub fn paint(view: &TextView, file: &RenderedFile, dark: bool) -> Vec<i32> {
+/// The blank gutter a comment box is indented by, so its text lines up
+/// with the code rather than the line numbers.
+fn indent() -> String {
+    " ".repeat(NUMBER_WIDTH * 2 + 3)
+}
+
+/// How wide a comment body runs before it is folded onto the next line.
+///
+/// The indent is spent before the first character, so this is the width
+/// of the text itself rather than of the line it sits on.
+const BODY_WIDTH: usize = 72;
+
+/// Breaks `line` on word boundaries, never mid-word unless a single word
+/// is longer than the whole width.
+fn wrap(line: &str, width: usize) -> Vec<String> {
+    if line.chars().count() <= width {
+        return vec![line.to_string()];
+    }
+    let mut out = Vec::new();
+    let mut current = String::new();
+    for word in line.split_whitespace() {
+        let candidate = current.chars().count() + 1 + word.chars().count();
+        if !current.is_empty() && candidate > width {
+            out.push(std::mem::take(&mut current));
+        }
+        if !current.is_empty() {
+            current.push(' ');
+        }
+        current.push_str(word);
+    }
+    if !current.is_empty() {
+        out.push(current);
+    }
+    if out.is_empty() {
+        out.push(String::new());
+    }
+    out
+}
+
+fn insert_comment(buffer: &TextBuffer, comment: &DraftComment) {
+    let start_offset = buffer.end_iter().offset();
+    let when = comment.at.split('T').next().unwrap_or("").to_string();
+    let author = if comment.author.is_empty() {
+        "you".to_string()
+    } else {
+        format!("@{}", comment.author)
+    };
+
+    let mut end = buffer.end_iter();
+    buffer.insert(&mut end, &format!("{}{author}", indent()));
+    let byline_end = buffer.end_iter().offset();
+    buffer.apply_tag_by_name(
+        "byline",
+        &buffer.iter_at_offset(start_offset),
+        &buffer.iter_at_offset(byline_end),
+    );
+
+    let mut end = buffer.end_iter();
+    if when.is_empty() {
+        buffer.insert(&mut end, "\n");
+    } else {
+        buffer.insert(&mut end, &format!("  ·  {when}\n"));
+    }
+
+    // The body is shown as written — no Markdown rendering yet, so
+    // nothing is silently swallowed — but wrapped, because the view
+    // itself must not wrap: code has to keep its columns.
+    for line in comment.body.lines() {
+        for wrapped in wrap(line, BODY_WIDTH) {
+            let mut end = buffer.end_iter();
+            buffer.insert(&mut end, &format!("{}{wrapped}\n", indent()));
+        }
+    }
+
+    let box_start = buffer.iter_at_offset(start_offset);
+    let box_end = buffer.end_iter();
+    buffer.apply_tag_by_name("comment", &box_start, &box_end);
+    if comment.state == prchum_core::review::DraftState::Dismissed {
+        buffer.apply_tag_by_name(
+            "dismissed",
+            &buffer.iter_at_offset(start_offset),
+            &buffer.end_iter(),
+        );
+    }
+}
+
+/// Fills `view` with `file` and its drafts, returning where each row of
+/// the diff starts.
+pub fn paint(
+    view: &TextView,
+    file: &RenderedFile,
+    annotations: &[Annotation],
+    dark: bool,
+) -> Painted {
     let buffer = view.buffer();
     buffer.set_text("");
-    if buffer.tag_table().lookup("gutter").is_none() {
+
+    // Tags carry the appearance they were built for. Keeping them
+    // across a change of scheme is what leaves a light window full of
+    // dark diff tints, so the whole table is rebuilt when it no longer
+    // matches.
+    let marker = if dark { "scheme-dark" } else { "scheme-light" };
+    if buffer.tag_table().lookup(marker).is_none() {
+        let table = buffer.tag_table();
+        let mut stale = Vec::new();
+        table.foreach(|tag| stale.push(tag.clone()));
+        for tag in stale {
+            table.remove(&tag);
+        }
         install_tags(&buffer, dark);
+        table.add(&TextTag::builder().name(marker).build());
     }
 
     let mut offsets = Vec::with_capacity(file.rows.len());
 
-    for row in &file.rows {
+    for (index, row) in file.rows.iter().enumerate() {
         let start_offset = buffer.end_iter().offset();
         offsets.push(start_offset);
 
@@ -153,7 +293,11 @@ pub fn paint(view: &TextView, file: &RenderedFile, dark: bool) -> Vec<i32> {
                 &buffer.end_iter(),
             );
         }
+
+        for annotation in annotations.iter().filter(|a| a.row == index) {
+            insert_comment(&buffer, annotation.comment);
+        }
     }
 
-    offsets
+    Painted { offsets }
 }
