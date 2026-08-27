@@ -197,6 +197,18 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate,
         fatalError("not used")
     }
 
+    override func showWindow(_ sender: Any?) {
+        super.showWindow(sender)
+        // The grid finishes laying out after the window is on screen, and
+        // a table sized during that pass is never marked dirty — the
+        // lower one comes up blank until the window is reopened. Ask for
+        // the rows again once the layout has settled.
+        DispatchQueue.main.async { [weak self] in
+            self?.filtersTable.reloadData()
+            self?.clonesTable.reloadData()
+        }
+    }
+
     func windowWillClose(_ notification: Notification) {
         onClose?()
     }
