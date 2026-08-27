@@ -13,10 +13,15 @@ use prchum_core::session::Session;
 use prchum_core::syntax;
 
 use crate::comment;
-use crate::diffview::{self, Annotation};
+use crate::diffview::{self, Annotation, Note};
+use crate::threads;
 
 pub struct Review {
     session: Session,
+    /// Present for a pull request: where a submission has to reach.
+    context: Option<prchum_forge::open::PrContext>,
+    /// Threads the host already has, decoded once when the session opens.
+    host_threads: Vec<prchum_forge::ThreadInfo>,
     /// Character offset of each row on screen, for moving the caret.
     offsets: Vec<i32>,
     rendered: RenderedFile,
@@ -39,10 +44,17 @@ struct Widgets {
 }
 
 /// Builds the window and wires it to `session`.
-pub fn build(app: &adw::Application, session: Session) -> adw::ApplicationWindow {
+pub fn build(
+    app: &adw::Application,
+    session: Session,
+    context: Option<prchum_forge::open::PrContext>,
+) -> adw::ApplicationWindow {
     let title = session.title().to_string();
+    let host_threads = threads::decode(session.threads_json());
     let state = Rc::new(RefCell::new(Review {
         session,
+        context,
+        host_threads,
         offsets: Vec::new(),
         rendered: RenderedFile::default(),
         current: 0,
@@ -225,7 +237,16 @@ fn show_file(
         {
             let is_new = entry.location.side == Side::Right;
             if let Some(row) = rendered.row_for(is_new, entry.location.end_line) {
-                annotations.push(Annotation { row, comment: entry });
+                annotations.push(Annotation { row, note: Note::Draft(entry) });
+            }
+        }
+        // Threads the request already carries, shown in the same column.
+        // An outdated one has no current line and simply has nowhere to
+        // hang, which is honest: its code is gone.
+        for thread in state.host_threads.iter().filter(|t| t.path == path) {
+            let Some(line) = thread.line else { continue };
+            if let Some(row) = rendered.row_for(threads::is_new_side(thread), line) {
+                annotations.push(Annotation { row, note: Note::Thread(thread) });
             }
         }
         annotations.sort_by_key(|a| a.row);
@@ -409,6 +430,72 @@ fn dismiss_comment(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
     }
 }
 
+fn submit_review(state: &Rc<RefCell<Review>>, widgets: &Rc<Widgets>) {
+    let has_context = state.borrow().context.is_some();
+    if !has_context {
+        comment::report(
+            &widgets.window,
+            "Submitting needs a pull request",
+            "A patch or a git comparison has nowhere to send a review; \
+             export the notes instead.",
+        );
+        return;
+    }
+
+    let (plan, summary) = {
+        let state = state.borrow();
+        (
+            prchum_forge::submit::plan(state.session.draft()),
+            state.session.draft().summary.clone(),
+        )
+    };
+    if plan.is_empty() && summary.is_empty() {
+        comment::report(
+            &widgets.window,
+            "Nothing to submit",
+            "There are no drafts waiting to go out.",
+        );
+        return;
+    }
+
+    let state = state.clone();
+    let widgets = widgets.clone();
+    let parent = widgets.window.clone();
+    crate::submit::ask(&parent, &plan, &summary, move |choice| {
+        let draft = {
+            let mut inner = state.borrow_mut();
+            inner.session.draft_mut().event = choice.event;
+            inner.session.draft_mut().summary = choice.summary.clone();
+            inner.session.draft().clone()
+        };
+        let Some(context) = state.borrow().context.clone() else { return };
+
+        let state = state.clone();
+        let widgets = widgets.clone();
+        crate::submit::send(&widgets.window.clone(), &context, draft, move |outcome| {
+            let complete = outcome.error.is_none();
+            let posted = outcome.accepted.len();
+            let index = state.borrow().current;
+            let remaining = state
+                .borrow_mut()
+                .session
+                .apply_accepted(&outcome.accepted, complete)
+                .unwrap_or(0);
+            show_file(&state, &widgets, index, None);
+            if complete {
+                comment::report(
+                    &widgets.window,
+                    "Review submitted",
+                    &format!(
+                        "{posted} comment{} posted, {remaining} still local.",
+                        if posted == 1 { "" } else { "s" }
+                    ),
+                );
+            }
+        });
+    });
+}
+
 /// Moves the caret to the next or previous row that is part of a change.
 fn step_change(state: &Rc<RefCell<Review>>, view: &TextView, forward: bool) {
     let state = state.borrow();
@@ -493,6 +580,10 @@ fn install_shortcuts(
         ("delete-comment", &["<Ctrl>Delete", "<Ctrl>BackSpace"], {
             let (state, widgets) = (state.clone(), widgets.clone());
             Box::new(move || delete_comment(&state, &widgets))
+        }),
+        ("submit", &["<Ctrl><Shift>Return"], {
+            let (state, widgets) = (state.clone(), widgets.clone());
+            Box::new(move || submit_review(&state, &widgets))
         }),
         ("dismiss-comment", &["<Ctrl><Shift>x"], {
             let (state, widgets) = (state.clone(), widgets.clone());

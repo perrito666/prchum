@@ -16,10 +16,17 @@ use prchum_core::syntax;
 /// and the code aligned down the file.
 const NUMBER_WIDTH: usize = 5;
 
-/// A draft shown inline, and the row it hangs under.
+/// Something shown inline under a row: a draft of yours, or a thread
+/// already on the request.
+pub enum Note<'a> {
+    Draft(&'a DraftComment),
+    Thread(&'a prchum_forge::ThreadInfo),
+}
+
+/// A note and the row it hangs under.
 pub struct Annotation<'a> {
     pub row: usize,
-    pub comment: &'a DraftComment,
+    pub note: Note<'a>,
 }
 
 /// Where the caret can be, and what it points at.
@@ -90,6 +97,21 @@ fn install_tags(buffer: &TextBuffer, dark: bool) {
         .weight(700)
         .build();
     table.add(&byline);
+
+    // A thread from the host is somebody else talking, so it reads
+    // differently from a draft of yours without shouting about it.
+    let thread = TextTag::builder()
+        .name("thread")
+        .background(if dark { "#1e2733" } else { "#eef4fb" })
+        .build();
+    table.add(&thread);
+
+    let thread_byline = TextTag::builder()
+        .name("thread-byline")
+        .foreground(if dark { "#7fb2e5" } else { "#1c4f86" })
+        .weight(700)
+        .build();
+    table.add(&thread_byline);
 
     let dismissed = TextTag::builder()
         .name("dismissed")
@@ -207,8 +229,61 @@ fn insert_comment(buffer: &TextBuffer, comment: &DraftComment) {
     }
 }
 
-/// Fills `view` with `file` and its drafts, returning where each row of
-/// the diff starts.
+/// A thread from the host: every comment in it, the root first, marked
+/// so it does not read as one of your drafts.
+fn insert_thread(buffer: &TextBuffer, thread: &prchum_forge::ThreadInfo) {
+    let start_offset = buffer.end_iter().offset();
+
+    for (index, comment) in thread.comments.iter().enumerate() {
+        let byline_start = buffer.end_iter().offset();
+        let when = comment.created_at.split('T').next().unwrap_or("").to_string();
+        // Replies are stepped in, so a conversation reads as one.
+        let lead = if index == 0 { String::new() } else { "  ↳ ".to_string() };
+        let author = if comment.author.is_empty() {
+            "someone".to_string()
+        } else {
+            format!("@{}", comment.author)
+        };
+
+        let mut end = buffer.end_iter();
+        buffer.insert(&mut end, &format!("{}{lead}{author}", indent()));
+        buffer.apply_tag_by_name(
+            "thread-byline",
+            &buffer.iter_at_offset(byline_start),
+            &buffer.end_iter(),
+        );
+
+        let mut end = buffer.end_iter();
+        if when.is_empty() {
+            buffer.insert(&mut end, "\n");
+        } else {
+            buffer.insert(&mut end, &format!("  ·  {when}\n"));
+        }
+
+        for line in comment.body.lines() {
+            for wrapped in wrap(line, BODY_WIDTH) {
+                let mut end = buffer.end_iter();
+                buffer.insert(&mut end, &format!("{}{lead}{wrapped}\n", indent()));
+            }
+        }
+    }
+
+    buffer.apply_tag_by_name(
+        "thread",
+        &buffer.iter_at_offset(start_offset),
+        &buffer.end_iter(),
+    );
+    if thread.outdated {
+        buffer.apply_tag_by_name(
+            "dismissed",
+            &buffer.iter_at_offset(start_offset),
+            &buffer.end_iter(),
+        );
+    }
+}
+
+/// Fills `view` with `file`, its drafts and its threads, returning where
+/// each row of the diff starts.
 pub fn paint(
     view: &TextView,
     file: &RenderedFile,
@@ -295,7 +370,10 @@ pub fn paint(
         }
 
         for annotation in annotations.iter().filter(|a| a.row == index) {
-            insert_comment(&buffer, annotation.comment);
+            match &annotation.note {
+                Note::Draft(comment) => insert_comment(&buffer, comment),
+                Note::Thread(thread) => insert_thread(&buffer, thread),
+            }
         }
     }
 

@@ -15,6 +15,7 @@ use crate::glabcli::GlabForge;
 use crate::{kind_for_host, Forge, ForgeKind};
 
 /// What submission needs to reach the same forge the session came from.
+#[derive(Clone)]
 pub struct PrContext {
     pub reference: PullRequestRef,
     pub kind: ForgeKind,

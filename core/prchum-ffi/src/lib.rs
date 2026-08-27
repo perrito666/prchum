@@ -726,21 +726,13 @@ pub unsafe extern "C" fn pc_session_submit(session: *mut PcSession) -> *mut c_ch
         let plan = submit::plan(inner.draft());
         let outcome = submit::execute(forge.as_ref(), &pr, inner.draft(), &plan);
 
-        // Retry safety: whatever the host accepted leaves the draft now,
-        // even when a later step failed.
-        let accepted = &outcome.accepted;
-        let draft = inner.draft_mut();
-        draft.comments.retain(|c| !accepted.contains(&c.local_id));
-        draft.general.retain(|g| !accepted.contains(&g.local_id));
-        if outcome.error.is_none() {
-            draft.summary.clear();
-            draft.event = ReviewEvent::Comment;
-        }
-        let remaining = draft.comments.len() + draft.general.len();
-        let _ = inner.persist();
+        let posted = outcome.accepted.len();
+        let remaining = inner
+            .apply_accepted(&outcome.accepted, outcome.error.is_none())
+            .unwrap_or(0);
 
         serde_json::json!({
-            "posted": accepted.len(),
+            "posted": posted,
             "remaining": remaining,
             "skipped_dismissed": plan.skipped_dismissed,
             "skipped_orphaned": plan.skipped_orphaned,

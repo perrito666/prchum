@@ -7,6 +7,8 @@
 
 mod comment;
 mod diffview;
+mod submit;
+mod threads;
 mod window;
 
 use adw::prelude::*;
@@ -14,6 +16,7 @@ use gtk::glib;
 
 use prchum_core::session::Session;
 use prchum_core::source::GitSpec;
+use prchum_forge::open::{open_session, PrContext};
 
 const APP_ID: &str = "eu.dumontix.prchum";
 
@@ -34,7 +37,7 @@ fn main() -> glib::ExitCode {
             .find(|argument| !argument.starts_with('-'));
 
         match open(target.as_deref()) {
-            Ok(mut session) => {
+            Ok((mut session, context)) => {
                 // Drafts outlive the window: they go beside the config,
                 // in the same place the macOS app keeps them, so a
                 // review survives being closed.
@@ -55,7 +58,7 @@ fn main() -> glib::ExitCode {
                         eprintln!("prchum: {warning}");
                     }
                 }
-                let window = window::build(app, session);
+                let window = window::build(app, session, context);
                 window.present();
                 0
             }
@@ -79,22 +82,38 @@ fn state_dir() -> Option<String> {
     Some(format!("{base}/prchum"))
 }
 
-/// A directory is a git repository to compare; anything else is a patch.
+/// What the argument names: a directory is a git comparison, a
+/// pull-request reference is fetched from its forge, anything else is a
+/// patch on disk.
 ///
-/// Deliberately narrow for now: the Linux shell opens what it is given
-/// and nothing else. Pull requests and the review queue come with the
-/// forge adapters, which are already in the core waiting.
-fn open(target: Option<&str>) -> Result<Session, String> {
+/// A request carries context — which forge, which reference — because
+/// submitting has to reach the same place the review came from.
+fn open(target: Option<&str>) -> Result<(Session, Option<PrContext>), String> {
     let Some(target) = target else {
-        return Err("give me a patch file or a git repository".to_string());
+        return Err(
+            "give me a patch file, a git repository, or a pull request (owner/repo#N)"
+                .to_string(),
+        );
     };
 
     let path = std::path::Path::new(target);
     if path.is_dir() {
-        Session::from_git(target, &GitSpec::WorkingTree, 3)
-            .map_err(|error| format!("could not read {target}: {error}"))
-    } else {
-        Session::from_patch_file(target)
-            .map_err(|error| format!("could not read {target}: {error}"))
+        return Session::from_git(target, &GitSpec::WorkingTree, 3)
+            .map(|session| (session, None))
+            .map_err(|error| format!("could not read {target}: {error}"));
     }
+    if path.exists() {
+        return Session::from_patch_file(target)
+            .map(|session| (session, None))
+            .map_err(|error| format!("could not read {target}: {error}"));
+    }
+
+    // Not a path, so it had better be a request. The config decides which
+    // adapter a host uses, so it is loaded before asking.
+    let config = state_dir()
+        .map(|dir| prchum_core::Config::load(std::path::Path::new(&format!(
+            "{dir}/config.json"
+        ))))
+        .unwrap_or_default();
+    open_session(target, ".", &config).map(|(session, context)| (session, Some(context)))
 }

@@ -1,12 +1,6 @@
-    Updating crates.io index
     Blocking waiting for file lock on package cache
-     Locking 104 packages to latest compatible versions
-      Adding gtk4 v0.9.7 (available: v0.11.4)
-      Adding libadwaita v0.7.2 (available: v0.9.2)
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-   0.950139583s  INFO prepare_target{force=false package_id=prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux) target="prchum-gtk"}: cargo::core::compiler::fingerprint: fingerprint error for prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux)/Check { test: false }/TargetInner { name: "prchum-gtk", doc: true, ..: with_path("/Users/hduran/go/src/github.com/perrito666/prchum/linux/src/main.rs", Edition2021) }
-   0.950314375s  INFO prepare_target{force=false package_id=prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux) target="prchum-gtk"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/prchum-gtk-6b4b1c5fe5dba86d/bin-prchum-gtk`
+   0.158707792s  INFO prepare_target{force=false package_id=prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux) target="prchum-gtk"}: cargo::core::compiler::fingerprint: fingerprint error for prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux)/Check { test: false }/TargetInner { name: "prchum-gtk", doc: true, ..: with_path("/Users/hduran/go/src/github.com/perrito666/prchum/linux/src/main.rs", Edition2021) }
+   0.158933542s  INFO prepare_target{force=false package_id=prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux) target="prchum-gtk"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/prchum-gtk-6b4b1c5fe5dba86d/bin-prchum-gtk`
 
 Caused by:
     No such file or directory (os error 2)
@@ -29,8 +23,8 @@ Stack backtrace:
   14: std::rt::lang_start::<()>::{closure#0}
   15: std::rt::lang_start_internal
   16: _main
-   0.965300542s  INFO prepare_target{force=false package_id=gtk4 v0.9.7 target="gtk4"}: cargo::core::compiler::fingerprint: fingerprint error for gtk4 v0.9.7/Check { test: false }/TargetInner { ..: lib_target("gtk4", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-0.9.7/src/lib.rs", Edition2021) }
-   0.965312917s  INFO prepare_target{force=false package_id=gtk4 v0.9.7 target="gtk4"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gtk4-474ee4c7faf37655/lib-gtk4`
+   0.171395708s  INFO prepare_target{force=false package_id=gtk4 v0.9.7 target="gtk4"}: cargo::core::compiler::fingerprint: fingerprint error for gtk4 v0.9.7/Check { test: false }/TargetInner { ..: lib_target("gtk4", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-0.9.7/src/lib.rs", Edition2021) }
+   0.171422875s  INFO prepare_target{force=false package_id=gtk4 v0.9.7 target="gtk4"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gtk4-474ee4c7faf37655/lib-gtk4`
 
 Caused by:
     No such file or directory (os error 2)
@@ -54,8 +48,8 @@ Stack backtrace:
   15: std::rt::lang_start::<()>::{closure#0}
   16: std::rt::lang_start_internal
   17: _main
-   0.965759167s  INFO prepare_target{force=false package_id=cairo-rs v0.20.12 target="cairo"}: cargo::core::compiler::fingerprint: fingerprint error for cairo-rs v0.20.12/Check { test: false }/TargetInner { ..: lib_target("cairo", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cairo-rs-0.20.12/src/lib.rs", Edition2021) }
-   0.965763375s  INFO prepare_target{force=false package_id=cairo-rs v0.20.12 target="cairo"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/cairo-rs-fcc2477798700f7d/lib-cairo`
+   0.186724417s  INFO prepare_target{force=false package_id=gdk4 v0.9.6 target="gdk4"}: cargo::core::compiler::fingerprint: fingerprint error for gdk4 v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gdk4", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk4-0.9.6/src/lib.rs", Edition2021) }
+   0.186733542s  INFO prepare_target{force=false package_id=gdk4 v0.9.6 target="gdk4"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gdk4-49e18d0fcfafc7ec/lib-gdk4`
 
 Caused by:
     No such file or directory (os error 2)
@@ -80,8 +74,8 @@ Stack backtrace:
   16: std::rt::lang_start::<()>::{closure#0}
   17: std::rt::lang_start_internal
   18: _main
-   0.966010292s  INFO prepare_target{force=false package_id=bitflags v2.13.1 target="bitflags"}: cargo::core::compiler::fingerprint: fingerprint error for bitflags v2.13.1/Check { test: false }/TargetInner { ..: lib_target("bitflags", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitflags-2.13.1/src/lib.rs", Edition2021) }
-   0.966015000s  INFO prepare_target{force=false package_id=bitflags v2.13.1 target="bitflags"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/bitflags-82b10bceb13bab47/lib-bitflags`
+   0.187053000s  INFO prepare_target{force=false package_id=gdk4-sys v0.9.6 target="gdk4_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gdk4-sys v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gdk4_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk4-sys-0.9.6/src/lib.rs", Edition2021) }
+   0.187057250s  INFO prepare_target{force=false package_id=gdk4-sys v0.9.6 target="gdk4_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gdk4-sys-5722f034bcda6a99/lib-gdk4_sys`
 
 Caused by:
     No such file or directory (os error 2)
@@ -107,649 +101,8 @@ Stack backtrace:
   17: std::rt::lang_start::<()>::{closure#0}
   18: std::rt::lang_start_internal
   19: _main
-   0.966171750s  INFO prepare_target{force=false package_id=cairo-sys-rs v0.20.10 target="cairo_sys"}: cargo::core::compiler::fingerprint: fingerprint error for cairo-sys-rs v0.20.10/Check { test: false }/TargetInner { ..: lib_target("cairo_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cairo-sys-rs-0.20.10/src/lib.rs", Edition2021) }
-   0.966174833s  INFO prepare_target{force=false package_id=cairo-sys-rs v0.20.10 target="cairo_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/cairo-sys-rs-30687ea374332dc7/lib-cairo_sys`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.969300500s  INFO prepare_target{force=false package_id=glib-sys v0.20.10 target="glib_sys"}: cargo::core::compiler::fingerprint: fingerprint error for glib-sys v0.20.10/Check { test: false }/TargetInner { ..: lib_target("glib_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glib-sys-0.20.10/src/lib.rs", Edition2021) }
-   0.969310458s  INFO prepare_target{force=false package_id=glib-sys v0.20.10 target="glib_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/glib-sys-a7442036668aabe8/lib-glib_sys`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.969854750s  INFO prepare_target{force=false package_id=libc v0.2.189 target="libc"}: cargo::core::compiler::fingerprint: fingerprint error for libc v0.2.189/Check { test: false }/TargetInner { ..: lib_target("libc", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.189/src/lib.rs", Edition2021) }
-   0.969858458s  INFO prepare_target{force=false package_id=libc v0.2.189 target="libc"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/libc-7e2486bff0c49304/lib-libc`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: cargo::core::compiler::compile
-  11: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  12: cargo::ops::cargo_compile::compile_ws
-  13: cargo::ops::cargo_compile::compile_with_exec
-  14: cargo::ops::cargo_compile::compile
-  15: cargo::commands::check::exec
-  16: <cargo::cli::Exec>::exec
-  17: cargo::main
-  18: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  19: std::rt::lang_start::<()>::{closure#0}
-  20: std::rt::lang_start_internal
-  21: _main
-   0.970306375s  INFO prepare_target{force=false package_id=glib v0.20.12 target="glib"}: cargo::core::compiler::fingerprint: fingerprint error for glib v0.20.12/Check { test: false }/TargetInner { ..: lib_target("glib", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/glib-0.20.12/src/lib.rs", Edition2021) }
-   0.970309750s  INFO prepare_target{force=false package_id=glib v0.20.12 target="glib"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/glib-77e34014016c8818/lib-glib`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.970837000s  INFO prepare_target{force=false package_id=futures-channel v0.3.34 target="futures_channel"}: cargo::core::compiler::fingerprint: fingerprint error for futures-channel v0.3.34/Check { test: false }/TargetInner { ..: lib_target("futures_channel", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-channel-0.3.34/src/lib.rs", Edition2018) }
-   0.970842125s  INFO prepare_target{force=false package_id=futures-channel v0.3.34 target="futures_channel"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/futures-channel-36088aacdda7811f/lib-futures_channel`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.971043083s  INFO prepare_target{force=false package_id=futures-core v0.3.34 target="futures_core"}: cargo::core::compiler::fingerprint: fingerprint error for futures-core v0.3.34/Check { test: false }/TargetInner { ..: lib_target("futures_core", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-core-0.3.34/src/lib.rs", Edition2018) }
-   0.971046625s  INFO prepare_target{force=false package_id=futures-core v0.3.34 target="futures_core"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/futures-core-21289bb13655d0da/lib-futures_core`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: cargo::core::compiler::compile
-  11: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  12: cargo::ops::cargo_compile::compile_ws
-  13: cargo::ops::cargo_compile::compile_with_exec
-  14: cargo::ops::cargo_compile::compile
-  15: cargo::commands::check::exec
-  16: <cargo::cli::Exec>::exec
-  17: cargo::main
-  18: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  19: std::rt::lang_start::<()>::{closure#0}
-  20: std::rt::lang_start_internal
-  21: _main
-   0.971201250s  INFO prepare_target{force=false package_id=futures-executor v0.3.34 target="futures_executor"}: cargo::core::compiler::fingerprint: fingerprint error for futures-executor v0.3.34/Check { test: false }/TargetInner { ..: lib_target("futures_executor", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-executor-0.3.34/src/lib.rs", Edition2018) }
-   0.971204750s  INFO prepare_target{force=false package_id=futures-executor v0.3.34 target="futures_executor"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/futures-executor-dacda39cfa07a584/lib-futures_executor`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.971445917s  INFO prepare_target{force=false package_id=futures-task v0.3.34 target="futures_task"}: cargo::core::compiler::fingerprint: fingerprint error for futures-task v0.3.34/Check { test: false }/TargetInner { ..: lib_target("futures_task", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-task-0.3.34/src/lib.rs", Edition2018) }
-   0.971449292s  INFO prepare_target{force=false package_id=futures-task v0.3.34 target="futures_task"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/futures-task-e862b9d4aa79f295/lib-futures_task`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: cargo::core::compiler::compile
-  11: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  12: cargo::ops::cargo_compile::compile_ws
-  13: cargo::ops::cargo_compile::compile_with_exec
-  14: cargo::ops::cargo_compile::compile
-  15: cargo::commands::check::exec
-  16: <cargo::cli::Exec>::exec
-  17: cargo::main
-  18: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  19: std::rt::lang_start::<()>::{closure#0}
-  20: std::rt::lang_start_internal
-  21: _main
-   0.971593583s  INFO prepare_target{force=false package_id=futures-util v0.3.34 target="futures_util"}: cargo::core::compiler::fingerprint: fingerprint error for futures-util v0.3.34/Check { test: false }/TargetInner { ..: lib_target("futures_util", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-util-0.3.34/src/lib.rs", Edition2018) }
-   0.971596500s  INFO prepare_target{force=false package_id=futures-util v0.3.34 target="futures_util"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/futures-util-dc48d30406a0faaf/lib-futures_util`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: cargo::core::compiler::compile
-  11: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  12: cargo::ops::cargo_compile::compile_ws
-  13: cargo::ops::cargo_compile::compile_with_exec
-  14: cargo::ops::cargo_compile::compile
-  15: cargo::commands::check::exec
-  16: <cargo::cli::Exec>::exec
-  17: cargo::main
-  18: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  19: std::rt::lang_start::<()>::{closure#0}
-  20: std::rt::lang_start_internal
-  21: _main
-   0.973388208s  INFO prepare_target{force=false package_id=pin-project-lite v0.2.17 target="pin_project_lite"}: cargo::core::compiler::fingerprint: fingerprint error for pin-project-lite v0.2.17/Check { test: false }/TargetInner { doc_scrape_examples: Disabled, ..: lib_target("pin_project_lite", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.17/src/lib.rs", Edition2018) }
-   0.973392917s  INFO prepare_target{force=false package_id=pin-project-lite v0.2.17 target="pin_project_lite"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/pin-project-lite-885bb854980472d0/lib-pin_project_lite`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: cargo::core::compiler::compile
-  11: cargo::core::compiler::compile
-  12: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  13: cargo::ops::cargo_compile::compile_ws
-  14: cargo::ops::cargo_compile::compile_with_exec
-  15: cargo::ops::cargo_compile::compile
-  16: cargo::commands::check::exec
-  17: <cargo::cli::Exec>::exec
-  18: cargo::main
-  19: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  20: std::rt::lang_start::<()>::{closure#0}
-  21: std::rt::lang_start_internal
-  22: _main
-   0.973550125s  INFO prepare_target{force=false package_id=slab v0.4.12 target="slab"}: cargo::core::compiler::fingerprint: fingerprint error for slab v0.4.12/Check { test: false }/TargetInner { ..: lib_target("slab", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/slab-0.4.12/src/lib.rs", Edition2018) }
-   0.973553500s  INFO prepare_target{force=false package_id=slab v0.4.12 target="slab"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/slab-3a308f8e68bab871/lib-slab`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: cargo::core::compiler::compile
-  11: cargo::core::compiler::compile
-  12: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  13: cargo::ops::cargo_compile::compile_ws
-  14: cargo::ops::cargo_compile::compile_with_exec
-  15: cargo::ops::cargo_compile::compile
-  16: cargo::commands::check::exec
-  17: <cargo::cli::Exec>::exec
-  18: cargo::main
-  19: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  20: std::rt::lang_start::<()>::{closure#0}
-  21: std::rt::lang_start_internal
-  22: _main
-   0.973695500s  INFO prepare_target{force=false package_id=gio-sys v0.20.10 target="gio_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gio-sys v0.20.10/Check { test: false }/TargetInner { ..: lib_target("gio_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gio-sys-0.20.10/src/lib.rs", Edition2021) }
-   0.973698542s  INFO prepare_target{force=false package_id=gio-sys v0.20.10 target="gio_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gio-sys-e337f38c1fde6ae3/lib-gio_sys`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.974227167s  INFO prepare_target{force=false package_id=gobject-sys v0.20.10 target="gobject_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gobject-sys v0.20.10/Check { test: false }/TargetInner { ..: lib_target("gobject_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gobject-sys-0.20.10/src/lib.rs", Edition2021) }
-   0.974231708s  INFO prepare_target{force=false package_id=gobject-sys v0.20.10 target="gobject_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gobject-sys-de50f0b5bb24b3e7/lib-gobject_sys`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: cargo::core::compiler::compile
-  11: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  12: cargo::ops::cargo_compile::compile_ws
-  13: cargo::ops::cargo_compile::compile_with_exec
-  14: cargo::ops::cargo_compile::compile
-  15: cargo::commands::check::exec
-  16: <cargo::cli::Exec>::exec
-  17: cargo::main
-  18: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  19: std::rt::lang_start::<()>::{closure#0}
-  20: std::rt::lang_start_internal
-  21: _main
-   0.975932875s  INFO prepare_target{force=false package_id=memchr v2.8.3 target="memchr"}: cargo::core::compiler::fingerprint: fingerprint error for memchr v2.8.3/Check { test: false }/TargetInner { benched: false, ..: lib_target("memchr", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/src/lib.rs", Edition2021) }
-   0.975936333s  INFO prepare_target{force=false package_id=memchr v2.8.3 target="memchr"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/memchr-988a0255dc04505f/lib-memchr`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.976069000s  INFO prepare_target{force=false package_id=smallvec v1.15.2 target="smallvec"}: cargo::core::compiler::fingerprint: fingerprint error for smallvec v1.15.2/Check { test: false }/TargetInner { ..: lib_target("smallvec", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.15.2/src/lib.rs", Edition2018) }
-   0.976071792s  INFO prepare_target{force=false package_id=smallvec v1.15.2 target="smallvec"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/smallvec-81d9caa98e8933d8/lib-smallvec`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.976199708s  INFO prepare_target{force=false package_id=field-offset v0.3.6 target="field_offset"}: cargo::core::compiler::fingerprint: fingerprint error for field-offset v0.3.6/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("field_offset", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/field-offset-0.3.6/src/lib.rs", Edition2015) }
-   0.976202792s  INFO prepare_target{force=false package_id=field-offset v0.3.6 target="field_offset"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/field-offset-04f96545c5634d97/lib-field_offset`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.977049167s  INFO prepare_target{force=false package_id=memoffset v0.9.1 target="memoffset"}: cargo::core::compiler::fingerprint: fingerprint error for memoffset v0.9.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("memoffset", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memoffset-0.9.1/src/lib.rs", Edition2015) }
-   0.977052125s  INFO prepare_target{force=false package_id=memoffset v0.9.1 target="memoffset"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/memoffset-b1a64dc8ad710f0b/lib-memoffset`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.977731583s  INFO prepare_target{force=false package_id=gdk-pixbuf v0.20.10 target="gdk_pixbuf"}: cargo::core::compiler::fingerprint: fingerprint error for gdk-pixbuf v0.20.10/Check { test: false }/TargetInner { ..: lib_target("gdk_pixbuf", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk-pixbuf-0.20.10/src/lib.rs", Edition2021) }
-   0.977734375s  INFO prepare_target{force=false package_id=gdk-pixbuf v0.20.10 target="gdk_pixbuf"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gdk-pixbuf-5abb6c0243937490/lib-gdk_pixbuf`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.977981083s  INFO prepare_target{force=false package_id=gdk-pixbuf-sys v0.20.10 target="gdk_pixbuf_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gdk-pixbuf-sys v0.20.10/Check { test: false }/TargetInner { ..: lib_target("gdk_pixbuf_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk-pixbuf-sys-0.20.10/src/lib.rs", Edition2021) }
-   0.977986542s  INFO prepare_target{force=false package_id=gdk-pixbuf-sys v0.20.10 target="gdk_pixbuf_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gdk-pixbuf-sys-05e0a7b59bb920cb/lib-gdk_pixbuf_sys`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.978481167s  INFO prepare_target{force=false package_id=gio v0.20.12 target="gio"}: cargo::core::compiler::fingerprint: fingerprint error for gio v0.20.12/Check { test: false }/TargetInner { ..: lib_target("gio", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gio-0.20.12/src/lib.rs", Edition2021) }
-   0.978484542s  INFO prepare_target{force=false package_id=gio v0.20.12 target="gio"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gio-9a992efb2eefa49a/lib-gio`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.978812625s  INFO prepare_target{force=false package_id=futures-io v0.3.34 target="futures_io"}: cargo::core::compiler::fingerprint: fingerprint error for futures-io v0.3.34/Check { test: false }/TargetInner { ..: lib_target("futures_io", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/futures-io-0.3.34/src/lib.rs", Edition2018) }
-   0.978815583s  INFO prepare_target{force=false package_id=futures-io v0.3.34 target="futures_io"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/futures-io-151eccdd8bfd98fe/lib-futures_io`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.979289083s  INFO prepare_target{force=false package_id=gdk4 v0.9.6 target="gdk4"}: cargo::core::compiler::fingerprint: fingerprint error for gdk4 v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gdk4", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk4-0.9.6/src/lib.rs", Edition2021) }
-   0.979291750s  INFO prepare_target{force=false package_id=gdk4 v0.9.6 target="gdk4"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gdk4-49e18d0fcfafc7ec/lib-gdk4`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.979568042s  INFO prepare_target{force=false package_id=gdk4-sys v0.9.6 target="gdk4_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gdk4-sys v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gdk4_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk4-sys-0.9.6/src/lib.rs", Edition2021) }
-   0.979570708s  INFO prepare_target{force=false package_id=gdk4-sys v0.9.6 target="gdk4_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gdk4-sys-5722f034bcda6a99/lib-gdk4_sys`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.979870708s  INFO prepare_target{force=false package_id=gdk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for gdk4-sys v0.9.6/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk4-sys-0.9.6/build.rs", Edition2021) }
-   0.979873958s  INFO prepare_target{force=false package_id=gdk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gdk4-sys-c2eb97104b446ef6/run-build-script-build-script-build`
+   0.187380250s  INFO prepare_target{force=false package_id=gdk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for gdk4-sys v0.9.6/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk4-sys-0.9.6/build.rs", Edition2021) }
+   0.187383917s  INFO prepare_target{force=false package_id=gdk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gdk4-sys-c2eb97104b446ef6/run-build-script-build-script-build`
 
 Caused by:
     No such file or directory (os error 2)
@@ -777,63 +130,8 @@ Stack backtrace:
   19: std::rt::lang_start::<()>::{closure#0}
   20: std::rt::lang_start_internal
   21: _main
-   0.980393833s  INFO prepare_target{force=false package_id=pango-sys v0.20.10 target="pango_sys"}: cargo::core::compiler::fingerprint: fingerprint error for pango-sys v0.20.10/Check { test: false }/TargetInner { ..: lib_target("pango_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pango-sys-0.20.10/src/lib.rs", Edition2021) }
-   0.980396500s  INFO prepare_target{force=false package_id=pango-sys v0.20.10 target="pango_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/pango-sys-f0f59d6094fedb9c/lib-pango_sys`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.980966042s  INFO prepare_target{force=false package_id=pango v0.20.12 target="pango"}: cargo::core::compiler::fingerprint: fingerprint error for pango v0.20.12/Check { test: false }/TargetInner { ..: lib_target("pango", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pango-0.20.12/src/lib.rs", Edition2021) }
-   0.980968917s  INFO prepare_target{force=false package_id=pango v0.20.12 target="pango"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/pango-2564d6c6c1de9c92/lib-pango`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.981196292s  INFO prepare_target{force=false package_id=graphene-rs v0.20.10 target="graphene"}: cargo::core::compiler::fingerprint: fingerprint error for graphene-rs v0.20.10/Check { test: false }/TargetInner { ..: lib_target("graphene", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/graphene-rs-0.20.10/src/lib.rs", Edition2021) }
-   0.981199083s  INFO prepare_target{force=false package_id=graphene-rs v0.20.10 target="graphene"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/graphene-rs-2a513485344d47a6/lib-graphene`
+   0.188662708s  INFO prepare_target{force=false package_id=graphene-rs v0.20.10 target="graphene"}: cargo::core::compiler::fingerprint: fingerprint error for graphene-rs v0.20.10/Check { test: false }/TargetInner { ..: lib_target("graphene", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/graphene-rs-0.20.10/src/lib.rs", Edition2021) }
+   0.188671708s  INFO prepare_target{force=false package_id=graphene-rs v0.20.10 target="graphene"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/graphene-rs-2a513485344d47a6/lib-graphene`
 
 Caused by:
     No such file or directory (os error 2)
@@ -858,8 +156,8 @@ Stack backtrace:
   16: std::rt::lang_start::<()>::{closure#0}
   17: std::rt::lang_start_internal
   18: _main
-   0.981415750s  INFO prepare_target{force=false package_id=graphene-sys v0.20.10 target="graphene_sys"}: cargo::core::compiler::fingerprint: fingerprint error for graphene-sys v0.20.10/Check { test: false }/TargetInner { ..: lib_target("graphene_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/graphene-sys-0.20.10/src/lib.rs", Edition2021) }
-   0.981418667s  INFO prepare_target{force=false package_id=graphene-sys v0.20.10 target="graphene_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/graphene-sys-5c2957f85246c4ac/lib-graphene_sys`
+   0.188911000s  INFO prepare_target{force=false package_id=graphene-sys v0.20.10 target="graphene_sys"}: cargo::core::compiler::fingerprint: fingerprint error for graphene-sys v0.20.10/Check { test: false }/TargetInner { ..: lib_target("graphene_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/graphene-sys-0.20.10/src/lib.rs", Edition2021) }
+   0.188916458s  INFO prepare_target{force=false package_id=graphene-sys v0.20.10 target="graphene_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/graphene-sys-5c2957f85246c4ac/lib-graphene_sys`
 
 Caused by:
     No such file or directory (os error 2)
@@ -885,8 +183,8 @@ Stack backtrace:
   17: std::rt::lang_start::<()>::{closure#0}
   18: std::rt::lang_start_internal
   19: _main
-   0.981614083s  INFO prepare_target{force=false package_id=graphene-sys v0.20.10 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for graphene-sys v0.20.10/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/graphene-sys-0.20.10/build.rs", Edition2021) }
-   0.981616917s  INFO prepare_target{force=false package_id=graphene-sys v0.20.10 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/graphene-sys-fb15a6f5bcee67d0/run-build-script-build-script-build`
+   0.189162167s  INFO prepare_target{force=false package_id=graphene-sys v0.20.10 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for graphene-sys v0.20.10/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/graphene-sys-0.20.10/build.rs", Edition2021) }
+   0.189166958s  INFO prepare_target{force=false package_id=graphene-sys v0.20.10 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/graphene-sys-fb15a6f5bcee67d0/run-build-script-build-script-build`
 
 Caused by:
     No such file or directory (os error 2)
@@ -914,8 +212,8 @@ Stack backtrace:
   19: std::rt::lang_start::<()>::{closure#0}
   20: std::rt::lang_start_internal
   21: _main
-   0.981886167s  INFO prepare_target{force=false package_id=gsk4 v0.9.6 target="gsk4"}: cargo::core::compiler::fingerprint: fingerprint error for gsk4 v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gsk4", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gsk4-0.9.6/src/lib.rs", Edition2021) }
-   0.981888667s  INFO prepare_target{force=false package_id=gsk4 v0.9.6 target="gsk4"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gsk4-8c793d03cab47e66/lib-gsk4`
+   0.189464000s  INFO prepare_target{force=false package_id=gsk4 v0.9.6 target="gsk4"}: cargo::core::compiler::fingerprint: fingerprint error for gsk4 v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gsk4", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gsk4-0.9.6/src/lib.rs", Edition2021) }
+   0.189478917s  INFO prepare_target{force=false package_id=gsk4 v0.9.6 target="gsk4"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gsk4-8c793d03cab47e66/lib-gsk4`
 
 Caused by:
     No such file or directory (os error 2)
@@ -940,8 +238,8 @@ Stack backtrace:
   16: std::rt::lang_start::<()>::{closure#0}
   17: std::rt::lang_start_internal
   18: _main
-   0.982168625s  INFO prepare_target{force=false package_id=gsk4-sys v0.9.6 target="gsk4_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gsk4-sys v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gsk4_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gsk4-sys-0.9.6/src/lib.rs", Edition2021) }
-   0.982171125s  INFO prepare_target{force=false package_id=gsk4-sys v0.9.6 target="gsk4_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gsk4-sys-0c4f1bf97bdb4254/lib-gsk4_sys`
+   0.189898583s  INFO prepare_target{force=false package_id=gsk4-sys v0.9.6 target="gsk4_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gsk4-sys v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gsk4_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gsk4-sys-0.9.6/src/lib.rs", Edition2021) }
+   0.189903083s  INFO prepare_target{force=false package_id=gsk4-sys v0.9.6 target="gsk4_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gsk4-sys-0c4f1bf97bdb4254/lib-gsk4_sys`
 
 Caused by:
     No such file or directory (os error 2)
@@ -967,8 +265,8 @@ Stack backtrace:
   17: std::rt::lang_start::<()>::{closure#0}
   18: std::rt::lang_start_internal
   19: _main
-   0.982460958s  INFO prepare_target{force=false package_id=gsk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for gsk4-sys v0.9.6/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gsk4-sys-0.9.6/build.rs", Edition2021) }
-   0.982463667s  INFO prepare_target{force=false package_id=gsk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gsk4-sys-122913adaff74626/run-build-script-build-script-build`
+   0.190258167s  INFO prepare_target{force=false package_id=gsk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for gsk4-sys v0.9.6/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gsk4-sys-0.9.6/build.rs", Edition2021) }
+   0.190262208s  INFO prepare_target{force=false package_id=gsk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gsk4-sys-122913adaff74626/run-build-script-build-script-build`
 
 Caused by:
     No such file or directory (os error 2)
@@ -996,8 +294,8 @@ Stack backtrace:
   19: std::rt::lang_start::<()>::{closure#0}
   20: std::rt::lang_start_internal
   21: _main
-   0.982903792s  INFO prepare_target{force=false package_id=gtk4-sys v0.9.6 target="gtk4_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gtk4-sys v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gtk4_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-sys-0.9.6/src/lib.rs", Edition2021) }
-   0.982906667s  INFO prepare_target{force=false package_id=gtk4-sys v0.9.6 target="gtk4_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gtk4-sys-77be25f4ce496d9c/lib-gtk4_sys`
+   0.190773875s  INFO prepare_target{force=false package_id=gtk4-sys v0.9.6 target="gtk4_sys"}: cargo::core::compiler::fingerprint: fingerprint error for gtk4-sys v0.9.6/Check { test: false }/TargetInner { ..: lib_target("gtk4_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-sys-0.9.6/src/lib.rs", Edition2021) }
+   0.190778458s  INFO prepare_target{force=false package_id=gtk4-sys v0.9.6 target="gtk4_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gtk4-sys-77be25f4ce496d9c/lib-gtk4_sys`
 
 Caused by:
     No such file or directory (os error 2)
@@ -1022,8 +320,8 @@ Stack backtrace:
   16: std::rt::lang_start::<()>::{closure#0}
   17: std::rt::lang_start_internal
   18: _main
-   0.983242417s  INFO prepare_target{force=false package_id=gtk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for gtk4-sys v0.9.6/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-sys-0.9.6/build.rs", Edition2021) }
-   0.983245083s  INFO prepare_target{force=false package_id=gtk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gtk4-sys-7b705ccd8f51b8ca/run-build-script-build-script-build`
+   0.191231167s  INFO prepare_target{force=false package_id=gtk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for gtk4-sys v0.9.6/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-sys-0.9.6/build.rs", Edition2021) }
+   0.191238042s  INFO prepare_target{force=false package_id=gtk4-sys v0.9.6 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/gtk4-sys-7b705ccd8f51b8ca/run-build-script-build-script-build`
 
 Caused by:
     No such file or directory (os error 2)
@@ -1050,8 +348,8 @@ Stack backtrace:
   18: std::rt::lang_start::<()>::{closure#0}
   19: std::rt::lang_start_internal
   20: _main
-   0.983606125s  INFO prepare_target{force=false package_id=libadwaita v0.7.2 target="libadwaita"}: cargo::core::compiler::fingerprint: fingerprint error for libadwaita v0.7.2/Check { test: false }/TargetInner { ..: lib_target("libadwaita", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libadwaita-0.7.2/src/lib.rs", Edition2021) }
-   0.983608833s  INFO prepare_target{force=false package_id=libadwaita v0.7.2 target="libadwaita"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/libadwaita-7ba325cbb339b8fb/lib-libadwaita`
+   0.191698458s  INFO prepare_target{force=false package_id=libadwaita v0.7.2 target="libadwaita"}: cargo::core::compiler::fingerprint: fingerprint error for libadwaita v0.7.2/Check { test: false }/TargetInner { ..: lib_target("libadwaita", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libadwaita-0.7.2/src/lib.rs", Edition2021) }
+   0.191704208s  INFO prepare_target{force=false package_id=libadwaita v0.7.2 target="libadwaita"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/libadwaita-7ba325cbb339b8fb/lib-libadwaita`
 
 Caused by:
     No such file or directory (os error 2)
@@ -1075,8 +373,8 @@ Stack backtrace:
   15: std::rt::lang_start::<()>::{closure#0}
   16: std::rt::lang_start_internal
   17: _main
-   0.983922917s  INFO prepare_target{force=false package_id=libadwaita-sys v0.7.2 target="libadwaita_sys"}: cargo::core::compiler::fingerprint: fingerprint error for libadwaita-sys v0.7.2/Check { test: false }/TargetInner { ..: lib_target("libadwaita_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libadwaita-sys-0.7.2/src/lib.rs", Edition2021) }
-   0.983925917s  INFO prepare_target{force=false package_id=libadwaita-sys v0.7.2 target="libadwaita_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/libadwaita-sys-d92632417f8cfa04/lib-libadwaita_sys`
+   0.192041833s  INFO prepare_target{force=false package_id=libadwaita-sys v0.7.2 target="libadwaita_sys"}: cargo::core::compiler::fingerprint: fingerprint error for libadwaita-sys v0.7.2/Check { test: false }/TargetInner { ..: lib_target("libadwaita_sys", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libadwaita-sys-0.7.2/src/lib.rs", Edition2021) }
+   0.192046125s  INFO prepare_target{force=false package_id=libadwaita-sys v0.7.2 target="libadwaita_sys"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/libadwaita-sys-d92632417f8cfa04/lib-libadwaita_sys`
 
 Caused by:
     No such file or directory (os error 2)
@@ -1101,8 +399,8 @@ Stack backtrace:
   16: std::rt::lang_start::<()>::{closure#0}
   17: std::rt::lang_start_internal
   18: _main
-   0.984237167s  INFO prepare_target{force=false package_id=libadwaita-sys v0.7.2 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for libadwaita-sys v0.7.2/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libadwaita-sys-0.7.2/build.rs", Edition2021) }
-   0.984240250s  INFO prepare_target{force=false package_id=libadwaita-sys v0.7.2 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/libadwaita-sys-49b7e28729ba4d43/run-build-script-build-script-build`
+   0.192406750s  INFO prepare_target{force=false package_id=libadwaita-sys v0.7.2 target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint error for libadwaita-sys v0.7.2/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libadwaita-sys-0.7.2/build.rs", Edition2021) }
+   0.192410583s  INFO prepare_target{force=false package_id=libadwaita-sys v0.7.2 target="build-script-build"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/libadwaita-sys-49b7e28729ba4d43/run-build-script-build-script-build`
 
 Caused by:
     No such file or directory (os error 2)
@@ -1129,722 +427,8 @@ Stack backtrace:
   18: std::rt::lang_start::<()>::{closure#0}
   19: std::rt::lang_start_internal
   20: _main
-   0.984495042s  INFO prepare_target{force=false package_id=prchum-core v0.2.0 (/Users/hduran/go/src/github.com/perrito666/prchum/core/prchum-core) target="prchum_core"}: cargo::core::compiler::fingerprint: fingerprint error for prchum-core v0.2.0 (/Users/hduran/go/src/github.com/perrito666/prchum/core/prchum-core)/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("prchum_core", ["lib"], "/Users/hduran/go/src/github.com/perrito666/prchum/core/prchum-core/src/lib.rs", Edition2021) }
-   0.984498458s  INFO prepare_target{force=false package_id=prchum-core v0.2.0 (/Users/hduran/go/src/github.com/perrito666/prchum/core/prchum-core) target="prchum_core"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/prchum-core-674fd9110eed20bf/lib-prchum_core`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   8: cargo::ops::cargo_compile::compile_ws
-   9: cargo::ops::cargo_compile::compile_with_exec
-  10: cargo::ops::cargo_compile::compile
-  11: cargo::commands::check::exec
-  12: <cargo::cli::Exec>::exec
-  13: cargo::main
-  14: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  15: std::rt::lang_start::<()>::{closure#0}
-  16: std::rt::lang_start_internal
-  17: _main
-   0.990628250s  INFO prepare_target{force=false package_id=serde v1.0.229 target="serde"}: cargo::core::compiler::fingerprint: fingerprint error for serde v1.0.229/Check { test: false }/TargetInner { ..: lib_target("serde", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs", Edition2021) }
-   0.990632250s  INFO prepare_target{force=false package_id=serde v1.0.229 target="serde"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/serde-68b45a49103058cb/lib-serde`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.991243375s  INFO prepare_target{force=false package_id=serde_core v1.0.229 target="serde_core"}: cargo::core::compiler::fingerprint: fingerprint error for serde_core v1.0.229/Check { test: false }/TargetInner { ..: lib_target("serde_core", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.229/src/lib.rs", Edition2021) }
-   0.991248208s  INFO prepare_target{force=false package_id=serde_core v1.0.229 target="serde_core"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/serde_core-b6ab456be75426f4/lib-serde_core`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.992183375s  INFO prepare_target{force=false package_id=serde_json v1.0.151 target="serde_json"}: cargo::core::compiler::fingerprint: fingerprint error for serde_json v1.0.151/Check { test: false }/TargetInner { ..: lib_target("serde_json", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/lib.rs", Edition2021) }
-   0.992187625s  INFO prepare_target{force=false package_id=serde_json v1.0.151 target="serde_json"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/serde_json-85c6b97a9d5e98d2/lib-serde_json`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.992420833s  INFO prepare_target{force=false package_id=itoa v1.0.18 target="itoa"}: cargo::core::compiler::fingerprint: fingerprint error for itoa v1.0.18/Check { test: false }/TargetInner { ..: lib_target("itoa", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.18/src/lib.rs", Edition2021) }
-   0.992424875s  INFO prepare_target{force=false package_id=itoa v1.0.18 target="itoa"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/itoa-254bb3b8fa14adca/lib-itoa`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.993002375s  INFO prepare_target{force=false package_id=zmij v1.0.23 target="zmij"}: cargo::core::compiler::fingerprint: fingerprint error for zmij v1.0.23/Check { test: false }/TargetInner { ..: lib_target("zmij", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zmij-1.0.23/src/lib.rs", Edition2021) }
-   0.993006292s  INFO prepare_target{force=false package_id=zmij v1.0.23 target="zmij"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/zmij-327753f8aa93dd15/lib-zmij`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.993615375s  INFO prepare_target{force=false package_id=tree-sitter v0.26.13 target="tree_sitter"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter v0.26.13/Check { test: false }/TargetInner { ..: lib_target("tree_sitter", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/lib.rs", Edition2021) }
-   0.993619375s  INFO prepare_target{force=false package_id=tree-sitter v0.26.13 target="tree_sitter"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-97df913588843e18/lib-tree_sitter`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.993854042s  INFO prepare_target{force=false package_id=regex v1.13.1 target="regex"}: cargo::core::compiler::fingerprint: fingerprint error for regex v1.13.1/Check { test: false }/TargetInner { ..: lib_target("regex", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-1.13.1/src/lib.rs", Edition2021) }
-   0.993858083s  INFO prepare_target{force=false package_id=regex v1.13.1 target="regex"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/regex-84e39c0de6d51745/lib-regex`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.994087833s  INFO prepare_target{force=false package_id=aho-corasick v1.1.5 target="aho_corasick"}: cargo::core::compiler::fingerprint: fingerprint error for aho-corasick v1.1.5/Check { test: false }/TargetInner { ..: lib_target("aho_corasick", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/aho-corasick-1.1.5/src/lib.rs", Edition2021) }
-   0.994091833s  INFO prepare_target{force=false package_id=aho-corasick v1.1.5 target="aho_corasick"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/aho-corasick-05f6c3977c03475f/lib-aho_corasick`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.994283875s  INFO prepare_target{force=false package_id=regex-automata v0.4.18 target="regex_automata"}: cargo::core::compiler::fingerprint: fingerprint error for regex-automata v0.4.18/Check { test: false }/TargetInner { benched: false, ..: lib_target("regex_automata", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-automata-0.4.18/src/lib.rs", Edition2021) }
-   0.994287875s  INFO prepare_target{force=false package_id=regex-automata v0.4.18 target="regex_automata"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/regex-automata-7467c17a4a477593/lib-regex_automata`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  11: cargo::ops::cargo_compile::compile_ws
-  12: cargo::ops::cargo_compile::compile_with_exec
-  13: cargo::ops::cargo_compile::compile
-  14: cargo::commands::check::exec
-  15: <cargo::cli::Exec>::exec
-  16: cargo::main
-  17: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  18: std::rt::lang_start::<()>::{closure#0}
-  19: std::rt::lang_start_internal
-  20: _main
-   0.994533917s  INFO prepare_target{force=false package_id=regex-syntax v0.8.11 target="regex_syntax"}: cargo::core::compiler::fingerprint: fingerprint error for regex-syntax v0.8.11/Check { test: false }/TargetInner { ..: lib_target("regex_syntax", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/regex-syntax-0.8.11/src/lib.rs", Edition2021) }
-   0.994538042s  INFO prepare_target{force=false package_id=regex-syntax v0.8.11 target="regex_syntax"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/regex-syntax-66bbf74f1d70c504/lib-regex_syntax`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: cargo::core::compiler::compile
-  10: cargo::core::compiler::compile
-  11: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  12: cargo::ops::cargo_compile::compile_ws
-  13: cargo::ops::cargo_compile::compile_with_exec
-  14: cargo::ops::cargo_compile::compile
-  15: cargo::commands::check::exec
-  16: <cargo::cli::Exec>::exec
-  17: cargo::main
-  18: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  19: std::rt::lang_start::<()>::{closure#0}
-  20: std::rt::lang_start_internal
-  21: _main
-   0.994678500s  INFO prepare_target{force=false package_id=streaming-iterator v0.1.9 target="streaming_iterator"}: cargo::core::compiler::fingerprint: fingerprint error for streaming-iterator v0.1.9/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("streaming_iterator", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/streaming-iterator-0.1.9/src/lib.rs", Edition2021) }
-   0.994682625s  INFO prepare_target{force=false package_id=streaming-iterator v0.1.9 target="streaming_iterator"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/streaming-iterator-42b5004deba8d765/lib-streaming_iterator`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.997680500s  INFO prepare_target{force=false package_id=tree-sitter-language v0.1.7 target="tree_sitter_language"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-language v0.1.7/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_language", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-language-0.1.7/src/language.rs", Edition2021) }
-   0.997687417s  INFO prepare_target{force=false package_id=tree-sitter-language v0.1.7 target="tree_sitter_language"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-language-0cead5d60827f49c/lib-tree_sitter_language`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: cargo::core::compiler::compile
-   9: <cargo::core::compiler::build_runner::BuildRunner>::compile
-  10: cargo::ops::cargo_compile::compile_ws
-  11: cargo::ops::cargo_compile::compile_with_exec
-  12: cargo::ops::cargo_compile::compile
-  13: cargo::commands::check::exec
-  14: <cargo::cli::Exec>::exec
-  15: cargo::main
-  16: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  17: std::rt::lang_start::<()>::{closure#0}
-  18: std::rt::lang_start_internal
-  19: _main
-   0.997856458s  INFO prepare_target{force=false package_id=tree-sitter-bash v0.25.1 target="tree_sitter_bash"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-bash v0.25.1/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_bash", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-bash-0.25.1/bindings/rust/lib.rs", Edition2021) }
-   0.997861042s  INFO prepare_target{force=false package_id=tree-sitter-bash v0.25.1 target="tree_sitter_bash"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-bash-19b0199135bfe675/lib-tree_sitter_bash`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.998422167s  INFO prepare_target{force=false package_id=tree-sitter-c v0.24.2 target="tree_sitter_c"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-c v0.24.2/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_c", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-c-0.24.2/bindings/rust/lib.rs", Edition2021) }
-   0.998426875s  INFO prepare_target{force=false package_id=tree-sitter-c v0.24.2 target="tree_sitter_c"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-c-ca824ca80ca6200a/lib-tree_sitter_c`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.999001167s  INFO prepare_target{force=false package_id=tree-sitter-css v0.25.0 target="tree_sitter_css"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-css v0.25.0/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_css", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-css-0.25.0/bindings/rust/lib.rs", Edition2021) }
-   0.999005083s  INFO prepare_target{force=false package_id=tree-sitter-css v0.25.0 target="tree_sitter_css"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-css-33e0296847c0ad64/lib-tree_sitter_css`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.999583667s  INFO prepare_target{force=false package_id=tree-sitter-go v0.25.0 target="tree_sitter_go"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-go v0.25.0/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_go", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-go-0.25.0/bindings/rust/lib.rs", Edition2021) }
-   0.999587833s  INFO prepare_target{force=false package_id=tree-sitter-go v0.25.0 target="tree_sitter_go"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-go-12d8f0fe212dcda7/lib-tree_sitter_go`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   0.999994000s  INFO prepare_target{force=false package_id=tree-sitter-html v0.23.2 target="tree_sitter_html"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-html v0.23.2/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_html", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-html-0.23.2/bindings/rust/lib.rs", Edition2021) }
-   0.999998042s  INFO prepare_target{force=false package_id=tree-sitter-html v0.23.2 target="tree_sitter_html"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-html-d0c79dc1aaeab0af/lib-tree_sitter_html`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.000539542s  INFO prepare_target{force=false package_id=tree-sitter-javascript v0.25.0 target="tree_sitter_javascript"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-javascript v0.25.0/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_javascript", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-javascript-0.25.0/bindings/rust/lib.rs", Edition2021) }
-   1.000544000s  INFO prepare_target{force=false package_id=tree-sitter-javascript v0.25.0 target="tree_sitter_javascript"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-javascript-60983c9942434f78/lib-tree_sitter_javascript`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.000926042s  INFO prepare_target{force=false package_id=tree-sitter-json v0.24.8 target="tree_sitter_json"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-json v0.24.8/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_json", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-json-0.24.8/bindings/rust/lib.rs", Edition2021) }
-   1.000930000s  INFO prepare_target{force=false package_id=tree-sitter-json v0.24.8 target="tree_sitter_json"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-json-37a90903c42347f9/lib-tree_sitter_json`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.001332792s  INFO prepare_target{force=false package_id=tree-sitter-make v1.1.1 target="tree_sitter_make"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-make v1.1.1/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_make", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-make-1.1.1/bindings/rust/lib.rs", Edition2021) }
-   1.001336417s  INFO prepare_target{force=false package_id=tree-sitter-make v1.1.1 target="tree_sitter_make"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-make-9a0e9ef322e9dd0f/lib-tree_sitter_make`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.001903167s  INFO prepare_target{force=false package_id=tree-sitter-md v0.5.3 target="tree_sitter_md"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-md v0.5.3/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_md", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-md-0.5.3/bindings/rust/lib.rs", Edition2021) }
-   1.001906875s  INFO prepare_target{force=false package_id=tree-sitter-md v0.5.3 target="tree_sitter_md"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-md-ff27075684ce2a48/lib-tree_sitter_md`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.002618833s  INFO prepare_target{force=false package_id=tree-sitter-python v0.25.0 target="tree_sitter_python"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-python v0.25.0/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_python", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-python-0.25.0/bindings/rust/lib.rs", Edition2021) }
-   1.002622875s  INFO prepare_target{force=false package_id=tree-sitter-python v0.25.0 target="tree_sitter_python"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-python-1046633e07b77bf5/lib-tree_sitter_python`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.002986292s  INFO prepare_target{force=false package_id=tree-sitter-rust v0.24.2 target="tree_sitter_rust"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-rust v0.24.2/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_rust", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-rust-0.24.2/bindings/rust/lib.rs", Edition2021) }
-   1.002990333s  INFO prepare_target{force=false package_id=tree-sitter-rust v0.24.2 target="tree_sitter_rust"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-rust-fe87cbbf4244bc32/lib-tree_sitter_rust`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.003317208s  INFO prepare_target{force=false package_id=tree-sitter-swift v0.7.3 target="tree_sitter_swift"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-swift v0.7.3/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_swift", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-swift-0.7.3/bindings/rust/lib.rs", Edition2018) }
-   1.003320958s  INFO prepare_target{force=false package_id=tree-sitter-swift v0.7.3 target="tree_sitter_swift"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-swift-4cd9b0617188a192/lib-tree_sitter_swift`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.003667000s  INFO prepare_target{force=false package_id=tree-sitter-toml-ng v0.7.0 target="tree_sitter_toml_ng"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-toml-ng v0.7.0/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_toml_ng", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-toml-ng-0.7.0/bindings/rust/lib.rs", Edition2021) }
-   1.003670625s  INFO prepare_target{force=false package_id=tree-sitter-toml-ng v0.7.0 target="tree_sitter_toml_ng"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-toml-ng-7b1e6e460fbf37f4/lib-tree_sitter_toml_ng`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.004059417s  INFO prepare_target{force=false package_id=tree-sitter-yaml v0.7.2 target="tree_sitter_yaml"}: cargo::core::compiler::fingerprint: fingerprint error for tree-sitter-yaml v0.7.2/Check { test: false }/TargetInner { ..: lib_target("tree_sitter_yaml", ["lib"], "/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-yaml-0.7.2/bindings/rust/lib.rs", Edition2021) }
-   1.004062917s  INFO prepare_target{force=false package_id=tree-sitter-yaml v0.7.2 target="tree_sitter_yaml"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/tree-sitter-yaml-513b053a49756a91/lib-tree_sitter_yaml`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: <std::backtrace::Backtrace>::create
-   1: cargo_util::paths::read_bytes
-   2: cargo_util::paths::read
-   3: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   4: cargo::core::compiler::fingerprint::prepare_target
-   5: cargo::core::compiler::compile
-   6: cargo::core::compiler::compile
-   7: cargo::core::compiler::compile
-   8: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   9: cargo::ops::cargo_compile::compile_ws
-  10: cargo::ops::cargo_compile::compile_with_exec
-  11: cargo::ops::cargo_compile::compile
-  12: cargo::commands::check::exec
-  13: <cargo::cli::Exec>::exec
-  14: cargo::main
-  15: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  16: std::rt::lang_start::<()>::{closure#0}
-  17: std::rt::lang_start_internal
-  18: _main
-   1.004598208s  INFO prepare_target{force=false package_id=prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux) target="prchum-gtk"}: cargo::core::compiler::fingerprint: fingerprint error for prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux)/Check { test: true }/TargetInner { name: "prchum-gtk", doc: true, ..: with_path("/Users/hduran/go/src/github.com/perrito666/prchum/linux/src/main.rs", Edition2021) }
-   1.004602917s  INFO prepare_target{force=false package_id=prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux) target="prchum-gtk"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/prchum-gtk-c5cbd0b616386ddd/test-bin-prchum-gtk`
+   0.207436875s  INFO prepare_target{force=false package_id=prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux) target="prchum-gtk"}: cargo::core::compiler::fingerprint: fingerprint error for prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux)/Check { test: true }/TargetInner { name: "prchum-gtk", doc: true, ..: with_path("/Users/hduran/go/src/github.com/perrito666/prchum/linux/src/main.rs", Edition2021) }
+   0.207453667s  INFO prepare_target{force=false package_id=prchum-gtk v0.1.0 (/Users/hduran/go/src/github.com/perrito666/prchum/linux) target="prchum-gtk"}: cargo::core::compiler::fingerprint:     err: failed to read `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/.fingerprint/prchum-gtk-c5cbd0b616386ddd/test-bin-prchum-gtk`
 
 Caused by:
     No such file or directory (os error 2)
@@ -1867,45 +451,53 @@ Stack backtrace:
   14: std::rt::lang_start::<()>::{closure#0}
   15: std::rt::lang_start_internal
   16: _main
-    Checking memchr v2.8.3
-    Checking futures-core v0.3.34
-    Checking slab v0.4.12
-    Checking futures-task v0.3.34
-    Checking libc v0.2.189
-    Checking tree-sitter-language v0.1.7
-    Checking pin-project-lite v0.2.17
-    Checking smallvec v1.15.2
-    Checking bitflags v2.13.1
    Compiling graphene-sys v0.20.10
-    Checking futures-io v0.3.34
    Compiling gdk4-sys v0.9.6
    Compiling gsk4-sys v0.9.6
    Compiling gtk4-sys v0.9.6
-    Checking regex-syntax v0.8.11
-    Checking memoffset v0.9.1
-    Checking futures-channel v0.3.34
-    Checking serde_core v1.0.229
-    Checking futures-util v0.3.34
-    Checking field-offset v0.3.6
-    Checking zmij v1.0.23
-    Checking streaming-iterator v0.1.9
-    Checking itoa v1.0.18
-    Checking tree-sitter-make v1.1.1
-    Checking tree-sitter-css v0.25.0
-    Checking tree-sitter-c v0.24.2
-    Checking tree-sitter-go v0.25.0
-    Checking aho-corasick v1.1.5
-    Checking tree-sitter-javascript v0.25.0
-    Checking tree-sitter-swift v0.7.3
-    Checking tree-sitter-md v0.5.3
-    Checking tree-sitter-toml-ng v0.7.0
-    Checking tree-sitter-python v0.25.0
-    Checking tree-sitter-yaml v0.7.2
-    Checking tree-sitter-rust v0.24.2
-    Checking tree-sitter-json v0.24.8
-    Checking tree-sitter-html v0.23.2
-    Checking glib-sys v0.20.10
-    Checking tree-sitter-bash v0.25.1
+warning: gtk4-sys@0.9.6: 
+error: failed to run custom build command for `gtk4-sys v0.9.6`
+note: To improve backtraces for build dependencies, set the CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true environment variable to enable debug information generation.
+
+Caused by:
+  process didn't exit successfully: `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/build/gtk4-sys-8bb78518fdaaebe0/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-changed=/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-sys-0.9.6/Cargo.toml
+  cargo:rerun-if-env-changed=GTK4_NO_PKG_CONFIG
+  cargo:rerun-if-env-changed=PKG_CONFIG_aarch64-apple-darwin
+  cargo:rerun-if-env-changed=PKG_CONFIG_aarch64_apple_darwin
+  cargo:rerun-if-env-changed=HOST_PKG_CONFIG
+  cargo:rerun-if-env-changed=PKG_CONFIG
+  cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64-apple-darwin
+  cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64_apple_darwin
+  cargo:rerun-if-env-changed=HOST_PKG_CONFIG_PATH
+  cargo:rerun-if-env-changed=PKG_CONFIG_PATH
+  cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64-apple-darwin
+  cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64_apple_darwin
+  cargo:rerun-if-env-changed=HOST_PKG_CONFIG_LIBDIR
+  cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR
+  cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64-apple-darwin
+  cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64_apple_darwin
+  cargo:rerun-if-env-changed=HOST_PKG_CONFIG_SYSROOT_DIR
+  cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR
+  cargo:warning=
+  pkg-config exited with status code 1
+  > PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1 pkg-config --libs --cflags gtk4 'gtk4 >= 4.12'
+
+  pkg-config output:
+    Package gtk4 was not found in the pkg-config search path.
+    Perhaps you should add the directory containing `gtk4.pc'
+    to the PKG_CONFIG_PATH environment variable
+    Package 'gtk4' not found
+    Package 'gtk4' not found
+
+  The system library `gtk4` required by crate `gtk4-sys` was not found.
+  The file `gtk4.pc` needs to be installed and the PKG_CONFIG_PATH environment variable must contain its parent directory.
+  The PKG_CONFIG_PATH environment variable is not set.
+
+  HINT: if you have installed the library, try setting PKG_CONFIG_PATH to the directory containing `gtk4.pc`.
+
+warning: build failed, waiting for other jobs to finish...
 warning: graphene-sys@0.20.10: 
 error: failed to run custom build command for `graphene-sys v0.20.10`
 note: To improve backtraces for build dependencies, set the CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true environment variable to enable debug information generation.
@@ -1947,54 +539,6 @@ Caused by:
   The PKG_CONFIG_PATH environment variable is not set.
 
   HINT: if you have installed the library, try setting PKG_CONFIG_PATH to the directory containing `graphene-gobject-1.0.pc`.
-
-warning: build failed, waiting for other jobs to finish...
-    Checking gobject-sys v0.20.10
-    Checking cairo-sys-rs v0.20.10
-    Checking gio-sys v0.20.10
-    Checking pango-sys v0.20.10
-error: failed to run custom build command for `gdk4-sys v0.9.6`
-note: To improve backtraces for build dependencies, set the CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true environment variable to enable debug information generation.
-
-Caused by:
-  process didn't exit successfully: `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/build/gdk4-sys-7f1da04a71c3a888/build-script-build` (exit status: 1)
-  --- stdout
-  cargo:rerun-if-changed=/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk4-sys-0.9.6/Cargo.toml
-  cargo:rerun-if-env-changed=GTK4_NO_PKG_CONFIG
-  cargo:rerun-if-env-changed=PKG_CONFIG_aarch64-apple-darwin
-  cargo:rerun-if-env-changed=PKG_CONFIG_aarch64_apple_darwin
-  cargo:rerun-if-env-changed=HOST_PKG_CONFIG
-  cargo:rerun-if-env-changed=PKG_CONFIG
-  cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64-apple-darwin
-  cargo:rerun-if-env-changed=PKG_CONFIG_PATH_aarch64_apple_darwin
-  cargo:rerun-if-env-changed=HOST_PKG_CONFIG_PATH
-  cargo:rerun-if-env-changed=PKG_CONFIG_PATH
-  cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64-apple-darwin
-  cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR_aarch64_apple_darwin
-  cargo:rerun-if-env-changed=HOST_PKG_CONFIG_LIBDIR
-  cargo:rerun-if-env-changed=PKG_CONFIG_LIBDIR
-  cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64-apple-darwin
-  cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64_apple_darwin
-  cargo:rerun-if-env-changed=HOST_PKG_CONFIG_SYSROOT_DIR
-  cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR
-
-  --- stderr
-
-  pkg-config exited with status code 1
-  > PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1 pkg-config --libs --cflags gtk4 'gtk4 >= 4.12'
-
-  pkg-config output:
-    Package gtk4 was not found in the pkg-config search path.
-    Perhaps you should add the directory containing `gtk4.pc'
-    to the PKG_CONFIG_PATH environment variable
-    Package 'gtk4' not found
-    Package 'gtk4' not found
-
-  The system library `gtk4` required by crate `gdk4-sys` was not found.
-  The file `gtk4.pc` needs to be installed and the PKG_CONFIG_PATH environment variable must contain its parent directory.
-  The PKG_CONFIG_PATH environment variable is not set.
-
-  HINT: if you have installed the library, try setting PKG_CONFIG_PATH to the directory containing `gtk4.pc`.
 
 warning: gsk4-sys@0.9.6: 
 error: failed to run custom build command for `gsk4-sys v0.9.6`
@@ -2038,18 +582,13 @@ Caused by:
 
   HINT: if you have installed the library, try setting PKG_CONFIG_PATH to the directory containing `gtk4.pc`.
 
-    Checking regex-automata v0.4.18
-    Checking gdk-pixbuf-sys v0.20.10
-    Checking futures-executor v0.3.34
-    Checking glib v0.20.12
-warning: gtk4-sys@0.9.6: 
-error: failed to run custom build command for `gtk4-sys v0.9.6`
+error: failed to run custom build command for `gdk4-sys v0.9.6`
 note: To improve backtraces for build dependencies, set the CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG=true environment variable to enable debug information generation.
 
 Caused by:
-  process didn't exit successfully: `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/build/gtk4-sys-8bb78518fdaaebe0/build-script-build` (exit status: 1)
+  process didn't exit successfully: `/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/build/gdk4-sys-7f1da04a71c3a888/build-script-build` (exit status: 1)
   --- stdout
-  cargo:rerun-if-changed=/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gtk4-sys-0.9.6/Cargo.toml
+  cargo:rerun-if-changed=/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/gdk4-sys-0.9.6/Cargo.toml
   cargo:rerun-if-env-changed=GTK4_NO_PKG_CONFIG
   cargo:rerun-if-env-changed=PKG_CONFIG_aarch64-apple-darwin
   cargo:rerun-if-env-changed=PKG_CONFIG_aarch64_apple_darwin
@@ -2067,7 +606,9 @@ Caused by:
   cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR_aarch64_apple_darwin
   cargo:rerun-if-env-changed=HOST_PKG_CONFIG_SYSROOT_DIR
   cargo:rerun-if-env-changed=PKG_CONFIG_SYSROOT_DIR
-  cargo:warning=
+
+  --- stderr
+
   pkg-config exited with status code 1
   > PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1 pkg-config --libs --cflags gtk4 'gtk4 >= 4.12'
 
@@ -2078,18 +619,9 @@ Caused by:
     Package 'gtk4' not found
     Package 'gtk4' not found
 
-  The system library `gtk4` required by crate `gtk4-sys` was not found.
+  The system library `gtk4` required by crate `gdk4-sys` was not found.
   The file `gtk4.pc` needs to be installed and the PKG_CONFIG_PATH environment variable must contain its parent directory.
   The PKG_CONFIG_PATH environment variable is not set.
 
   HINT: if you have installed the library, try setting PKG_CONFIG_PATH to the directory containing `gtk4.pc`.
 
-    Checking serde v1.0.229
-    Checking serde_json v1.0.151
-    Checking regex v1.13.1
-    Checking tree-sitter v0.26.13
-    Checking prchum-core v0.2.0 (/Users/hduran/go/src/github.com/perrito666/prchum/core/prchum-core)
-    Checking gio v0.20.12
-    Checking cairo-rs v0.20.12
-    Checking pango v0.20.12
-    Checking gdk-pixbuf v0.20.10
