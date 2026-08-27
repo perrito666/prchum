@@ -21,7 +21,15 @@
 
         prchum-gtk = pkgs.rustPlatform.buildRustPackage {
           pname = "prchum-gtk";
-          version = "0.4.0";
+          # The revision this was built from, rather than a number
+          # somebody has to remember to raise. It is true whatever is
+          # checked out, including a tag, and it can never go stale.
+          # Building from a plain directory rather than a git tree leaves
+          # no revision to take, so the date it was last touched stands
+          # in — still true, still nobody's job to maintain.
+          version =
+            self.shortRev or self.dirtyShortRev
+              or "unstable-${builtins.substring 0 8 (self.lastModifiedDate or "00000000")}";
 
           # The whole repository, because the shell path-depends on the
           # core crates a directory up.

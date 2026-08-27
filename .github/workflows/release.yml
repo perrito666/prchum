@@ -177,6 +177,10 @@ jobs:
         run: |
           sudo apt-get install -y rpm
           VERSION="${GITHUB_REF_NAME#v}"
+          # Tagging is the only step anyone performs: the version goes
+          # into the PKGBUILD and the AppStream metadata from the tag,
+          # here, rather than being bumped by hand beforehand.
+          linux/packaging/stamp.sh "$VERSION"
           linux/packaging/deb.sh "$VERSION"
           linux/packaging/rpm.sh "$VERSION"
           cd linux/packaging/dist
@@ -188,5 +192,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TARBALL="prchum-gtk-${GITHUB_REF_NAME}-linux-x86_64.tar.gz"
+          # The stamped PKGBUILD rides along: it is the authoritative
+          # one for this release, and the copy in the repository is only
+          # ever as current as the last stamping.
+          cp linux/packaging/PKGBUILD linux/packaging/dist/PKGBUILD
           gh release upload "$GITHUB_REF_NAME" --clobber \
             "$TARBALL" "$TARBALL.sha256" linux/packaging/dist/*
