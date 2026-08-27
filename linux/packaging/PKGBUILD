@@ -1,0 +1,57 @@
+# Maintainer: Horacio Duran <horacio.duran@gmail.com>
+#
+# Arch builds from source rather than taking a binary, which is the
+# convention there and the reason this is a PKGBUILD and not another
+# prebuilt artifact: the AUR distributes the recipe, and makepkg runs it
+# on the machine that will use the result.
+#
+#   makepkg -si
+pkgname=prchum
+pkgver=0.4.0
+pkgrel=1
+pkgdesc="Review pull requests and patches"
+arch=('x86_64' 'aarch64')
+url="https://github.com/perrito666/prchum"
+license=('MIT')
+depends=('gtk4' 'libadwaita')
+makedepends=('cargo' 'git')
+# Not depends: prchum opens patch files without any of them, and reaches
+# forges through whichever CLI you have already authenticated. Declaring
+# them required would be a claim about what it needs that is not true.
+optdepends=(
+    'git: reviewing git comparisons and pull request branches'
+    'github-cli: reviewing GitHub pull requests'
+    'glab: reviewing GitLab merge requests'
+)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+    cd "$srcdir/$pkgname-$pkgver/linux"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+    cd "$srcdir/$pkgname-$pkgver/linux"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release
+}
+
+check() {
+    cd "$srcdir/$pkgname-$pkgver/core"
+    export RUSTUP_TOOLCHAIN=stable
+    # The core's tests: portable, quick, and the part worth checking on
+    # the machine the package is being built for.
+    cargo test --frozen --release
+}
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+    # The same staging every packager uses, so the three cannot drift.
+    linux/packaging/stage.sh "$pkgdir" linux/target/release/prchum-gtk
+    # Arch keeps licences in its own place rather than under doc.
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    rm -rf "$pkgdir/usr/share/doc"
+}

@@ -83,6 +83,20 @@ how the change came about, not a note to the reviewer.
 Skip the qualifiers — "honestly", "actually", "obviously", "simply".
 They add nothing and read as filler.
 
+## Working on the Linux shell
+
+It needs GTK 4.12 and libadwaita 1.5, which not every distribution has
+to hand. The shortest path to a working environment is the flake:
+
+```sh
+nix develop
+```
+
+That brings the GTK stack, a Rust toolchain, and the CLIs prchum
+delegates to, without installing anything system-wide. Failing that,
+`scripts/linux-vm/` builds a virtual machine with the same contents —
+see its README.
+
 ## Tests
 
 - `make test` — the core's unit tests. Anything with logic in it gets

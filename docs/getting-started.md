@@ -5,8 +5,30 @@
 Grab `Prchum.app` from the
 [releases](https://github.com/perrito666/prchum/releases) — signed and
 notarized, so download, unzip and double-click; Apple Silicon, macOS
-14+. On Linux, take the `prchum-gtk` tarball from the same place; it
-needs GTK 4.12 and libadwaita 1.5 or newer. Or build from source:
+14+. On Linux the releases carry a package for most ways of installing
+things — `.deb`, `.rpm`, or a plain `prchum-gtk` tarball — all of which
+want GTK 4.12 and libadwaita 1.5 or newer:
+
+```sh
+sudo apt install ./prchum_*.deb      # Debian, Ubuntu
+sudo dnf install ./prchum-*.rpm      # Fedora, RHEL, openSUSE
+```
+
+On Arch, build it the way Arch does, from the `PKGBUILD` in
+`linux/packaging`:
+
+```sh
+makepkg -si
+```
+
+With Nix, the repository is a flake:
+
+```sh
+nix run github:perrito666/prchum          # try it
+nix profile install github:perrito666/prchum   # keep it
+```
+
+Or build from source anywhere:
 
 ```sh
 make run ARGS=change.diff   # build the core + app and open a patch
