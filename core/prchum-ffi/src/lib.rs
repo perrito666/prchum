@@ -21,11 +21,12 @@ use prchum_core::diff::Side;
 use prchum_core::review::ReviewEvent;
 use prchum_core::source::GitSpec;
 use prchum_core::{App, Config, Event, Session};
+use prchum_forge::open::{open_session, PrContext};
 use prchum_forge::forgejo::ForgejoForge;
 use prchum_forge::ghcli::{GhForge, ProcessRunner};
 use prchum_forge::glabcli::GlabForge;
-use prchum_forge::refs::{parse_ref, resolve_from_origin};
-use prchum_forge::{kind_for_host, submit, Forge, ForgeKind, PullRequestRef};
+use prchum_forge::refs::parse_ref;
+use prchum_forge::{kind_for_host, submit, Forge, ForgeKind};
 
 /// Event kind: reply to `pc_app_ping`.
 pub const PC_EVENT_PONG: u32 = 1;
@@ -83,27 +84,6 @@ impl PcSession {
         // A poisoned lock means a panic mid-operation; the data is still
         // consistent enough to read, and refusing forever helps nobody.
         self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-    }
-}
-
-/// What submission needs to reach the same forge the session came from.
-struct PrContext {
-    reference: PullRequestRef,
-    kind: ForgeKind,
-    /// Forgejo transport template (empty = the built-in default).
-    forgejo_template: String,
-}
-
-impl PrContext {
-    fn forge(&self) -> Box<dyn Forge> {
-        match self.kind {
-            ForgeKind::Forgejo => Box::new(ForgejoForge::with_runner(
-                ProcessRunner,
-                &self.forgejo_template,
-            )),
-            ForgeKind::GitLab => Box::new(GlabForge::new()),
-            ForgeKind::GitHub => Box::new(GhForge::new()),
-        }
     }
 }
 
@@ -297,8 +277,15 @@ pub unsafe extern "C" fn pc_session_new_from_pr(
     let repo_hint = unsafe { str_from_raw(repo_hint, repo_hint_len) }.unwrap_or_default();
     let config_path = unsafe { str_from_raw(config_path, config_path_len) }.unwrap_or_default();
 
+    // The config is loaded here rather than inside the opener: the shells
+    // that call it directly already have one.
+    let config = if config_path.is_empty() {
+        Config::default()
+    } else {
+        Config::load(std::path::Path::new(config_path))
+    };
     let built = catch_unwind(AssertUnwindSafe(|| {
-        build_pr_session(reference, repo_hint, config_path)
+        open_session(reference, repo_hint, &config)
     }));
     match built {
         Ok(Ok((inner, pr))) => Box::into_raw(Box::new(PcSession {
@@ -314,94 +301,6 @@ pub unsafe extern "C" fn pc_session_new_from_pr(
             std::ptr::null_mut()
         }
     }
-}
-
-fn build_pr_session(
-    reference: &str,
-    repo_hint: &str,
-    config_path: &str,
-) -> Result<(Session, PrContext), String> {
-    let mut pr_ref =
-        parse_ref(reference).ok_or_else(|| format!("not a pull-request reference: {reference}"))?;
-    // Origin inference is only for bare numbers; an explicit owner/repo#N
-    // without a host defaults to github.com rather than requiring the
-    // current directory to be a checkout of anything.
-    if pr_ref.owner.is_empty() || pr_ref.repo.is_empty() {
-        let hint = if repo_hint.is_empty() { "." } else { repo_hint };
-        resolve_from_origin(&mut pr_ref, hint).map_err(|error| {
-            format!(
-                "{error} — a bare number needs to run from inside the repository's \
-                 checkout; otherwise use owner/repo#N or the full URL"
-            )
-        })?;
-    }
-    if pr_ref.host.is_empty() {
-        pr_ref.host = "github.com".to_string();
-    }
-
-    let config = if config_path.is_empty() {
-        Config::default()
-    } else {
-        Config::load(std::path::Path::new(config_path))
-    };
-    let kind = kind_for_host(&pr_ref.host, config.forge_for_host(&pr_ref.host));
-    let context = PrContext {
-        reference: pr_ref.clone(),
-        kind,
-        forgejo_template: config.forgejo_api_command().to_string(),
-    };
-
-    let forge = context.forge();
-    let metadata = forge.pull_request(&pr_ref)?;
-    let diff = forge.diff(&pr_ref)?;
-    let threads = forge.threads(&pr_ref)?;
-    // Conversation comments are display data; failure to fetch them must
-    // not block the review.
-    let generals = forge.general_comments(&pr_ref).unwrap_or_default();
-
-    let prefix = match kind {
-        ForgeKind::Forgejo => "fj",
-        ForgeKind::GitLab => "gl",
-        ForgeKind::GitHub => "gh",
-    };
-    let key = format!(
-        "{prefix}-{}-{}-{}-pr{}",
-        pr_ref.host,
-        pr_ref.owner.replace('/', "-"),
-        pr_ref.repo,
-        pr_ref.number
-    );
-    let title = format!("{}/{}#{}: {}", pr_ref.owner, pr_ref.repo, pr_ref.number, metadata.title);
-    let mut session = Session::from_patch_keyed(&title, &diff, key)
-        .map_err(|error| format!("could not parse the pull request's diff: {error}"))?;
-    session.set_head_oid(&metadata.head_oid);
-    session.set_pr_json(serde_json::to_string(&metadata).unwrap_or_default());
-    session.set_threads_json(serde_json::to_string(&threads).unwrap_or_default());
-    session.set_general_json(serde_json::to_string(&generals).unwrap_or_default());
-    let reopen = if metadata.url.is_empty() {
-        pr_ref.web_url(kind)
-    } else {
-        metadata.url.clone()
-    };
-    session.set_reopen_hint(&reopen);
-
-    // The context view fetches new-side content at the head revision.
-    let provider_ref = pr_ref.clone();
-    let provider_kind = kind;
-    let provider_template = config.forgejo_api_command().to_string();
-    let head = metadata.head_oid.clone();
-    session.set_content_provider(Box::new(move |path| {
-        let forge: Box<dyn Forge> = match provider_kind {
-            ForgeKind::Forgejo => Box::new(ForgejoForge::with_runner(
-                ProcessRunner,
-                &provider_template,
-            )),
-            ForgeKind::GitLab => Box::new(GlabForge::new()),
-            ForgeKind::GitHub => Box::new(GhForge::new()),
-        };
-        forge.file_content(&provider_ref, path, &head)
-    }));
-    Ok((session, context))
 }
 
 /// The whole-file projection of one file — the context view: content
@@ -827,21 +726,13 @@ pub unsafe extern "C" fn pc_session_submit(session: *mut PcSession) -> *mut c_ch
         let plan = submit::plan(inner.draft());
         let outcome = submit::execute(forge.as_ref(), &pr, inner.draft(), &plan);
 
-        // Retry safety: whatever the host accepted leaves the draft now,
-        // even when a later step failed.
-        let accepted = &outcome.accepted;
-        let draft = inner.draft_mut();
-        draft.comments.retain(|c| !accepted.contains(&c.local_id));
-        draft.general.retain(|g| !accepted.contains(&g.local_id));
-        if outcome.error.is_none() {
-            draft.summary.clear();
-            draft.event = ReviewEvent::Comment;
-        }
-        let remaining = draft.comments.len() + draft.general.len();
-        let _ = inner.persist();
+        let posted = outcome.accepted.len();
+        let remaining = inner
+            .apply_accepted(&outcome.accepted, outcome.error.is_none())
+            .unwrap_or(0);
 
         serde_json::json!({
-            "posted": accepted.len(),
+            "posted": posted,
             "remaining": remaining,
             "skipped_dismissed": plan.skipped_dismissed,
             "skipped_orphaned": plan.skipped_orphaned,

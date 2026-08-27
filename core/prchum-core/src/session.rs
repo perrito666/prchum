@@ -480,6 +480,30 @@ impl Session {
         self.persist()
     }
 
+    /// Applies what the host accepted after a submission.
+    ///
+    /// Accepted comments leave the draft even when a later step failed,
+    /// which is what makes a retry safe: nothing can be posted twice.
+    /// `complete` says the whole submission landed, and only then are
+    /// the summary and event cleared.
+    ///
+    /// Returns how many drafts remain.
+    pub fn apply_accepted(
+        &mut self,
+        accepted: &[String],
+        complete: bool,
+    ) -> Result<usize, String> {
+        self.draft.comments.retain(|c| !accepted.contains(&c.local_id));
+        self.draft.general.retain(|g| !accepted.contains(&g.local_id));
+        if complete {
+            self.draft.summary.clear();
+            self.draft.event = crate::review::ReviewEvent::Comment;
+        }
+        let remaining = self.draft.comments.len() + self.draft.general.len();
+        self.persist()?;
+        Ok(remaining)
+    }
+
     pub fn set_summary(&mut self, summary: String) -> Result<(), String> {
         self.draft.summary = summary;
         self.persist()

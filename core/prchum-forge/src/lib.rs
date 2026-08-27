@@ -8,15 +8,17 @@ pub mod forgejo;
 pub mod ghcli;
 pub mod glabcli;
 pub mod list;
+pub mod open;
 pub mod refs;
 pub mod submit;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub use refs::{ForgeKind, PullRequestRef};
 
 /// One comment as the host stores it.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Comment {
     pub id: i64,
     pub author: String,
@@ -31,7 +33,12 @@ pub struct Comment {
 }
 
 /// A review thread anchored to a diff position.
-#[derive(Clone, Debug, Serialize)]
+///
+/// Deserialize as well as Serialize: the session carries these as JSON
+/// for the FFI's sake, and a Rust shell reads them back rather than
+/// describing the same shape a second time.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ThreadInfo {
     /// The root comment's host id (the reply target).
     pub id: i64,

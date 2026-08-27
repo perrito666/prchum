@@ -150,3 +150,51 @@ el archivo donde está tu cursor.
 Todo esto se escribe en `config.json`, que sigue siendo editable a mano:
 las claves desconocidas sobreviven cada guardado, y un archivo que
 prchum no puede interpretar nunca se sobrescribe.
+
+## En Linux
+
+La misma revisión, en la interfaz GTK. El núcleo de prchum es una sola
+biblioteca portable; lo que cambia entre plataformas es la presentación,
+y cambia a propósito: esta es una aplicación de GNOME, no una de Mac
+disfrazada.
+
+![La ventana de revisión en Linux](images/linux-review-light.png#only-light)
+![La ventana de revisión en Linux](images/linux-review-dark.png#only-dark)
+
+Las filas son idénticas porque las decide el núcleo: los mismos
+archivos, los mismos marcadores y números de línea, los mismos colores
+de tree-sitter salidos de la misma tabla de estilos. Lo que cambia es
+todo lo que las rodea: una barra de cabecera de libadwaita con el título
+y el archivo, los controles de ventana propios de GNOME y sus colores de
+acento en los contadores de la barra lateral. Sigue el ajuste claro u
+oscuro del escritorio, como se ve arriba.
+
+Comentar funciona como en macOS, porque lo hace el mismo núcleo:
+**Ctrl+Return** abre el compositor en la línea bajo el cursor,
+**Ctrl+E** edita un borrador, **Ctrl+Supr** lo borra y
+**Ctrl+Mayús+X** lo descarta. Los borradores aparecen en línea bajo
+la línea a la que pertenecen y sobreviven al cierre de la ventana: se
+escriben junto a la configuración, en `~/.local/share/prchum`, según
+la disposición XDG y no la de macOS.
+
+Los atajos cambian, y a propósito. Las acciones tienen el mismo nombre
+en ambas plataformas y las mismas entradas en el mapa `keys`, pero quien
+usa GNOME pulsa Ctrl donde quien usa Mac pulsa Command, así que los
+valores por defecto son de Ctrl: **Ctrl+↑/↓** recorre los cambios,
+**Ctrl+Mayús+↑/↓** los archivos.
+
+El resto también está. **Ctrl+Alt+C** vuelve a colocar los hunks dentro
+del archivo entero; **Ctrl+Mayús+T** pone los dos lados en paneles
+paralelos que se desplazan juntos; **Ctrl+Mayús+L** le pregunta a la
+forja qué espera y abre lo que elijas; **Ctrl+,** guarda los ajustes, en
+el mismo `config.json` que escribe la app de macOS; y
+**Ctrl+Mayús+Return** envía, con la misma seguridad ante reintentos: lo
+que la forja aceptó sale de tus borradores aunque falle un paso
+posterior.
+
+!!! note "Lo que todavía no está"
+
+    Dos cosas que sí tiene la app de macOS: responder dentro de un hilo
+    desde el diff, y la pantalla de conversación para los comentarios
+    que pertenecen a la solicitud y no a una línea. Los hilos se
+    muestran; lo que falta es contestarlos ahí mismo.

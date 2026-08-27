@@ -1,0 +1,13 @@
+/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/deps/tree_sitter-97df913588843e18.d: /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/lib.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/ffi.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/util.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/./README.md /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/./bindings.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/../src/parser.h /Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/build/tree-sitter-2fe08cdd71aa5d7d/out/stdlib-symbols.txt
+
+/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/deps/libtree_sitter-97df913588843e18.rmeta: /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/lib.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/ffi.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/util.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/./README.md /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/./bindings.rs /Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/../src/parser.h /Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/build/tree-sitter-2fe08cdd71aa5d7d/out/stdlib-symbols.txt
+
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/lib.rs:
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/ffi.rs:
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/util.rs:
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/./README.md:
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/./bindings.rs:
+/Users/hduran/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tree-sitter-0.26.13/binding_rust/../src/parser.h:
+/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/build/tree-sitter-2fe08cdd71aa5d7d/out/stdlib-symbols.txt:
+
+# env-dep:OUT_DIR=/Users/hduran/go/src/github.com/perrito666/prchum/linux/target/debug/build/tree-sitter-2fe08cdd71aa5d7d/out

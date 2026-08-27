@@ -148,3 +148,49 @@ is.
 Everything here writes through to `config.json`, which stays
 hand-editable: unknown keys survive every save, and a file prchum
 cannot parse is never overwritten.
+
+## On Linux
+
+The same review, in the GTK shell. Prchum's core is one portable
+library; what changes between platforms is the presentation, and it
+changes deliberately — this is a GNOME application, not a Mac one
+wearing a different theme.
+
+![The review window on Linux](images/linux-review-light.png#only-light)
+![The review window on Linux](images/linux-review-dark.png#only-dark)
+
+The rows are identical because the core decides them: the same files,
+the same markers and line numbers, the same tree-sitter colours from the
+same style table. What differs is everything around them — a libadwaita
+header bar carrying the title and the file, GNOME's own window controls,
+and its accent colours in the sidebar's counts. It follows the desktop's
+light and dark setting, as the picture above does.
+
+Commenting works as it does on macOS, because it is the same core doing
+it: **Ctrl+Return** opens the composer on the line under the cursor,
+**Ctrl+E** edits a draft, **Ctrl+Delete** removes one, and
+**Ctrl+Shift+X** dismisses it. Drafts appear inline under the line they
+belong to and survive closing the window — they are written beside the
+configuration, under `~/.local/share/prchum`, following the XDG layout
+rather than the macOS one.
+
+The chords differ, and on purpose. Actions have the same names on both
+platforms and the same entries in the `keys` map, but a GNOME user
+presses Ctrl where a Mac user presses Command, so the defaults are
+Ctrl-shaped: **Ctrl+↑/↓** steps through changes, **Ctrl+Shift+↑/↓**
+through files.
+
+The rest is here too. **Ctrl+Alt+C** lays the hunks back into the whole
+file; **Ctrl+Shift+T** puts the two sides in parallel panels that scroll
+together; **Ctrl+Shift+L** asks the forge what is waiting and opens what
+you pick; **Ctrl+,** holds the settings, written to the same
+`config.json` the macOS app writes; and **Ctrl+Shift+Return** submits,
+with the same retry-safety — whatever the forge accepted leaves your
+drafts even if a later step fails.
+
+!!! note "What is not there yet"
+
+    Two things the macOS app has and this does not: replying into a
+    thread from the diff, and the conversation screen for comments that
+    belong to the request rather than to a line. Threads themselves are
+    shown; it is answering them in place that is missing.

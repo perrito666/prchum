@@ -151,3 +151,52 @@ branche et ouvrir le fichier là où est votre curseur.
 Tout cela est écrit dans `config.json`, qui reste modifiable à la main :
 les clés inconnues survivent à chaque enregistrement, et un fichier que
 prchum ne sait pas lire n'est jamais écrasé.
+
+## Sous Linux
+
+La même revue, dans l'interface GTK. Le cœur de prchum est une seule
+bibliothèque portable ; ce qui change d'une plateforme à l'autre, c'est
+la présentation, et cela change délibérément : ceci est une application
+GNOME, pas une application Mac déguisée.
+
+![La fenêtre de revue sous Linux](images/linux-review-light.png#only-light)
+![La fenêtre de revue sous Linux](images/linux-review-dark.png#only-dark)
+
+Les lignes sont identiques parce que c'est le cœur qui les décide : les
+mêmes fichiers, les mêmes marqueurs et numéros de ligne, les mêmes
+couleurs tree-sitter issues de la même table de styles. Ce qui diffère,
+c'est tout ce qui les entoure : une barre d'en-tête libadwaita portant
+le titre et le fichier, les boutons de fenêtre propres à GNOME, et ses
+couleurs d'accent dans les compteurs de la barre latérale. Elle suit le
+réglage clair ou sombre du bureau, comme ci-dessus.
+
+Commenter fonctionne comme sous macOS, parce que c'est le même cœur qui
+s'en charge : **Ctrl+Return** ouvre le compositeur sur la ligne sous le
+curseur, **Ctrl+E** modifie un brouillon, **Ctrl+Suppr** le supprime et
+**Ctrl+Maj+X** l'écarte. Les brouillons apparaissent en ligne sous la
+ligne à laquelle ils se rattachent et survivent à la fermeture de la
+fenêtre : ils sont écrits à côté de la configuration, dans
+`~/.local/share/prchum`, suivant la disposition XDG et non celle de
+macOS.
+
+Les raccourcis diffèrent, à dessein. Les actions portent les mêmes noms
+sur les deux plateformes et les mêmes entrées dans la table `keys`, mais
+sous GNOME on appuie sur Ctrl là où sur Mac on appuie sur Command : les
+valeurs par défaut sont donc en Ctrl. **Ctrl+↑/↓** parcourt les
+changements, **Ctrl+Maj+↑/↓** les fichiers.
+
+Le reste y est aussi. **Ctrl+Alt+C** replace les hunks dans le fichier
+entier ; **Ctrl+Maj+T** met les deux côtés dans des panneaux parallèles
+qui défilent ensemble ; **Ctrl+Maj+L** demande à la forge ce qui attend
+et ouvre ce que vous choisissez ; **Ctrl+,** garde les réglages, dans le
+même `config.json` qu'écrit l'application macOS ; et
+**Ctrl+Maj+Return** envoie, avec la même sûreté en cas de reprise : ce
+que la forge a accepté quitte vos brouillons même si une étape
+ultérieure échoue.
+
+!!! note "Ce qui manque encore"
+
+    Deux choses que l'application macOS possède : répondre dans un fil
+    depuis le diff, et l'écran de conversation pour les commentaires qui
+    appartiennent à la demande plutôt qu'à une ligne. Les fils sont
+    affichés ; c'est y répondre sur place qui manque.
