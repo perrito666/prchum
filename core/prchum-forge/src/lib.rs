@@ -8,6 +8,7 @@ pub mod forgejo;
 pub mod ghcli;
 pub mod glabcli;
 pub mod list;
+pub mod open;
 pub mod refs;
 pub mod submit;
 
