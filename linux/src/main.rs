@@ -6,6 +6,7 @@
 //! driven, in the shapes a GNOME user expects rather than a Mac one.
 
 mod comment;
+mod conversation;
 mod diffview;
 mod queue;
 mod settings;

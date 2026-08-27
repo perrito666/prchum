@@ -41,6 +41,52 @@ impl PullRequestRef {
             ),
         }
     }
+
+    /// A permalink to `path` as it stands at `oid`, anchored at `line`.
+    ///
+    /// Deliberately a blob permalink rather than a link into the diff
+    /// view: the anchors a forge uses on a pull request's Files tab are
+    /// derived from the path in ways that differ per host and change
+    /// when the request is updated, whereas a blob at an explicit commit
+    /// resolves for whoever you send it to, forever.
+    pub fn blob_url(
+        &self,
+        kind: ForgeKind,
+        oid: &str,
+        path: &str,
+        line: Option<u32>,
+    ) -> String {
+        let base = match kind {
+            ForgeKind::GitHub => format!(
+                "https://{}/{}/{}/blob/{}/{}",
+                self.host, self.owner, self.repo, oid, path
+            ),
+            ForgeKind::GitLab => format!(
+                "https://{}/{}/{}/-/blob/{}/{}",
+                self.host, self.owner, self.repo, oid, path
+            ),
+            ForgeKind::Forgejo => format!(
+                "https://{}/{}/{}/src/commit/{}/{}",
+                self.host, self.owner, self.repo, oid, path
+            ),
+        };
+        match line {
+            // Every one of the three spells the anchor the same way,
+            // which is the one mercy in this.
+            Some(line) => format!("{base}#L{line}"),
+            None => base,
+        }
+    }
+
+    /// The request's own Files tab, for sharing the review rather than a
+    /// particular line.
+    pub fn files_url(&self, kind: ForgeKind) -> String {
+        match kind {
+            ForgeKind::GitHub => format!("{}/files", self.web_url(kind)),
+            ForgeKind::GitLab => format!("{}/diffs", self.web_url(kind)),
+            ForgeKind::Forgejo => format!("{}/files", self.web_url(kind)),
+        }
+    }
 }
 
 /// Parses every accepted spelling:
@@ -159,6 +205,45 @@ fn parse_remote(url: &str) -> Option<(String, String, String)> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_permalink_names_a_commit_not_a_branch() {
+        let reference = PullRequestRef {
+            host: "github.com".to_string(),
+            owner: "ada".to_string(),
+            repo: "gambit".to_string(),
+            number: 7,
+        };
+        assert_eq!(
+            reference.blob_url(ForgeKind::GitHub, "abc123", "src/board.rs", Some(18)),
+            "https://github.com/ada/gambit/blob/abc123/src/board.rs#L18"
+        );
+        // Without a line it is still a link to the file.
+        assert_eq!(
+            reference.blob_url(ForgeKind::GitHub, "abc123", "src/board.rs", None),
+            "https://github.com/ada/gambit/blob/abc123/src/board.rs"
+        );
+    }
+
+    #[test]
+    fn each_forge_spells_the_path_its_own_way() {
+        let reference = PullRequestRef {
+            host: "example.org".to_string(),
+            owner: "team".to_string(),
+            repo: "thing".to_string(),
+            number: 3,
+        };
+        assert!(reference
+            .blob_url(ForgeKind::GitLab, "deadbeef", "a.rs", Some(2))
+            .contains("/-/blob/deadbeef/a.rs#L2"));
+        assert!(reference
+            .blob_url(ForgeKind::Forgejo, "deadbeef", "a.rs", Some(2))
+            .contains("/src/commit/deadbeef/a.rs#L2"));
+
+        assert!(reference.files_url(ForgeKind::GitHub).ends_with("/pull/3/files"));
+        assert!(reference.files_url(ForgeKind::GitLab).ends_with("/merge_requests/3/diffs"));
+        assert!(reference.files_url(ForgeKind::Forgejo).ends_with("/pulls/3/files"));
+    }
+
     use super::*;
 
     #[test]

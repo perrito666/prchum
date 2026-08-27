@@ -629,6 +629,46 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
 
     /// Reply: to the host thread at the caret (PR mode), else to the draft
     /// conversation at the caret.
+    /// Copies a permalink to the line under the caret.
+    ///
+    /// A blob permalink at the request's head rather than a link into
+    /// the Files tab: the diff anchors a forge uses are derived from the
+    /// path differently per host and move when the request is updated,
+    /// while a blob at an explicit commit resolves for whoever you send
+    /// it to.
+    @objc func copyLineLink(_ sender: Any?) {
+        let file = files[sidebarModel.selected]
+        guard let target = caretTarget() else {
+            presentInfo("Put the cursor on a line of the diff.")
+            return
+        }
+        guard let url = session.lineURL(path: file.displayPath, line: target.line) else {
+            presentInfo("This review has no forge behind it, so there is no link to share.")
+            return
+        }
+        copyToPasteboard(url, describing: "Link to \(file.displayPath):\(target.line)")
+    }
+
+    /// Copies the forge's own link to the thread under the caret.
+    @objc func copyCommentLink(_ sender: Any?) {
+        guard let thread = threadAtCaret(), let root = thread.comments.first else {
+            presentInfo("Put the cursor on a thread from the pull request.")
+            return
+        }
+        guard !root.url.isEmpty else {
+            presentInfo("That thread did not come with a link.")
+            return
+        }
+        copyToPasteboard(root.url, describing: "Link to the thread")
+    }
+
+    private func copyToPasteboard(_ text: String, describing what: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        presentInfo("\(what) copied.")
+    }
+
     @objc func replyAtCursor(_ sender: Any?) {
         if let thread = threadAtCaret() {
             promptThreadReply(thread)

@@ -188,9 +188,26 @@ you pick; **Ctrl+,** holds the settings, written to the same
 with the same retry-safety — whatever the forge accepted leaves your
 drafts even if a later step fails.
 
-!!! note "What is not there yet"
+**Ctrl+R** answers a thread the request already has, or a draft of your
+own, and **Ctrl+Shift+P** opens the conversation — comments belonging to
+the request rather than to any line of it.
 
-    Two things the macOS app has and this does not: replying into a
-    thread from the diff, and the conversation screen for comments that
-    belong to the request rather than to a line. Threads themselves are
-    shown; it is answering them in place that is missing.
+## Sharing a link
+
+Two things are worth sending someone: where in the code you are looking,
+and which conversation you mean.
+
+**Ctrl+Shift+C** (⇧⌘C on macOS) copies a permalink to the line under the
+cursor. It points at the file as it stands at the request's head commit,
+not at the pull request's Files tab — the anchors a forge puts on a diff
+are spelled differently per host and move when the request is updated,
+while a blob at an explicit commit resolves for whoever you send it to
+and keeps resolving.
+
+**Ctrl+Alt+Shift+C** (⌥⇧⌘C) copies the forge's own link to the thread
+under the cursor, for when you mean *this conversation* rather than this
+line.
+
+Both need a pull request behind the review: a patch or a local
+comparison has nowhere to point at, and says so rather than copying
+something useless.

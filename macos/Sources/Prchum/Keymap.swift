@@ -93,6 +93,8 @@ enum ActionID: String, CaseIterable {
     case deleteComment = "delete-comment"
     case dismissComment = "dismiss-comment"
     case reply = "reply"
+    case copyLineLink = "copy-line-link"
+    case copyCommentLink = "copy-comment-link"
     case openAtCaret = "open-at-caret"
     case suggest = "suggest"
     case commentList = "comments"
@@ -130,6 +132,8 @@ enum ActionID: String, CaseIterable {
         case .deleteComment: return "Delete Comment"
         case .dismissComment: return "Dismiss / Restore Comment"
         case .reply: return "Reply…"
+        case .copyLineLink: return "Copy Link to Line"
+        case .copyCommentLink: return "Copy Link to Comment"
         case .openAtCaret: return "Open Conversation at Caret"
         case .suggest: return "Suggest a Change…"
         case .commentList: return "Review Navigator"
@@ -171,6 +175,8 @@ enum ActionID: String, CaseIterable {
         case .deleteComment: return #selector(ReviewWindowController.deleteComment(_:))
         case .dismissComment: return #selector(ReviewWindowController.dismissComment(_:))
         case .reply: return #selector(ReviewWindowController.replyAtCursor(_:))
+        case .copyLineLink: return #selector(ReviewWindowController.copyLineLink(_:))
+        case .copyCommentLink: return #selector(ReviewWindowController.copyCommentLink(_:))
         case .openAtCaret: return #selector(ReviewWindowController.openAtCaret(_:))
         case .suggest: return #selector(ReviewWindowController.suggestChange(_:))
         case .commentList: return #selector(ReviewWindowController.showCommentList(_:))
@@ -210,6 +216,8 @@ enum ActionID: String, CaseIterable {
         case .deleteComment: return KeyChord.parse("cmd+delete")
         case .dismissComment: return KeyChord.parse("cmd+shift+x")
         case .reply: return KeyChord.parse("cmd+r")
+        case .copyLineLink: return KeyChord.parse("cmd+shift+c")
+        case .copyCommentLink: return KeyChord.parse("cmd+alt+shift+c")
         case .openAtCaret: return KeyChord.parse("alt+return")
         case .suggest: return KeyChord.parse("cmd+alt+return")
         case .commentList: return KeyChord.parse("cmd+l")
