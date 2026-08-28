@@ -42,3 +42,11 @@ for size in 128 256 512; do
 done
 
 install -Dm644 "$HERE/../../LICENSE" "$ROOT/usr/share/doc/prchum/LICENSE"
+
+# Man pages, compressed: Debian policy requires it, and rpm leaves an
+# already-compressed page alone.
+for page in prchum git-prchum; do
+    install -Dm644 "$HERE/../../scripts/man/$page.1" \
+        "$ROOT/usr/share/man/man1/$page.1"
+    gzip -9n "$ROOT/usr/share/man/man1/$page.1"
+done

@@ -114,8 +114,10 @@ git config --global alias.d '!git prchum'
 ```
 
 Then `git d` opens what `git diff` would have printed, and `git d main`
-compares against a branch. One caveat: `git prchum --help` shows git's
-own help machinery looking for a man page. Use `prchum --help`.
+compares against a branch.
+
+Both commands have man pages: `man prchum`, `man git-prchum`, and
+`git prchum --help`, which git answers from the same page.
 
 On macOS the command is installed from **Prchum → Install Command-Line
 Tool…**, or with `make install-cli` from a checkout. On Linux the

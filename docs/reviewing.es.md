@@ -116,8 +116,10 @@ git config --global alias.d '!git prchum'
 ```
 
 Entonces `git d` abre lo que `git diff` habría impreso, y `git d main`
-compara contra una rama. Una advertencia: `git prchum --help` invoca la
-ayuda de git, que busca una página de manual. Use `prchum --help`.
+compara contra una rama.
+
+Ambos comandos tienen página de manual: `man prchum`, `man git-prchum`,
+y `git prchum --help`, que git responde desde esa misma página.
 
 En macOS el comando se instala desde **Prchum → Install Command-Line
 Tool…**, o con `make install-cli` desde un checkout. En Linux lo

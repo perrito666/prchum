@@ -119,8 +119,11 @@ git config --global alias.d '!git prchum'
 ```
 
 `git d` ouvre alors ce que `git diff` aurait imprimé, et `git d main`
-compare à une branche. Une réserve : `git prchum --help` déclenche
-l'aide de git, qui cherche une page de manuel. Utilisez `prchum --help`.
+compare à une branche.
+
+Les deux commandes ont une page de manuel : `man prchum`,
+`man git-prchum`, et `git prchum --help`, que git sert depuis cette
+même page.
 
 Sous macOS la commande s'installe depuis **Prchum → Install
 Command-Line Tool…**, ou avec `make install-cli` depuis un checkout.
