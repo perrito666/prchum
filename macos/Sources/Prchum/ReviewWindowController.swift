@@ -1493,14 +1493,19 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         // touching it would trap.
         guard Bundle.main.bundleIdentifier != nil else { return }
 
-        let content = UNMutableNotificationContent()
-        content.title = "Review submitted"
-        content.body = "\(posted) item\(posted == 1 ? "" : "s") posted."
+        let title = "Review submitted"
+        let body = "\(posted) item\(posted == 1 ? "" : "s") posted."
 
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert]) { granted, _ in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) {
+            granted, _ in
             guard granted else { return }
-            center.add(
+            // Built inside the closure: the notification centre and its
+            // content are not Sendable, and only these two strings need
+            // to cross into it.
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            UNUserNotificationCenter.current().add(
                 UNNotificationRequest(
                     identifier: UUID().uuidString, content: content, trigger: nil))
         }
