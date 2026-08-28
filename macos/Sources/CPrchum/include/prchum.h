@@ -511,6 +511,20 @@ char *pc_history_prune_json(const char *dir,
 char *pc_session_repo_slug(const struct PcSession *session);
 
 /**
+ * Reads a command-line argument the way `prchum` does: `{"kind":…}`
+ * JSON, one of `home`, `file`, `git` or `request`.
+ *
+ * Here rather than in the shell so that `prchum main` cannot come to
+ * mean one thing on a Mac and another on Linux. Release with
+ * [`pc_string_free`].
+ */
+char *pc_target_parse_json(const char *argument,
+                           uintptr_t argument_len,
+                           const char *cwd,
+                           uintptr_t cwd_len,
+                           bool staged);
+
+/**
  * A shareable permalink to `path` at the request's head revision,
  * anchored at `line` when it is non-zero.
  *

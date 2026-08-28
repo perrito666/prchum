@@ -209,14 +209,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .queryItems?
                 .first { $0.name == "target" }?
                 .value ?? ""
-            guard !target.isEmpty else {
+            let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+            let cwd = query?.first { $0.name == "cwd" }?.value ?? ""
+            let staged = query?.contains { $0.name == "staged" } ?? false
+
+            // The core reads the argument, so `prchum main` means the
+            // same here as on Linux.
+            switch CoreTarget.parse(argument: target, cwd: cwd, staged: staged) {
+            case .home:
                 showHome()
-                continue
-            }
-            if FileManager.default.fileExists(atPath: target) {
-                openReview(atPath: target)
-            } else {
-                openPullRequest(reference: target)
+            case .file(let path):
+                openReview(atPath: path)
+            case .git(let repo, let spec):
+                openGitReview(repo: repo, comparison: spec)
+            case .request(let reference):
+                openPullRequest(reference: reference)
             }
             NSApp.activate(ignoringOtherApps: true)
         }
@@ -251,6 +258,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         openReview(atPath: url.path)
+    }
+
+    /// A comparison the command line asked for, opened without the two
+    /// panels of questions the menu item puts up: it already said which
+    /// repository and which comparison.
+    private func openGitReview(repo: String, comparison: GitComparison) {
+        do {
+            let session = try CoreSession(gitRepo: repo, comparison: comparison)
+            adopt(session: session)
+        } catch {
+            presentOpenFailure("Could not review \((repo as NSString).lastPathComponent)", error)
+        }
     }
 
     private func openReview(atPath path: String) {
@@ -459,7 +478,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: ",")
         appMenu.addItem(.separator())
         appMenu.addItem(
-            withTitle: "Install pr Command…",
+            withTitle: "Install Command-Line Tool…",
             action: #selector(installCommandLineTool(_:)),
             keyEquivalent: "")
         appMenu.addItem(

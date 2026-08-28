@@ -1191,6 +1191,33 @@ pub unsafe extern "C" fn pc_session_repo_slug(session: *const PcSession) -> *mut
     owned_c_string(slug)
 }
 
+/// Reads a command-line argument the way `prchum` does: `{"kind":…}`
+/// JSON, one of `home`, `file`, `git` or `request`.
+///
+/// Here rather than in the shell so that `prchum main` cannot come to
+/// mean one thing on a Mac and another on Linux. Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_target_parse_json(
+    argument: *const c_char,
+    argument_len: usize,
+    cwd: *const c_char,
+    cwd_len: usize,
+    staged: bool,
+) -> *mut c_char {
+    let argument = unsafe { str_from_raw(argument, argument_len) }.unwrap_or_default();
+    let cwd = unsafe { str_from_raw(cwd, cwd_len) }.unwrap_or_default();
+    let argument = if argument.is_empty() { None } else { Some(argument) };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let target = prchum_core::target::parse(argument, cwd, staged);
+        serde_json::to_string(&target).unwrap_or_else(|_| "{\"kind\":\"home\"}".to_string())
+    }));
+    match result {
+        Ok(json) => owned_c_string(json),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
 /// A shareable permalink to `path` at the request's head revision,
 /// anchored at `line` when it is non-zero.
 ///

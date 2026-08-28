@@ -1,0 +1,56 @@
+.TH GIT-PRCHUM 1 "2026-08-28" "prchum 0.5.0" "Git Extensions"
+.SH NAME
+git-prchum \- review a git comparison in prchum
+.SH SYNOPSIS
+.B git prchum
+.RI [ options ]
+.RI [ target ]
+.SH DESCRIPTION
+Opens
+.BR prchum (1)
+on a comparison in the current repository. git runs any
+.B git\-*
+on the PATH as a subcommand, so this is reachable as
+.BR "git prchum" .
+.PP
+It changes to the repository's top level before starting, so
+.B git prchum
+in a subdirectory shows the whole comparison, matching how other git
+commands behave.
+.PP
+Arguments are
+.BR prchum (1)'s.
+.SH OPTIONS
+.TP
+.BR \-\-staged ", " \-\-cached
+Compare the index against HEAD.
+.SH EXAMPLES
+.TP
+.B git prchum
+The working tree against HEAD.
+.TP
+.B git prchum \-\-staged
+The index against HEAD.
+.TP
+.B git prchum main
+This branch against main.
+.TP
+.B git prchum v1..v2
+A range.
+.SH CONFIGURATION
+An alias makes it the command you type:
+.PP
+.RS
+.EX
+git config \-\-global alias.d '!git prchum'
+.EE
+.RE
+.SH EXIT STATUS
+Non\-zero outside a git repository, or when
+.BR prchum (1)
+cannot read the comparison.
+.SH SEE ALSO
+.BR prchum (1),
+.BR git\-diff (1)
+.SH AUTHOR
+Horacio Duran

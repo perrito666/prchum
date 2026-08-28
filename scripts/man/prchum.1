@@ -1,0 +1,139 @@
+.TH PRCHUM 1 "2026-08-28" "prchum 0.5.0" "User Commands"
+.SH NAME
+prchum \- review pull requests, git comparisons and patches
+.SH SYNOPSIS
+.B prchum
+.RI [ options ]
+.RI [ target ]
+.SH DESCRIPTION
+.B prchum
+opens a review window for
+.IR target .
+With no argument inside a git repository it shows what
+.BR "git diff" (1)
+would print.
+.PP
+Comments anchor to a file, a side and a line range, with a short context
+anchor and a hash of the line's content. A draft survives the branch
+moving under it, and survives the request being updated.
+.PP
+prchum stores no credentials. Forges are reached through the command
+line tools you have already authenticated:
+.BR gh (1)
+for GitHub,
+.BR glab (1)
+for GitLab, and a configurable command for Forgejo.
+.SH OPTIONS
+.TP
+.BR \-\-staged ", " \-\-cached
+Compare the index against HEAD, as
+.B git diff \-\-staged
+does.
+.TP
+.BR \-h ", " \-\-help
+Print a usage summary and exit.
+.SH TARGETS
+The argument is read the way git reads one.
+.TP
+.I (none)
+The working tree against HEAD. Outside a repository, the home screen.
+.TP
+.I revision
+That revision against HEAD, by merge base \(em
+.IR revision ...HEAD .
+.TP
+.IR a .. b ", " a ... b
+A range, spelled as git spells it.
+.TP
+.I path
+A patch file, an exchange document, or a directory holding a git
+repository.
+.TP
+.I number
+That numbered request in the current repository's origin.
+.TP
+.IR owner / repo # number
+A request in a named repository.
+.TP
+.I URL
+A request URL from any supported forge.
+.PP
+A path that exists takes precedence. A file named
+.B main
+in front of you is the file you meant, not the branch of the same name.
+A request is recognised by a
+.BR # ,
+a
+.BR ! ,
+a URL scheme, or by being all digits, so the branch
+.B fix/thing
+reads as a revision.
+.SH GIT INTEGRATION
+git runs any
+.B git\-*
+on the PATH as a subcommand, so
+.B git prchum
+works and takes the same arguments. It changes to the repository's top
+level first, giving the same result from a subdirectory as from the
+root.
+.PP
+To reach for it the way you reach for
+.BR "git diff" (1):
+.PP
+.RS
+.EX
+git config \-\-global alias.d '!git prchum'
+.EE
+.RE
+.PP
+.B git d
+then opens the working tree, and
+.B git d main
+compares against a branch.
+.SH FILES
+.TP
+.I ~/.local/share/prchum/config.json
+Configuration on Linux. On macOS,
+.IR "~/Library/Application Support/Prchum/config.json" .
+Unknown keys survive every save, and a file prchum cannot parse is never
+overwritten.
+.TP
+.I ~/.local/share/prchum/
+Drafts, review history, and worktrees prchum created.
+.SH EXIT STATUS
+.B prchum
+exits non\-zero when the target cannot be read: no such file, no changes
+in the comparison, or a forge that could not be reached.
+.SH EXAMPLES
+Review uncommitted work:
+.PP
+.RS
+.EX
+prchum
+.EE
+.RE
+.PP
+Review a branch against the trunk:
+.PP
+.RS
+.EX
+prchum main
+.EE
+.RE
+.PP
+Review a pull request:
+.PP
+.RS
+.EX
+prchum owner/repo#418
+.EE
+.RE
+.SH SEE ALSO
+.BR git\-prchum (1),
+.BR git\-diff (1),
+.BR gh (1),
+.BR glab (1)
+.PP
+Documentation: https://perrito666.github.io/prchum/
+.SH AUTHOR
+Horacio Duran

@@ -18,7 +18,7 @@ use adw::prelude::*;
 use gtk::glib;
 
 use prchum_core::session::Session;
-use prchum_core::source::GitSpec;
+use prchum_core::Target;
 use prchum_forge::open::{open_session, PrContext};
 
 const APP_ID: &str = "eu.dumontix.prchum";
@@ -33,13 +33,18 @@ fn main() -> glib::ExitCode {
 
     app.connect_command_line(|app, command_line| {
         let arguments = command_line.arguments();
-        let target = arguments
+        let words: Vec<String> = arguments
             .iter()
             .skip(1)
             .map(|argument| argument.to_string_lossy().to_string())
-            .find(|argument| !argument.starts_with('-'));
+            .collect();
+        // --staged, spelled both ways git spells it.
+        let staged = words
+            .iter()
+            .any(|word| word == "--staged" || word == "--cached");
+        let target = words.iter().find(|word| !word.starts_with('-')).cloned();
 
-        match open(target.as_deref()) {
+        match open(target.as_deref(), staged) {
             Ok((mut session, context)) => {
                 // Drafts outlive the window: they go beside the config,
                 // in the same place the macOS app keeps them, so a
@@ -87,7 +92,7 @@ fn prepare(session: &mut Session) {
 /// forge cannot be reached — the reviewer still has the window they came
 /// from.
 pub fn open_request(app: &adw::Application, reference: &str) {
-    match open(Some(reference)) {
+    match open(Some(reference), false) {
         Ok((mut session, context)) => {
             prepare(&mut session);
             window::build(app, session, context).present();
@@ -114,38 +119,41 @@ pub fn state_dir() -> Option<String> {
     Some(format!("{base}/prchum"))
 }
 
-/// What the argument names: a directory is a git comparison, a
-/// pull-request reference is fetched from its forge, anything else is a
-/// patch on disk.
+/// Turns what the shell was asked for into a session.
 ///
-/// A request carries context — which forge, which reference — because
-/// submitting has to reach the same place the review came from.
-fn open(target: Option<&str>) -> Result<(Session, Option<PrContext>), String> {
-    let Some(target) = target else {
-        return Err(
+/// The reading of the argument is the core's, so `prchum main` means the
+/// same thing here as it does on the Mac.
+fn open(
+    argument: Option<&str>,
+    staged: bool,
+) -> Result<(Session, Option<PrContext>), String> {
+    let cwd = std::env::current_dir()
+        .map(|path| path.to_string_lossy().to_string())
+        .unwrap_or_else(|_| ".".to_string());
+
+    match prchum_core::target::parse(argument, &cwd, staged) {
+        Target::Home => Err(
             "give me a patch file, a git repository, or a pull request (owner/repo#N)"
                 .to_string(),
-        );
-    };
-
-    let path = std::path::Path::new(target);
-    if path.is_dir() {
-        return Session::from_git(target, &GitSpec::WorkingTree, 3)
+        ),
+        Target::File(path) => Session::from_patch_file(&path)
             .map(|session| (session, None))
-            .map_err(|error| format!("could not read {target}: {error}"));
-    }
-    if path.exists() {
-        return Session::from_patch_file(target)
+            .map_err(|error| format!("could not read {path}: {error}")),
+        Target::Git { repo, spec } => Session::from_git(&repo, &spec, 3)
             .map(|session| (session, None))
-            .map_err(|error| format!("could not read {target}: {error}"));
+            .map_err(|error| format!("could not read {repo}: {error}")),
+        Target::Request(reference) => {
+            // The config decides which adapter a host uses, so it is
+            // loaded before asking.
+            let config = state_dir()
+                .map(|dir| {
+                    prchum_core::Config::load(std::path::Path::new(&format!(
+                        "{dir}/config.json"
+                    )))
+                })
+                .unwrap_or_default();
+            open_session(&reference, ".", &config)
+                .map(|(session, context)| (session, Some(context)))
+        }
     }
-
-    // Not a path, so it had better be a request. The config decides which
-    // adapter a host uses, so it is loaded before asking.
-    let config = state_dir()
-        .map(|dir| prchum_core::Config::load(std::path::Path::new(&format!(
-            "{dir}/config.json"
-        ))))
-        .unwrap_or_default();
-    open_session(target, ".", &config).map(|(session, context)| (session, Some(context)))
 }
