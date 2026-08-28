@@ -59,6 +59,7 @@ app: core
 PREFIX ?= /usr/local
 
 install-cli:
+	install -d $(PREFIX)/bin
 	install -m 0755 scripts/prchum $(PREFIX)/bin/prchum
 	install -m 0755 scripts/git-prchum $(PREFIX)/bin/git-prchum
 	install -d $(PREFIX)/share/man/man1
