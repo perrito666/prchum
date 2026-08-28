@@ -21,6 +21,31 @@ pub enum GitSpec {
     Range(String, String),
 }
 
+/// Written flat — `{"spec":"range","from":…,"to":…}` — so a shell on the
+/// far side of the FFI is told which comparison an argument asked for
+/// rather than deciding again. By hand because serde's internal tagging
+/// refuses tuple variants, and the enum's shape is right as it is.
+impl serde::Serialize for GitSpec {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(None)?;
+        match self {
+            GitSpec::WorkingTree => map.serialize_entry("spec", "working-tree")?,
+            GitSpec::Staged => map.serialize_entry("spec", "staged")?,
+            GitSpec::Base(base) => {
+                map.serialize_entry("spec", "base")?;
+                map.serialize_entry("base", base)?;
+            }
+            GitSpec::Range(from, to) => {
+                map.serialize_entry("spec", "range")?;
+                map.serialize_entry("from", from)?;
+                map.serialize_entry("to", to)?;
+            }
+        }
+        map.end()
+    }
+}
+
 impl GitSpec {
     /// The human title for the comparison (also part of the source key, so
     /// `--staged` and `--base main` keep separate drafts).

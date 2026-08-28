@@ -41,7 +41,7 @@ app: core
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS $(APP_BUNDLE)/Contents/Resources
 	cp macos/.build/release/Prchum $(APP_BUNDLE)/Contents/MacOS/
 	cp macos/Info.plist $(APP_BUNDLE)/Contents/
-	cp scripts/pr $(APP_BUNDLE)/Contents/Resources/
+	cp scripts/prchum scripts/git-prchum $(APP_BUNDLE)/Contents/Resources/
 	plutil -replace CFBundleShortVersionString \
 	  -string "$$(git describe --tags --always --dirty 2>/dev/null || echo development)" \
 	  $(APP_BUNDLE)/Contents/Info.plist
@@ -58,7 +58,8 @@ app: core
 PREFIX ?= /usr/local
 
 install-cli:
-	install -m 0755 scripts/pr $(PREFIX)/bin/pr
+	install -m 0755 scripts/prchum $(PREFIX)/bin/prchum
+	install -m 0755 scripts/git-prchum $(PREFIX)/bin/git-prchum
 
 docs:
 	python3 -m venv .docs-venv 2>/dev/null || true

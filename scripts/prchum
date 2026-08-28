@@ -1,0 +1,49 @@
+#!/bin/sh
+# prchum — open a review from the terminal.
+#
+#   prchum                      what `git diff` would show
+#   prchum --staged             what `git diff --staged` would show
+#   prchum main                 this branch against main
+#   prchum v1..v2               a range
+#   prchum change.diff          a patch or exchange file
+#   prchum 418                  request 418 of the current repo's origin
+#   prchum owner/repo#418       an explicit repository
+#   prchum https://github.com/… a request URL
+#
+# Talks to the app through the prchum:// URL scheme, launching it when
+# needed. The app has its own idea of a working directory, so this one is
+# passed along rather than assumed.
+
+set -eu
+
+staged=
+target=
+
+for argument in "$@"; do
+    case "$argument" in
+        --staged | --cached) staged=1 ;;
+        -h | --help)
+            sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        -*) ;;
+        *) [ -z "$target" ] && target="$argument" ;;
+    esac
+done
+
+# A relative path means nothing to an app that starts somewhere else.
+if [ -n "$target" ] && [ -e "$target" ]; then
+    case "$target" in
+        /*) ;;
+        *) target="$(cd "$(dirname "$target")" && pwd)/$(basename "$target")" ;;
+    esac
+fi
+
+encode() {
+    printf '%s' "$1" | od -An -tx1 | tr -d ' \n' | sed 's/../%&/g'
+}
+
+url="prchum://open?target=$(encode "$target")&cwd=$(encode "$(pwd)")"
+[ -n "$staged" ] && url="$url&staged=1"
+
+exec open "$url"

@@ -1,0 +1,25 @@
+#!/bin/sh
+# git-prchum — `git prchum`, because git finds any git-* on the PATH.
+#
+#   git prchum                  what `git diff` would show
+#   git prchum --staged         what `git diff --staged` would show
+#   git prchum main             this branch against main
+#   git prchum v1..v2           a range
+#
+# Nothing here but the name: git's habit of treating `git-foo` as
+# `git foo` is what makes prchum reachable the way a git command is,
+# which is the point of having it.
+#
+# It runs from the repository's top level rather than wherever you
+# happen to be, so `git prchum` means the same thing in a subdirectory
+# as it does at the root — which is how every other git command behaves.
+
+set -eu
+
+top=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "git prchum: not inside a git repository" >&2
+    exit 1
+}
+
+cd "$top"
+exec prchum "$@"

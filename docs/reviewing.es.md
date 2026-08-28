@@ -89,3 +89,44 @@ un reintento manda solo lo pendiente — nunca un duplicado.
 ⇧⌘E escribe sus notas a un archivo: Markdown agrupado por archivo, o —
 con un nombre `.json` — un documento de intercambio autocontenido
 (véase [Fuentes](sources.md)) que incrusta el parche.
+
+## Desde la terminal
+
+Prchum está pensado para alcanzarse como se alcanza `git diff`, así que
+acepta los mismos tipos de argumento:
+
+```sh
+prchum                  # lo que mostraría git diff
+prchum --staged         # lo que mostraría git diff --staged
+prchum main             # esta rama contra main
+prchum v1..v2           # un rango
+prchum cambio.diff      # un parche o documento de intercambio
+prchum 418              # la solicitud 418 del origin de este repositorio
+prchum owner/repo#418   # un repositorio explícito
+```
+
+`git prchum` hace lo mismo, porque git trata cualquier `git-*` del PATH
+como un subcomando, y se ejecuta desde la raíz del repositorio, así que
+significa lo mismo en un subdirectorio que en la raíz.
+
+Para que sea el comando al que recurres, dale a git un alias:
+
+```sh
+git config --global alias.d '!git prchum'
+```
+
+Entonces `git d` abre lo que `git diff` habría impreso, y `git d main`
+compara contra una rama. Una advertencia: `git prchum --help` invoca la
+ayuda de git, que busca una página de manual. Use `prchum --help`.
+
+En macOS el comando se instala desde **Prchum → Install Command-Line
+Tool…**, o con `make install-cli` desde un checkout. En Linux lo
+instalan los paquetes.
+
+!!! note "Antes se llamaba `pr`"
+
+    Lo cual era un error: `pr` es el paginador de POSIX, tiene página de
+    manual, y `/usr/local/bin` va antes que `/usr/bin` en el PATH por
+    defecto, así que instalarlo ahí tapaba en silencio una herramienta
+    estándar. Si tienes el antiguo, `rm /usr/local/bin/pr` lo deja como
+    estaba.

@@ -17,6 +17,16 @@ BINARY="${2:-$HERE/../target/release/prchum-gtk}"
 
 install -Dm755 "$BINARY" "$ROOT/usr/bin/prchum-gtk"
 
+# `prchum` is the name to type. The binary keeps its own so the desktop
+# entry and the window class stay stable, and this is a link rather than
+# a wrapper because there is nothing to wrap: the app parses the same
+# arguments the command documents.
+ln -sf prchum-gtk "$ROOT/usr/bin/prchum"
+
+# `git prchum`, which works because git treats any git-* on the PATH as
+# a subcommand.
+install -Dm755 "$HERE/../../scripts/git-prchum" "$ROOT/usr/bin/git-prchum"
+
 install -Dm644 "$DATA/eu.dumontix.prchum.desktop" \
     "$ROOT/usr/share/applications/eu.dumontix.prchum.desktop"
 

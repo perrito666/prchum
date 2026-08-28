@@ -54,6 +54,8 @@ them.
 
 %files
 /usr/bin/prchum-gtk
+/usr/bin/prchum
+/usr/bin/git-prchum
 /usr/share/applications/eu.dumontix.prchum.desktop
 /usr/share/metainfo/eu.dumontix.prchum.metainfo.xml
 /usr/share/icons/hicolor/*/apps/eu.dumontix.prchum.png
