@@ -9,7 +9,7 @@ export MACOSX_DEPLOYMENT_TARGET := 14.0
 SWIFT_PKG := --package-path macos
 APP_BUNDLE := dist/Prchum.app
 
-.PHONY: all core build run test smoke header-check check app docs docs-serve install-cli clean
+.PHONY: all core build strict run test smoke header-check check app docs docs-serve install-cli clean
 
 all: build
 
@@ -19,6 +19,13 @@ core:
 build: core
 	rm -f macos/.build/debug/Prchum
 	swift build $(SWIFT_PKG)
+
+# What CI builds: a warning becomes an error, so none reaches a release
+# unnoticed. Kept apart from `build` so a warning does not stop work
+# mid-edit.
+strict:
+	RUSTFLAGS="-D warnings" cargo build --release --manifest-path core/Cargo.toml
+	swift build $(SWIFT_PKG) -Xswiftc -warnings-as-errors
 
 run: build
 	macos/.build/debug/Prchum $(ARGS)

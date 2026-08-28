@@ -16,6 +16,8 @@ jobs:
         with:
           workspaces: core
       - name: Tests
+        env:
+          RUSTFLAGS: "-D warnings"
         run: cargo test --manifest-path core/Cargo.toml
       - name: Header drift
         run: |
@@ -30,6 +32,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: core
+      - name: Build without warnings
+        run: make strict
+
       - name: Smoke test
         run: make smoke
 
@@ -48,4 +53,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev libadwaita-1-dev
       - name: Build
+        env:
+          RUSTFLAGS: "-D warnings"
         run: cargo build --manifest-path linux/Cargo.toml

@@ -234,7 +234,7 @@ public struct SubmitResult: Codable, Sendable {
 }
 
 /// A local git comparison to open.
-public enum GitComparison {
+public enum GitComparison: Sendable {
     case workingTree
     case staged
     case base(String)
