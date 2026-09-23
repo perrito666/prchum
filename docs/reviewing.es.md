@@ -15,6 +15,8 @@ en el cuerpo).
 | ⌘↓ / ⌘↑ | cambio siguiente / anterior |
 | ⌥⌘↓ / ⌥⌘↑ | hunk siguiente / anterior |
 | ⇧⌘↓ / ⇧⌘↑ | archivo siguiente / anterior |
+| ⇧⌥⌘↓ / ⇧⌥⌘↑ | archivo sin revisar siguiente / anterior |
+| ⌥⌘V | marcar el archivo actual como revisado ↔ desmarcarlo |
 | ⌘F | buscar en el diff (la barra de búsqueda nativa) |
 | ⌥⌘T | vista unificada ↔ dividida |
 | ⌥⌘C | contexto completo: el archivo entero con los hunks superpuestos |
@@ -30,6 +32,24 @@ lados de un cambio. Se incluyen catorce lenguajes.
 
 En la vista dividida los dos lados van en paneles paralelos; el panel
 donde está el cursor decide a qué lado apunta un comentario.
+
+## Archivos revisados
+
+⌥⌘V marca como revisado el archivo en pantalla; la barra lateral le pone
+una marca delante, atenúa su nombre y cuenta el progreso arriba — «3 de
+12 revisados». Hacer clic en la marca hace lo mismo. ⇧⌥⌘↓ va al
+siguiente archivo sin revisar, dando la vuelta al final de la lista, y
+⇧⌥⌘↑ al anterior; cuando todos están marcados, lo dice.
+
+Una marca pertenece a los cambios sobre los que se hizo. Si el diff de
+un archivo cambia — un push nuevo, un árbol de trabajo editado — la
+marca caduca y el archivo vuelve a contar como sin revisar, igual que el
+"Viewed" de GitHub. Un rebase que solo mueve números de línea conserva
+la marca.
+
+Las marcas son solo tuyas: se guardan con tus borradores y nunca se
+envían a la forja. Un documento de intercambio tampoco las lleva. El
+shell de Linux todavía no tiene marcas.
 
 ## Comentarios
 

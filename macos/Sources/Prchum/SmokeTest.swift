@@ -148,6 +148,16 @@ func runSmokeTest() -> Int32 {
         print("FAIL: menu item did not adopt the override")
         return 1
     }
+    // Two defaults on one chord would leave one action unreachable.
+    let defaults = ActionID.allCases.compactMap { action in
+        action.defaultChord.map { (action, $0) }
+    }
+    for (index, (action, chord)) in defaults.enumerated() {
+        if let clash = defaults[(index + 1)...].first(where: { $0.1 == chord }) {
+            print("FAIL: \(action.rawValue) and \(clash.0.rawValue) share a default key")
+            return 1
+        }
+    }
     print("keymap ok (overrides, unbind, defaults kept on bad specs)")
 
     // Rendering: navigable block ranges line up with the model.
@@ -251,6 +261,77 @@ func runSmokeTest() -> Int32 {
         print("comment lifecycle ok (add/validate/edit/reply/dismiss/persist/export/delete)")
     } catch {
         print("FAIL: comment lifecycle: \(error)")
+        return 1
+    }
+
+    // Reviewed marks: mark, persist, the sidebar's progress, the next
+    // unreviewed file, and a changed file losing its mark. A patch file
+    // keys its draft by path, so rewriting it reopens the same draft over
+    // different changes.
+    do {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-reviewed-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let stateDir = dir.appendingPathComponent("drafts").path
+        let patchPath = dir.appendingPathComponent("change.diff").path
+        try patch.write(toFile: patchPath, atomically: true, encoding: .utf8)
+
+        let session = try CoreSession(contentsOf: patchPath)
+        _ = session.attachStore(directory: stateDir)
+        let sidebar = SidebarModel(files: try session.files())
+        sidebar.updateReviewed(session.reviewedFiles())
+        guard sidebar.progress == "0 of 2 reviewed",
+            session.nextUnreviewedFile(from: 0) == 1,
+            session.nextUnreviewedFile(from: 0, forward: false) == 1
+        else {
+            print("FAIL: fresh reviewed state: \(sidebar.progress)")
+            return 1
+        }
+        guard session.setFileReviewed(at: 0, true), session.isFileReviewed(at: 0) else {
+            print("FAIL: marking a file reviewed")
+            return 1
+        }
+        guard !session.setFileReviewed(at: 9, true) else {
+            print("FAIL: marked a file that does not exist")
+            return 1
+        }
+        sidebar.updateReviewed(session.reviewedFiles())
+        guard sidebar.progress == "1 of 2 reviewed", sidebar.rows[0].reviewed,
+            session.nextUnreviewedFile(from: 0) == 1,
+            session.nextUnreviewedFile(from: 1) == 1
+        else {
+            print("FAIL: after marking: \(sidebar.progress)")
+            return 1
+        }
+
+        let resumed = try CoreSession(contentsOf: patchPath)
+        _ = resumed.attachStore(directory: stateDir)
+        guard resumed.reviewedFiles() == [true, false] else {
+            print("FAIL: marks did not persist: \(resumed.reviewedFiles())")
+            return 1
+        }
+        guard resumed.setFileReviewed(at: 1, true), resumed.nextUnreviewedFile(from: 0) == nil
+        else {
+            print("FAIL: all reviewed still reports a next file")
+            return 1
+        }
+
+        // The deleted file's content changes; its mark lapses, the other
+        // file's survives.
+        try patch.replacingOccurrences(of: "-bye", with: "-farewell")
+            .write(toFile: patchPath, atomically: true, encoding: .utf8)
+        let changed = try CoreSession(contentsOf: patchPath)
+        _ = changed.attachStore(directory: stateDir)
+        guard changed.reviewedFiles() == [true, false],
+            changed.nextUnreviewedFile(from: 0) == 1
+        else {
+            print("FAIL: fingerprint invalidation: \(changed.reviewedFiles())")
+            return 1
+        }
+        try? FileManager.default.removeItem(at: dir)
+        print("reviewed files ok (mark/persist/progress/next/invalidation)")
+    } catch {
+        print("FAIL: reviewed files: \(error)")
         return 1
     }
 

@@ -36,6 +36,22 @@ impl PrContext {
     }
 }
 
+/// A local clone of the request's repository: the one configured for it,
+/// else the checkout the request was opened from when its origin is the
+/// same repository. Empty when there is neither.
+fn local_clone(pr_ref: &PullRequestRef, repo_hint: &str, config: &Config) -> String {
+    let slug = format!("{}/{}", pr_ref.owner, pr_ref.repo);
+    if let Some(clone) = config.clone_for(&slug) {
+        return clone.to_string();
+    }
+    let hint = if repo_hint.is_empty() { "." } else { repo_hint };
+    let mut origin = PullRequestRef::default();
+    let same = resolve_from_origin(&mut origin, hint).is_ok()
+        && origin.host.eq_ignore_ascii_case(&pr_ref.host)
+        && format!("{}/{}", origin.owner, origin.repo).eq_ignore_ascii_case(&slug);
+    if same { hint.to_string() } else { String::new() }
+}
+
 /// Opens `reference` as a session, with the context the shell needs to
 /// submit back to the same forge it came from.
 pub fn open_session(
@@ -70,7 +86,13 @@ pub fn open_session(
 
     let forge = context.forge();
     let metadata = forge.pull_request(&pr_ref)?;
-    let diff = forge.diff(&pr_ref)?;
+    let diff = match kind {
+        // A large request's diff may need a local clone to be complete.
+        ForgeKind::GitHub => GhForge::new()
+            .with_clone(&local_clone(&pr_ref, repo_hint, config))
+            .diff(&pr_ref)?,
+        _ => forge.diff(&pr_ref)?,
+    };
     let mut threads = forge.threads(&pr_ref)?;
     crate::place_threads(&mut threads);
     // Conversation comments are display data; failure to fetch them must

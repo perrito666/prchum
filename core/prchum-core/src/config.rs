@@ -44,7 +44,7 @@ pub struct Config {
     keymap: String,
     /// User-defined named keymaps: name → {action → key spec}.
     keymaps: BTreeMap<String, BTreeMap<String, String>>,
-    /// Syntax theme name: a built-in or a themes/<name>.json file.
+    /// Syntax theme name: a built-in or a `themes/<name>.json` file.
     theme: String,
     /// `system` (default) | `light` | `dark`.
     appearance: String,

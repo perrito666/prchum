@@ -161,7 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let requests = try CoreDiscovery.listRequests()
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [self] in
                     self.pendingOpens -= 1
                     progress.orderOut(nil)
                     // An empty result still opens the queue: the filter
@@ -585,6 +585,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         goMenu.addItem(.separator())
         goMenu.addItem(keymap.menuItem(for: .nextFile))
         goMenu.addItem(keymap.menuItem(for: .previousFile))
+        goMenu.addItem(.separator())
+        goMenu.addItem(keymap.menuItem(for: .nextUnreviewed))
+        goMenu.addItem(keymap.menuItem(for: .previousUnreviewed))
+        goMenu.addItem(keymap.menuItem(for: .toggleReviewed))
 
         let windowItem = NSMenuItem()
         mainMenu.addItem(windowItem)

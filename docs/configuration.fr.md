@@ -42,7 +42,8 @@ reste.
 
 Noms d'action : `open`, `open-pr`, `open-git`, `review-queue`,
 `export`, `next-change`, `prev-change`, `next-hunk`, `prev-hunk`,
-`next-file`, `prev-file`, `toggle-sidebar`, `toggle-layout`,
+`next-file`, `prev-file`, `next-unreviewed`, `prev-unreviewed`,
+`toggle-reviewed`, `toggle-sidebar`, `toggle-layout`,
 `toggle-wrap`, `toggle-syntax`, `toggle-fold`, `expand-all`,
 `collapse-all`, `find`, `comment`, `edit-comment`, `delete-comment`,
 `dismiss-comment`, `reply`, `open-at-caret`, `toggle-thread`, `suggest`, `comments`,
@@ -70,7 +71,9 @@ lives in the Keymap source.
 - `clones` — `owner/repo` → le clone local qui le contient
   (`{"perrito666/prchum": "/Users/moi/src/prchum"}`), sans distinction
   de casse. Settings (⌘,) gère la liste, et Edit File Locally propose
-  d'en choisir un quand le dépôt n'en a pas.
+  d'en choisir un quand le dépôt n'en a pas. Une pull request GitHub trop
+  grande pour que GitHub la serve entière (plus de 300 fichiers, ou des
+  fichiers qu'il n'affiche pas) prend dans ce clone ce qui manque.
 - `editor_command` — comment ouvrir un fichier : une URL ou une
   commande, avec `{path}`, `{line}` et `{dir}`. Vide signifie
   `textchum://open?path={path}&line={line}` ; `code -g {path}:{line}` et

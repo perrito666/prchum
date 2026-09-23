@@ -14,6 +14,8 @@ mouse days, and ⇧⌘H returns to the home screen; sheets confirm with ⌘↩
 | ⌘↓ / ⌘↑ | next / previous change |
 | ⌥⌘↓ / ⌥⌘↑ | next / previous hunk |
 | ⇧⌘↓ / ⇧⌘↑ | next / previous file |
+| ⇧⌥⌘↓ / ⇧⌥⌘↑ | next / previous file not yet reviewed |
+| ⌥⌘V | mark the current file as reviewed ↔ unmark it |
 | ⌘F | find in the diff (the native find bar) |
 | ⌥⌘T | unified ↔ split view |
 | ⌥⌘C | full-file context: the whole file with the hunks overlaid |
@@ -29,6 +31,23 @@ of a change. Fourteen languages ship built in.
 
 In split view the two sides sit in parallel panels; the panel your caret
 is in decides which side a comment targets.
+
+## Reviewed files
+
+⌥⌘V marks the file on screen as reviewed; the sidebar puts a check in
+front of it, dims its name, and counts progress at the top — "3 of 12
+reviewed". Clicking the check does the same. ⇧⌥⌘↓ goes to the next file
+not yet reviewed, wrapping around the end of the list, and ⇧⌥⌘↑ to the
+previous one; when every file is marked, it says so.
+
+A mark belongs to the changes it was made against. If a file's diff
+changes — a new push, an edited working tree — its mark lapses and the
+file counts as unreviewed again, the way GitHub's "Viewed" does. A
+rebase that only moves line numbers keeps the mark.
+
+Marks are yours alone: they are saved with your drafts and never sent to
+the forge. An exchange document does not carry them either. The Linux
+shell does not have marks yet.
 
 ## Comments
 
