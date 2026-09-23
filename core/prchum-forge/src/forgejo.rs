@@ -139,6 +139,10 @@ impl<R: Runner> Forge for ForgejoForge<R> {
                     start_line: None,
                     original_line: (original > 0).then_some(original),
                     outdated: position == 0 && original > 0,
+                    // Gitea's API has no resolved flag; a resolved
+                    // comment names who resolved it.
+                    resolved: item["resolver"].is_object(),
+                    placement: Default::default(),
                     comments: vec![comment_from(item)],
                 });
             }
@@ -369,8 +373,29 @@ mod tests {
         assert_eq!(threads.len(), 1);
         assert_eq!(threads[0].line, Some(5));
         assert!(!threads[0].outdated);
+        assert!(!threads[0].resolved);
         // The empty review was skipped without a comments fetch.
         assert_eq!(forge.runner.calls.lock().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn threads_read_resolution_from_the_resolver() {
+        let forge = ForgejoForge::with_runner(
+            FakeRunner::new(vec![
+                Ok(r#"[{"id": 1, "comments_count": 2}]"#.into()),
+                Ok(r#"[{"id": 11, "path": "a.rs", "position": 5, "resolver": null,
+                        "body": "open", "user": {"login": "x"}, "created_at": "t"},
+                       {"id": 12, "path": "a.rs", "position": 0, "original_position": 8,
+                        "resolver": {"login": "y"},
+                        "body": "done", "user": {"login": "x"}, "created_at": "t"}]"#
+                    .into()),
+            ]),
+            "",
+        );
+        let threads = forge.threads(&reference()).unwrap();
+        assert!(!threads[0].resolved);
+        assert!(threads[1].resolved);
+        assert!(threads[1].outdated);
     }
 
     #[test]

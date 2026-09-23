@@ -62,6 +62,8 @@ porte pas non plus. Le shell Linux n'a pas encore les marques.
 | ⌥⌘↩ | suggérer un changement : le code sélectionné prérempli dans un bloc ```suggestion |
 | ⌘R | répondre — au fil du serveur ou à la conversation du brouillon |
 | ⌘L | le navigateur de revue : chaque brouillon et fil ; Retour saute |
+| ⌥↩ | ouvrir la conversation sous le curseur dans son propre lecteur |
+| ⇧⌘T | déplier ↔ replier le fil résolu sous le curseur |
 | ⌃⌘E | modifier le fichier courant localement (voir plus bas) |
 
 Une sélection doit tenir sur un seul côté, à la façon de GitHub : un
@@ -69,6 +71,30 @@ bloc de changements s'ancre à DROITE (les suppressions ne font
 simplement pas partie de ce côté), une sélection de suppressions seules
 s'ancre à GAUCHE. Les brouillons se signalent par `●` dans la marge,
 avec la note en ligne ; les fils existants du serveur, par `◆`.
+
+### Fils obsolètes et résolus
+
+Un fil est **obsolète** (*outdated*) quand le code sur lequel il a été
+écrit a changé depuis, si bien qu'il ne tombe plus sur aucune ligne du
+diff. Plutôt que de le dessiner à côté du code qui porte aujourd'hui ce
+numéro de ligne, prchum liste les fils obsolètes en tête de leur
+fichier, un par ligne — auteur, la ligne où il se trouvait, le début du
+commentaire. **Read…** (ou ⌥↩ sur cette ligne) ouvre la conversation
+entière dans le lecteur, où l'on peut toujours répondre.
+
+Un fil **résolu** (*resolved*) qui est encore sur une ligne se replie en
+une seule ligne sous celle-ci. **Expand**, ou ⇧⌘T avec le curseur
+dessus, l'affiche en entier ; **Collapse** ou ⇧⌘T à nouveau le replie.
+⌥↩ l'ouvre dans le lecteur sans le déplier.
+
+Le navigateur de revue (⌘L) liste les deux, étiquetés *outdated* ou
+*resolved* ; Retour saute à un fil qui a une ligne et ouvre celui qui
+n'en a pas. Le compteur `◆` de la barre latérale les inclut.
+
+Résoudre et rouvrir des fils reste l'affaire du serveur. GitHub
+n'indique la résolution que par son API GraphQL ; si cette requête
+échoue, les fils s'affichent en entier plutôt que d'empêcher la revue
+de s'ouvrir.
 
 Écarter n'est pas supprimer : le verdict voyage avec la revue — c'est
 l'information dont l'autre côté d'une conversation a le plus besoin —

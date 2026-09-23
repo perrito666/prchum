@@ -60,12 +60,37 @@ shell does not have marks yet.
 | ⌥⌘↩ | suggest a change: the selection's code prefilled in a ```suggestion fence |
 | ⌘R | reply — to the host thread or the draft conversation at the caret |
 | ⌘L | the review navigator: every draft and thread, Return jumps |
+| ⌥↩ | open the conversation at the caret in its own reader |
+| ⇧⌘T | expand ↔ collapse the resolved thread at the caret |
 | ⌃⌘E | edit the current file locally (see below) |
 
 A selection must map onto one side, GitHub-style: a changed block
 anchors RIGHT (the deletions are simply not part of that side), a
 deletions-only selection anchors LEFT. Drafts show as `●` in the gutter
 with the note inline; existing host threads show as `◆`.
+
+### Outdated and resolved threads
+
+A thread is **outdated** when the code it was written against has since
+changed, so it no longer sits on any line of the diff. Rather than
+drawing it beside whatever code now has that line number, prchum lists
+outdated threads at the top of their file, one line each — author,
+the line it was on, the start of the comment. **Read…** (or ⌥↩ on
+that line) opens the whole conversation in the reader, where you can
+still reply.
+
+A **resolved** thread that is still on a line collapses to one line
+under it. **Expand**, or ⇧⌘T with the caret on it, shows it in full;
+**Collapse** or ⇧⌘T again folds it back. ⌥↩ opens it in the reader
+without expanding it.
+
+The review navigator (⌘L) lists both, labelled *outdated* or
+*resolved*; Return jumps to a thread that has a line and opens one
+that does not. The sidebar's `◆` count includes them.
+
+Resolving and reopening threads is left to the forge. GitHub reports
+resolution only through its GraphQL API; if that query fails, threads
+show in full rather than keeping the review from opening.
 
 Dismissed is not deleted: the verdict travels with the review — it is
 the information the other side of a conversation needs most — but a

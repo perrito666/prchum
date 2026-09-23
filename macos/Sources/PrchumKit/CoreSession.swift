@@ -173,14 +173,43 @@ public struct ReviewThread: Codable, Sendable {
     public let startLine: Int?
     public let originalLine: Int?
     public let outdated: Bool
+    /// Marked resolved on the host (false when the host would not say).
+    public let resolved: Bool
+    /// Where the thread shows, as the core decided it.
+    public let placement: ThreadPlacement
     /// Root first, replies after.
     public let comments: [HostComment]
 
     enum CodingKeys: String, CodingKey {
-        case id, path, side, line, outdated, comments
+        case id, path, side, line, outdated, resolved, placement, comments
         case startLine = "start_line"
         case originalLine = "original_line"
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int64.self, forKey: .id)
+        path = try container.decode(String.self, forKey: .path)
+        side = try container.decode(DiffSide.self, forKey: .side)
+        line = try container.decodeIfPresent(Int.self, forKey: .line)
+        startLine = try container.decodeIfPresent(Int.self, forKey: .startLine)
+        originalLine = try container.decodeIfPresent(Int.self, forKey: .originalLine)
+        outdated = try container.decodeIfPresent(Bool.self, forKey: .outdated) ?? false
+        resolved = try container.decodeIfPresent(Bool.self, forKey: .resolved) ?? false
+        placement =
+            try container.decodeIfPresent(ThreadPlacement.self, forKey: .placement) ?? .inline
+        comments = try container.decode([HostComment].self, forKey: .comments)
+    }
+}
+
+/// How a host thread is presented; mirrors the core's `Placement`.
+public enum ThreadPlacement: String, Codable, Sendable {
+    /// In full, under its current line.
+    case inline
+    /// A one-line summary under its current line, expandable.
+    case collapsed
+    /// Its line is gone from today's diff: listed and read on its own.
+    case listOnly = "list_only"
 }
 
 /// A staged conversation-level comment.

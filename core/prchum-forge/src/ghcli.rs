@@ -11,6 +11,7 @@
 //! when one is known, fills those gaps with `git diff`; without one the
 //! file is listed with no content rather than the review failing.
 
+use std::collections::HashSet;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -18,6 +19,8 @@ use prchum_core::source::git_in;
 use serde_json::{json, Value};
 
 use crate::{Comment, Forge, PullRequest, PullRequestRef, ReviewComment, ThreadInfo};
+
+const RESOLVED_THREADS_QUERY: &str = "query($owner: String!, $name: String!, $number: Int!, $cursor: String) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100, after: $cursor) { nodes { isResolved comments(first: 1) { nodes { databaseId } } } pageInfo { hasNextPage endCursor } } } } }";
 
 /// Runs a CLI and returns stdout; nonzero exit is an error carrying stderr.
 pub trait Runner: Send + Sync {
@@ -102,6 +105,51 @@ impl<R: Runner> GhForge<R> {
         }
         args.extend(extra.iter().map(|s| s.to_string()));
         self.runner.run("gh", &args, stdin)
+    }
+
+    /// Root comment ids of the resolved review threads. REST does not
+    /// carry resolution; GraphQL does, keyed by thread, and a thread's
+    /// first comment's `databaseId` is the REST id of its root.
+    fn resolved_roots(&self, pr: &PullRequestRef) -> Result<HashSet<i64>, String> {
+        let owner = format!("owner={}", pr.owner);
+        let name = format!("name={}", pr.repo);
+        let number = format!("number={}", pr.number);
+        let query = format!("query={RESOLVED_THREADS_QUERY}");
+        let mut resolved = HashSet::new();
+        let mut cursor: Option<String> = None;
+        // Bounded so a host that keeps answering hasNextPage cannot hold
+        // the review open; 100 pages is 10,000 threads.
+        for _ in 0..100 {
+            let after = cursor.as_ref().map(|c| format!("cursor={c}"));
+            // -f sends strings as-is (a numeric repository name stays a
+            // string); -F types the number.
+            let mut args: Vec<&str> = vec![
+                "graphql", "-f", &query, "-f", &owner, "-f", &name, "-F", &number,
+            ];
+            if let Some(after) = &after {
+                args.extend(["-f", after.as_str()]);
+            }
+            let text = self.api(pr, &args, None)?;
+            let value = parse_json(&text)?;
+            if let Some(errors) = value["errors"].as_array().filter(|e| !e.is_empty()) {
+                return Err(format!("graphql: {}", errors[0]["message"]));
+            }
+            let connection = &value["data"]["repository"]["pullRequest"]["reviewThreads"];
+            for node in connection["nodes"].as_array().map(Vec::as_slice).unwrap_or_default() {
+                if node["isResolved"].as_bool() != Some(true) {
+                    continue;
+                }
+                if let Some(id) = node["comments"]["nodes"][0]["databaseId"].as_i64() {
+                    resolved.insert(id);
+                }
+            }
+            let info = &connection["pageInfo"];
+            match (info["hasNextPage"].as_bool(), info["endCursor"].as_str()) {
+                (Some(true), Some(end)) => cursor = Some(end.to_string()),
+                _ => break,
+            }
+        }
+        Ok(resolved)
     }
 
     fn repo_path(pr: &PullRequestRef, suffix: &str) -> String {
@@ -308,6 +356,8 @@ impl<R: Runner> Forge for GhForge<R> {
                 start_line: item["start_line"].as_u64().map(|n| n as u32),
                 original_line,
                 outdated: line.is_none() && original_line.is_some(),
+                resolved: false,
+                placement: Default::default(),
                 comments: vec![comment_from(item)],
             });
         }
@@ -317,6 +367,17 @@ impl<R: Runner> Forge for GhForge<R> {
             };
             if let Some(thread) = threads.iter_mut().find(|t| t.id == parent) {
                 thread.comments.push(comment_from(item));
+            }
+        }
+        if !threads.is_empty() {
+            // Resolution is a display hint; a host that will not say
+            // (an old enterprise server, a token without the scope)
+            // leaves every thread shown in full rather than failing the
+            // review.
+            if let Ok(resolved) = self.resolved_roots(pr) {
+                for thread in &mut threads {
+                    thread.resolved = resolved.contains(&thread.id);
+                }
             }
         }
         Ok(threads)
@@ -536,7 +597,8 @@ mod tests {
 
     #[test]
     fn threads_group_roots_and_replies() {
-        let forge = GhForge::with_runner(FakeRunner::new(vec![Ok(r#"[
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Ok(r#"[
             {"id": 1, "path": "a.rs", "side": "RIGHT", "line": 5,
              "body": "root", "user": {"login": "x"}, "created_at": "t1", "html_url": ""},
             {"id": 2, "in_reply_to_id": 1, "body": "reply",
@@ -544,13 +606,89 @@ mod tests {
             {"id": 3, "path": "b.rs", "side": "LEFT", "line": null, "original_line": 9,
              "body": "old", "user": {"login": "z"}, "created_at": "t3", "html_url": ""}
         ]"#
-        .into())]));
+        .into()),
+            Err("graphql unavailable".into()),
+        ]));
         let threads = forge.threads(&reference()).unwrap();
         assert_eq!(threads.len(), 2);
         assert_eq!(threads[0].comments.len(), 2);
         assert_eq!(threads[0].comments[1].body, "reply");
         assert!(threads[1].outdated);
         assert_eq!(threads[1].original_line, Some(9));
+        // The GraphQL failure cost the resolution, not the threads.
+        assert!(threads.iter().all(|t| !t.resolved));
+    }
+
+    fn one_thread(id: i64) -> String {
+        format!(
+            r#"[{{"id": {id}, "path": "a.rs", "side": "RIGHT", "line": 5, "body": "b",
+                 "user": {{"login": "x"}}, "created_at": "t", "html_url": ""}}]"#
+        )
+    }
+
+    fn page(resolved: &[(i64, bool)], next: Option<&str>) -> String {
+        let nodes: Vec<Value> = resolved
+            .iter()
+            .map(|(id, is)| {
+                json!({"isResolved": is, "comments": {"nodes": [{"databaseId": id}]}})
+            })
+            .collect();
+        json!({"data": {"repository": {"pullRequest": {"reviewThreads": {
+            "nodes": nodes,
+            "pageInfo": {"hasNextPage": next.is_some(), "endCursor": next},
+        }}}}})
+        .to_string()
+    }
+
+    #[test]
+    fn resolution_comes_from_graphql_across_pages() {
+        let rest = r#"[
+            {"id": 1, "path": "a.rs", "side": "RIGHT", "line": 5, "body": "a",
+             "user": {"login": "x"}, "created_at": "t", "html_url": ""},
+            {"id": 2, "path": "a.rs", "side": "RIGHT", "line": 6, "body": "b",
+             "user": {"login": "x"}, "created_at": "t", "html_url": ""},
+            {"id": 3, "path": "a.rs", "side": "RIGHT", "line": 7, "body": "c",
+             "user": {"login": "x"}, "created_at": "t", "html_url": ""}
+        ]"#;
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Ok(rest.into()),
+            Ok(page(&[(1, true), (2, false)], Some("CUR"))),
+            Ok(page(&[(3, true)], None)),
+        ]));
+        let threads = forge.threads(&reference()).unwrap();
+        let resolved: Vec<bool> = threads.iter().map(|t| t.resolved).collect();
+        assert_eq!(resolved, vec![true, false, true]);
+
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(calls.len(), 3);
+        let first = &calls[1].0;
+        assert_eq!(first[..2], ["api", "graphql"]);
+        assert!(first.contains(&"owner=o".to_string()));
+        assert!(first.contains(&"name=r".to_string()));
+        assert!(first.contains(&"number=7".to_string()));
+        assert!(!first.iter().any(|a| a.starts_with("cursor=")));
+        assert!(calls[2].0.contains(&"cursor=CUR".to_string()));
+    }
+
+    #[test]
+    fn graphql_errors_and_enterprise_hosts() {
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Ok(one_thread(1)),
+            Ok(r#"{"errors": [{"message": "no scope"}]}"#.into()),
+        ]));
+        let mut pr = reference();
+        pr.host = "github.corp.example".into();
+        let threads = forge.threads(&pr).unwrap();
+        assert!(!threads[0].resolved);
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(calls[1].0[..4], ["api", "--hostname", "github.corp.example", "graphql"]);
+    }
+
+    #[test]
+    fn no_threads_asks_no_graphql() {
+        let forge = GhForge::with_runner(FakeRunner::new(vec![Ok("[]".into())]));
+        assert!(forge.threads(&reference()).unwrap().is_empty());
+        assert_eq!(forge.runner.calls.lock().unwrap().len(), 1);
     }
 
     #[test]
