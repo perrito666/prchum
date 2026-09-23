@@ -116,9 +116,9 @@ final class HomeWindowController: NSWindowController, NSWindowDelegate,
 
     private func pruneNow() {
         lastPrune = Date()
-        DispatchQueue.global(qos: .utility).async {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
             let kept = CoreHistory.prune()
-            DispatchQueue.main.async { [weak self] in
+            DispatchQueue.main.async {
                 self?.entries = kept
                 self?.applyEntries()
             }

@@ -161,7 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let requests = try CoreDiscovery.listRequests()
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [self] in
                     self.pendingOpens -= 1
                     progress.orderOut(nil)
                     // An empty result still opens the queue: the filter
