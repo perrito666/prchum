@@ -101,6 +101,7 @@ enum ActionID: String, CaseIterable {
     case copyCommentLink = "copy-comment-link"
     case openCommentLink = "open-comment-link"
     case openAtCaret = "open-at-caret"
+    case toggleThread = "toggle-thread"
     case suggest = "suggest"
     case commentList = "comments"
     case prInfo = "pr-info"
@@ -145,6 +146,7 @@ enum ActionID: String, CaseIterable {
         case .copyCommentLink: return "Copy Link to Comment"
         case .openCommentLink: return "Open Link to Comment"
         case .openAtCaret: return "Open Conversation at Caret"
+        case .toggleThread: return "Expand / Collapse Resolved Thread"
         case .suggest: return "Suggest a Change…"
         case .commentList: return "Review Navigator"
         case .prInfo: return "Pull Request Info"
@@ -194,6 +196,7 @@ enum ActionID: String, CaseIterable {
         case .copyCommentLink: return #selector(ReviewWindowController.copyCommentLink(_:))
         case .openCommentLink: return #selector(ReviewWindowController.openCommentLink(_:))
         case .openAtCaret: return #selector(ReviewWindowController.openAtCaret(_:))
+        case .toggleThread: return #selector(ReviewWindowController.toggleResolvedThread(_:))
         case .suggest: return #selector(ReviewWindowController.suggestChange(_:))
         case .commentList: return #selector(ReviewWindowController.showCommentList(_:))
         case .prInfo: return #selector(ReviewWindowController.showPRInfo(_:))
@@ -240,6 +243,7 @@ enum ActionID: String, CaseIterable {
         case .copyCommentLink: return KeyChord.parse("cmd+shift+k")
         case .openCommentLink: return KeyChord.parse("cmd+alt+shift+k")
         case .openAtCaret: return KeyChord.parse("alt+return")
+        case .toggleThread: return KeyChord.parse("cmd+shift+t")
         case .suggest: return KeyChord.parse("cmd+alt+return")
         case .commentList: return KeyChord.parse("cmd+l")
         case .prInfo: return KeyChord.parse("cmd+i")

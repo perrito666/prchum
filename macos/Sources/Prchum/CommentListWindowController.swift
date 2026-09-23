@@ -2,7 +2,8 @@ import AppKit
 import PrchumKit
 
 /// The review navigator: every draft comment and host thread in one list.
-/// Return or a double-click jumps to the entry's anchor.
+/// Return or a double-click acts on the entry: the caller jumps to its
+/// anchor, or opens it when it has none.
 @MainActor
 final class CommentListWindowController: NSWindowController, NSWindowDelegate,
     NSTableViewDataSource, NSTableViewDelegate
@@ -13,7 +14,11 @@ final class CommentListWindowController: NSWindowController, NSWindowDelegate,
         let preview: String
         let path: String
         let side: DiffSide
-        let line: Int
+        /// Nil for a thread whose line is gone from today's diff.
+        let line: Int?
+        /// Set for host threads, so the caller can open one instead of
+        /// jumping when there is nowhere to jump to.
+        var threadID: Int64? = nil
     }
 
     private let entries: [Entry]
