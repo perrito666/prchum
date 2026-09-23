@@ -43,8 +43,10 @@ barre d'outils et le diff.
 ![Une fenêtre de revue](images/review-window-light.png#only-light)
 ![Une fenêtre de revue](images/review-window-dark.png#only-dark)
 
-La barre latérale compte les ajouts et les suppressions par fichier, et
-marque les fichiers porteurs de commentaires. ⌘↓ et ⌘↑ parcourent les
+La barre latérale compte les ajouts et les suppressions par fichier,
+marque les fichiers porteurs de commentaires et coche ceux que vous
+avez marqués comme relus (⌥⌘V ; ⇧⌥⌘↓ va au suivant qui reste — voir
+[La revue](reviewing.md#fichiers-relus)). ⌘↓ et ⌘↑ parcourent les
 changements, ⌥⌘↓ et ⌥⌘↑ les hunks, ⇧⌘↓ et ⇧⌘↑ les fichiers. La
 coloration syntaxique fait une passe tree-sitter par côté de chaque
 hunk : une construction sur plusieurs lignes se colore correctement sur
