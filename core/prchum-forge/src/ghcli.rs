@@ -9,7 +9,14 @@ use std::process::{Command, Stdio};
 
 use serde_json::{json, Value};
 
-use crate::{Comment, Forge, PullRequest, PullRequestRef, ReviewComment, ThreadInfo};
+use crate::{
+    first_line, oldest_first, Comment, CommitInfo, CommitList, Forge, PullRequest,
+    PullRequestRef, ReviewComment, ThreadInfo,
+};
+
+/// GitHub's pull-request commit listing ends here, however many commits
+/// the request has.
+pub const GITHUB_COMMIT_LIST_LIMIT: usize = 250;
 
 /// Runs a CLI and returns stdout; nonzero exit is an error carrying stderr.
 pub trait Runner: Send + Sync {
@@ -167,19 +174,88 @@ impl<R: Runner> Forge for GhForge<R> {
         Ok(parse_paginated(&text)?.iter().map(comment_from).collect())
     }
 
+    fn commits(&self, pr: &PullRequestRef) -> Result<CommitList, String> {
+        let path = Self::repo_path(pr, &format!("pulls/{}/commits?per_page=100", pr.number));
+        let text = self.api(pr, &[&path, "--paginate"], None)?;
+        let commits: Vec<CommitInfo> = parse_paginated(&text)?
+            .iter()
+            .map(|item| CommitInfo {
+                sha: str_at(item, "sha"),
+                parents: item["parents"]
+                    .as_array()
+                    .map(Vec::as_slice)
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|parent| str_at(parent, "sha"))
+                    .collect(),
+                title: first_line(item["commit"]["message"].as_str().unwrap_or_default()),
+                // The account when GitHub could match one, else the name
+                // the commit itself carries.
+                author: item["author"]["login"]
+                    .as_str()
+                    .or_else(|| item["commit"]["author"]["name"].as_str())
+                    .unwrap_or_default()
+                    .to_string(),
+                date: item["commit"]["author"]["date"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+            })
+            .collect();
+
+        // GitHub stops listing at 250 commits and does not say so in the
+        // listing itself; the request's own count tells.
+        let mut notice = String::new();
+        if commits.len() >= GITHUB_COMMIT_LIST_LIMIT {
+            let metadata = Self::repo_path(pr, &format!("pulls/{}", pr.number));
+            let total = self
+                .api(pr, &[&metadata], None)
+                .ok()
+                .and_then(|text| parse_json(&text).ok())
+                .and_then(|value| value["commits"].as_u64());
+            notice = match total {
+                Some(total) if total as usize > commits.len() => format!(
+                    "GitHub lists only the first {} of this pull request's {total} commits; \
+                     the later ones can be reviewed only in All changes",
+                    commits.len()
+                ),
+                Some(_) => String::new(),
+                None => format!(
+                    "GitHub lists at most {GITHUB_COMMIT_LIST_LIMIT} commits of a pull \
+                     request; this list may be incomplete"
+                ),
+            };
+        }
+        Ok(CommitList {
+            commits: oldest_first(commits),
+            notice,
+        })
+    }
+
+    fn commit_diff(&self, pr: &PullRequestRef, sha: &str) -> Result<String, String> {
+        let path = Self::repo_path(pr, &format!("commits/{sha}"));
+        self.api(pr, &[&path, "-H", "Accept: application/vnd.github.v3.diff"], None)
+    }
+
     fn create_review(
         &self,
         pr: &PullRequestRef,
         event: &str,
         summary: &str,
         comments: &[ReviewComment],
+        commit: Option<&CommitInfo>,
     ) -> Result<(), String> {
         let path = Self::repo_path(pr, &format!("pulls/{}/reviews", pr.number));
-        let body = json!({
+        let mut body = json!({
             "event": event,
             "body": summary,
             "comments": comments,
         });
+        // Positions are then read in that commit's diff, as GitHub's own
+        // single-commit view posts them; without it, the head's.
+        if let Some(commit) = commit {
+            body["commit_id"] = json!(commit.sha);
+        }
         self.api(
             pr,
             &[&path, "--method", "POST", "--input", "-"],
@@ -399,7 +475,7 @@ mod tests {
             start_side: Some("RIGHT".into()),
         }];
         forge
-            .create_review(&reference(), "APPROVE", "lgtm", &comments)
+            .create_review(&reference(), "APPROVE", "lgtm", &comments, None)
             .unwrap();
         let calls = forge.runner.calls.lock().unwrap();
         assert_eq!(
@@ -410,6 +486,88 @@ mod tests {
         assert_eq!(body["event"], "APPROVE");
         assert_eq!(body["comments"][0]["start_line"], 3);
         assert_eq!(body["comments"][0]["line"], 5);
+        assert!(body.get("commit_id").is_none());
+    }
+
+    #[test]
+    fn a_commit_review_pins_the_commit() {
+        let forge = GhForge::with_runner(FakeRunner::new(vec![Ok("{}".into())]));
+        let commit = CommitInfo {
+            sha: "c0ffee".into(),
+            parents: vec!["beef".into()],
+            ..Default::default()
+        };
+        forge
+            .create_review(&reference(), "COMMENT", "", &[], Some(&commit))
+            .unwrap();
+        let calls = forge.runner.calls.lock().unwrap();
+        let body: Value = serde_json::from_str(calls[0].1.as_ref().unwrap()).unwrap();
+        assert_eq!(body["commit_id"], "c0ffee");
+    }
+
+    #[test]
+    fn commits_parse_and_come_oldest_first() {
+        let forge = GhForge::with_runner(FakeRunner::new(vec![Ok(r#"[
+            {"sha": "a1", "parents": [{"sha": "base"}],
+             "commit": {"message": "First\n\nbody", "author": {"name": "Al", "date": "d1"}},
+             "author": {"login": "al"}},
+            {"sha": "b2", "parents": [{"sha": "a1"}],
+             "commit": {"message": "Second", "author": {"name": "Bo", "date": "d2"}},
+             "author": null}
+        ]"#
+        .into())]));
+        let list = forge.commits(&reference()).unwrap();
+        assert_eq!(list.commits.len(), 2);
+        assert_eq!(list.commits[0].sha, "a1");
+        assert_eq!(list.commits[0].title, "First");
+        assert_eq!(list.commits[0].author, "al");
+        assert_eq!(list.commits[1].author, "Bo");
+        assert_eq!(list.commits[1].parents, vec!["a1"]);
+        assert!(list.notice.is_empty());
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(
+            calls[0].0,
+            vec!["api", "repos/o/r/pulls/7/commits?per_page=100", "--paginate"]
+        );
+    }
+
+    #[test]
+    fn a_full_commit_list_says_it_was_cut_short() {
+        let page: Vec<Value> = (0..GITHUB_COMMIT_LIST_LIMIT)
+            .map(|n| json!({"sha": format!("s{n}"), "parents": [], "commit": {"message": "m"}}))
+            .collect();
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Ok(Value::Array(page.clone()).to_string()),
+            Ok(r#"{"commits": 300}"#.into()),
+        ]));
+        let list = forge.commits(&reference()).unwrap();
+        assert_eq!(list.commits.len(), GITHUB_COMMIT_LIST_LIMIT);
+        assert!(list.notice.contains("first 250 of this pull request's 300"), "{}", list.notice);
+
+        // Exactly 250 commits is complete, and says nothing.
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Ok(Value::Array(page.clone()).to_string()),
+            Ok(r#"{"commits": 250}"#.into()),
+        ]));
+        assert!(forge.commits(&reference()).unwrap().notice.is_empty());
+
+        // An unanswered count still warns rather than truncating silently.
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Ok(Value::Array(page).to_string()),
+            Err("offline".into()),
+        ]));
+        assert!(forge.commits(&reference()).unwrap().notice.contains("may be incomplete"));
+    }
+
+    #[test]
+    fn commit_diff_asks_for_the_diff_media_type() {
+        let forge = GhForge::with_runner(FakeRunner::new(vec![Ok("diff --git a/x b/x\n".into())]));
+        forge.commit_diff(&reference(), "c0ffee").unwrap();
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(
+            calls[0].0,
+            vec!["api", "repos/o/r/commits/c0ffee", "-H", "Accept: application/vnd.github.v3.diff"]
+        );
     }
 
     #[test]
