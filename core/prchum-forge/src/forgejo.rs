@@ -17,15 +17,26 @@
 //!   comment in a fresh `COMMENT` review at the thread's location.
 //! * Thread positions read back as line numbers without an explicit side;
 //!   `position == 0` marks an outdated thread.
+//! * A review of one commit carries that commit as `commit_id`, the way
+//!   the web UI's single-commit view submits one.
 
 use serde_json::{json, Value};
 
 use crate::ghcli::Runner;
-use crate::{Comment, Forge, PullRequest, PullRequestRef, ReviewComment, ThreadInfo};
+use crate::{
+    first_line, oldest_first, Comment, CommitInfo, CommitList, Forge, PullRequest,
+    PullRequestRef, ReviewComment, ThreadInfo,
+};
 
 /// The default transport: the `fj` CLI's host-scoped api passthrough.
 /// `{path}` is relative to `/api/v1`, with a leading slash.
 pub const DEFAULT_API_COMMAND: &str = "fj -H {host} api {method} {path}";
+
+/// Forgejo's default ceiling on a page (`MAX_RESPONSE_ITEMS`).
+const FORGEJO_PAGE_SIZE: usize = 50;
+/// A bound on the commit walk, so a server that misbehaves about pages
+/// cannot keep it going forever.
+const FORGEJO_MAX_COMMIT_PAGES: usize = 20;
 
 pub struct ForgejoForge<R: Runner> {
     runner: R,
@@ -169,6 +180,7 @@ impl<R: Runner> Forge for ForgejoForge<R> {
         event: &str,
         summary: &str,
         comments: &[ReviewComment],
+        commit: Option<&CommitInfo>,
     ) -> Result<(), String> {
         // Forgejo's approve event is APPROVED, not GitHub's APPROVE.
         let event = if event == "APPROVE" { "APPROVED" } else { event };
@@ -187,9 +199,75 @@ impl<R: Runner> Forge for ForgejoForge<R> {
                 entry
             })
             .collect();
-        let body = json!({ "event": event, "body": summary, "comments": wire });
+        let mut body = json!({ "event": event, "body": summary, "comments": wire });
+        // Without it the review lands on the head; with it, the positions
+        // are the commit's own.
+        if let Some(commit) = commit {
+            body["commit_id"] = json!(commit.sha);
+        }
         self.request(pr, "POST", &Self::pulls_path(pr, "/reviews"), Some(&body))?;
         Ok(())
+    }
+
+    fn commits(&self, pr: &PullRequestRef) -> Result<CommitList, String> {
+        // The transport is a command template with no paginate flag of its
+        // own, so pages are walked here. `files` and `verification` are
+        // skipped: they are per-commit work nobody reads.
+        let mut commits = Vec::new();
+        for page in 1..=FORGEJO_MAX_COMMIT_PAGES {
+            let path = Self::pulls_path(
+                pr,
+                &format!(
+                    "/commits?page={page}&limit={FORGEJO_PAGE_SIZE}&files=false&verification=false"
+                ),
+            );
+            let text = self.request(pr, "GET", &path, None)?;
+            let value: Value = parse_json(&text)?;
+            let items = value.as_array().map(Vec::as_slice).unwrap_or_default();
+            // Only an empty page ends the walk: a server may cap `limit`
+            // below what was asked, making every page short. One that
+            // ignores `page` repeats itself, which ends it too.
+            let repeated = items
+                .first()
+                .map(|item| commits.iter().any(|c: &CommitInfo| c.sha == str_at(item, "sha")))
+                .unwrap_or(false);
+            if items.is_empty() || repeated {
+                return Ok(CommitList {
+                    commits: oldest_first(commits),
+                    notice: String::new(),
+                });
+            }
+            commits.extend(items.iter().map(|item| CommitInfo {
+                sha: str_at(item, "sha"),
+                parents: item["parents"]
+                    .as_array()
+                    .map(Vec::as_slice)
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|parent| str_at(parent, "sha"))
+                    .collect(),
+                title: first_line(item["commit"]["message"].as_str().unwrap_or_default()),
+                author: item["author"]["login"]
+                    .as_str()
+                    .or_else(|| item["commit"]["author"]["name"].as_str())
+                    .unwrap_or_default()
+                    .to_string(),
+                date: item["commit"]["author"]["date"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+            }));
+        }
+        let shown = commits.len();
+        Ok(CommitList {
+            commits: oldest_first(commits),
+            notice: format!("only the first {shown} commits are listed"),
+        })
+    }
+
+    fn commit_diff(&self, pr: &PullRequestRef, sha: &str) -> Result<String, String> {
+        let path = format!("/repos/{}/{}/git/commits/{sha}.diff", pr.owner, pr.repo);
+        self.request(pr, "GET", &path, None)
     }
 
     fn reply(&self, pr: &PullRequestRef, comment_id: i64, body: &str) -> Result<(), String> {
@@ -208,7 +286,7 @@ impl<R: Runner> Forge for ForgejoForge<R> {
             start_line: None,
             start_side: None,
         };
-        self.create_review(pr, "COMMENT", "", &[comment])
+        self.create_review(pr, "COMMENT", "", &[comment], None)
     }
 
     fn file_content(&self, pr: &PullRequestRef, path: &str, rev: &str) -> Result<String, String> {
@@ -348,7 +426,7 @@ mod tests {
             },
         ];
         forge
-            .create_review(&reference(), "APPROVE", "lgtm", &comments)
+            .create_review(&reference(), "APPROVE", "lgtm", &comments, None)
             .unwrap();
         let calls = forge.runner.calls.lock().unwrap();
         let body: Value = serde_json::from_str(calls[0].2.as_ref().unwrap()).unwrap();
@@ -356,6 +434,73 @@ mod tests {
         assert_eq!(body["comments"][0]["new_position"], 5);
         assert!(body["comments"][0].get("old_position").is_none());
         assert_eq!(body["comments"][1]["old_position"], 9);
+    }
+
+    #[test]
+    fn a_commit_review_carries_the_commit_id() {
+        let forge = ForgejoForge::with_runner(FakeRunner::new(vec![Ok("{}".into())]), "");
+        let commit = CommitInfo {
+            sha: "c0ffee".into(),
+            parents: vec!["beef".into()],
+            ..Default::default()
+        };
+        forge
+            .create_review(&reference(), "COMMENT", "", &[], Some(&commit))
+            .unwrap();
+        let calls = forge.runner.calls.lock().unwrap();
+        let body: Value = serde_json::from_str(calls[0].2.as_ref().unwrap()).unwrap();
+        assert_eq!(body["commit_id"], "c0ffee");
+    }
+
+    #[test]
+    fn commits_walk_pages_until_an_empty_one() {
+        let forge = ForgejoForge::with_runner(
+            FakeRunner::new(vec![
+                Ok(r#"[{"sha": "b2", "parents": [{"sha": "a1"}],
+                        "commit": {"message": "Second\nmore", "author": {"name": "Bo", "date": "d2"}}}]"#
+                    .into()),
+                Ok(r#"[{"sha": "a1", "parents": [{"sha": "base"}],
+                        "commit": {"message": "First", "author": {"name": "Al", "date": "d1"}},
+                        "author": {"login": "al"}}]"#
+                    .into()),
+                Ok("[]".into()),
+            ]),
+            "",
+        );
+        let list = forge.commits(&reference()).unwrap();
+        let shas: Vec<_> = list.commits.iter().map(|c| c.sha.as_str()).collect();
+        assert_eq!(shas, ["a1", "b2"]);
+        assert_eq!(list.commits[0].author, "al");
+        assert_eq!(list.commits[1].title, "Second");
+        assert!(list.notice.is_empty());
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(calls.len(), 3);
+        assert_eq!(
+            calls[1].1.last().unwrap(),
+            "/repos/o/r/pulls/7/commits?page=2&limit=50&files=false&verification=false"
+        );
+    }
+
+    #[test]
+    fn a_server_ignoring_pages_does_not_loop() {
+        let page = r#"[{"sha": "a1", "parents": [], "commit": {"message": "m"}}]"#;
+        let forge = ForgejoForge::with_runner(
+            FakeRunner::new(vec![Ok(page.into()), Ok(page.into())]),
+            "",
+        );
+        let list = forge.commits(&reference()).unwrap();
+        assert_eq!(list.commits.len(), 1);
+    }
+
+    #[test]
+    fn commit_diff_uses_the_git_diff_endpoint() {
+        let forge = ForgejoForge::with_runner(
+            FakeRunner::new(vec![Ok("diff --git a/x b/x\n".into())]),
+            "",
+        );
+        forge.commit_diff(&reference(), "c0ffee").unwrap();
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(calls[0].1.last().unwrap(), "/repos/o/r/git/commits/c0ffee.diff");
     }
 
     #[test]

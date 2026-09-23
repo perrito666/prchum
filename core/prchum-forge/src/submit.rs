@@ -117,6 +117,7 @@ pub fn execute(
             event_name(draft.event),
             &draft.summary,
             &comments,
+            None,
         ) {
             return SubmitOutcome {
                 accepted,
@@ -238,12 +239,19 @@ mod tests {
         fn general_comments(&self, _: &PullRequestRef) -> Result<Vec<crate::Comment>, String> {
             unreachable!()
         }
+        fn commits(&self, _: &PullRequestRef) -> Result<crate::CommitList, String> {
+            unreachable!()
+        }
+        fn commit_diff(&self, _: &PullRequestRef, _: &str) -> Result<String, String> {
+            unreachable!()
+        }
         fn create_review(
             &self,
             _: &PullRequestRef,
             _: &str,
             _: &str,
             _: &[ReviewComment],
+            _: Option<&crate::CommitInfo>,
         ) -> Result<(), String> {
             self.take()
         }

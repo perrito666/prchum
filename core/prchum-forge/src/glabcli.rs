@@ -15,11 +15,17 @@
 //!   selections anchor on their end line, and GitHub-style
 //!   `` ```suggestion `` fences are rewritten into GitLab's ranged
 //!   `` ```suggestion:-N+0 `` form so the whole selection is replaced.
+//! * A review of one commit positions its discussions on that commit
+//!   against its first parent (`base_sha` = `start_sha` = the parent,
+//!   `head_sha` = the commit), as GitLab's own commit view does.
 
 use serde_json::{json, Value};
 
 use crate::ghcli::Runner;
-use crate::{Comment, Forge, PullRequest, PullRequestRef, ReviewComment, ThreadInfo};
+use crate::{
+    first_line, oldest_first, Comment, CommitInfo, CommitList, Forge, PullRequest,
+    PullRequestRef, ReviewComment, ThreadInfo,
+};
 
 pub struct GlabForge<R: Runner> {
     runner: R,
@@ -108,32 +114,64 @@ impl<R: Runner> Forge for GlabForge<R> {
     fn diff(&self, pr: &PullRequestRef) -> Result<String, String> {
         let text = self.api(pr, &[&Self::mr_path(pr, "/changes")], None)?;
         let value: Value = parse_json(&text)?;
-        let mut patch = String::new();
-        for change in value["changes"].as_array().map(Vec::as_slice).unwrap_or_default() {
-            let old_path = str_at(change, "old_path");
-            let new_path = str_at(change, "new_path");
-            patch.push_str(&format!("diff --git a/{old_path} b/{new_path}\n"));
-            if change["new_file"].as_bool() == Some(true) {
-                patch.push_str("new file mode 100644\n");
-                patch.push_str("--- /dev/null\n");
-                patch.push_str(&format!("+++ b/{new_path}\n"));
-            } else if change["deleted_file"].as_bool() == Some(true) {
-                patch.push_str("deleted file mode 100644\n");
-                patch.push_str(&format!("--- a/{old_path}\n"));
-                patch.push_str("+++ /dev/null\n");
-            } else {
-                if change["renamed_file"].as_bool() == Some(true) {
-                    patch.push_str(&format!("rename from {old_path}\nrename to {new_path}\n"));
-                }
-                patch.push_str(&format!("--- a/{old_path}\n+++ b/{new_path}\n"));
-            }
-            patch.push_str(&str_at(change, "diff"));
-            if !patch.ends_with('\n') {
-                patch.push('\n');
-            }
-        }
+        let patch =
+            patch_from_changes(value["changes"].as_array().map(Vec::as_slice).unwrap_or_default());
         if patch.is_empty() {
             return Err("the merge request has no changes".to_string());
+        }
+        Ok(patch)
+    }
+
+    fn commits(&self, pr: &PullRequestRef) -> Result<CommitList, String> {
+        let path = Self::mr_path(pr, "/commits?per_page=100");
+        let text = self.api(pr, &[&path, "--paginate"], None)?;
+        let commits = parse_paginated(&text)?
+            .iter()
+            .map(|item| CommitInfo {
+                sha: str_at(item, "id"),
+                parents: item["parent_ids"]
+                    .as_array()
+                    .map(Vec::as_slice)
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect(),
+                title: {
+                    let title = str_at(item, "title");
+                    if title.is_empty() {
+                        first_line(item["message"].as_str().unwrap_or_default())
+                    } else {
+                        title
+                    }
+                },
+                author: str_at(item, "author_name"),
+                date: {
+                    let authored = str_at(item, "authored_date");
+                    if authored.is_empty() {
+                        str_at(item, "created_at")
+                    } else {
+                        authored
+                    }
+                },
+            })
+            .collect();
+        // GitLab answers newest first; the order is restored from parents.
+        Ok(CommitList {
+            commits: oldest_first(commits),
+            notice: String::new(),
+        })
+    }
+
+    fn commit_diff(&self, pr: &PullRequestRef, sha: &str) -> Result<String, String> {
+        let path = format!(
+            "projects/{}/repository/commits/{sha}/diff?per_page=100",
+            Self::project(pr)
+        );
+        let text = self.api(pr, &[&path, "--paginate"], None)?;
+        let patch = patch_from_changes(&parse_paginated(&text)?);
+        if patch.is_empty() {
+            return Err(format!("commit {sha} has no changes"));
         }
         Ok(patch)
     }
@@ -195,9 +233,20 @@ impl<R: Runner> Forge for GlabForge<R> {
         event: &str,
         summary: &str,
         comments: &[ReviewComment],
+        commit: Option<&CommitInfo>,
     ) -> Result<(), String> {
         let (base_sha, start_sha, head_sha) = if comments.is_empty() {
             (String::new(), String::new(), String::new())
+        } else if let Some(commit) = commit {
+            // The single-commit view's position: the commit against its
+            // parent, which is what GitLab's own commit tab posts.
+            let parent = commit.first_parent().ok_or_else(|| {
+                format!(
+                    "commit {} has no parent to position comments against",
+                    commit.short_sha()
+                )
+            })?;
+            (parent.to_string(), parent.to_string(), commit.sha.clone())
         } else {
             self.diff_refs(pr)?
         };
@@ -305,6 +354,37 @@ impl<R: Runner> Forge for GlabForge<R> {
         )?;
         Ok(())
     }
+}
+
+/// A git-style patch from GitLab change objects (the merge request's
+/// `changes`, a commit's `diff`): GitLab sends the hunks without the
+/// file headers, so one is written per file.
+fn patch_from_changes(changes: &[Value]) -> String {
+    let mut patch = String::new();
+    for change in changes {
+        let old_path = str_at(change, "old_path");
+        let new_path = str_at(change, "new_path");
+        patch.push_str(&format!("diff --git a/{old_path} b/{new_path}\n"));
+        if change["new_file"].as_bool() == Some(true) {
+            patch.push_str("new file mode 100644\n");
+            patch.push_str("--- /dev/null\n");
+            patch.push_str(&format!("+++ b/{new_path}\n"));
+        } else if change["deleted_file"].as_bool() == Some(true) {
+            patch.push_str("deleted file mode 100644\n");
+            patch.push_str(&format!("--- a/{old_path}\n"));
+            patch.push_str("+++ /dev/null\n");
+        } else {
+            if change["renamed_file"].as_bool() == Some(true) {
+                patch.push_str(&format!("rename from {old_path}\nrename to {new_path}\n"));
+            }
+            patch.push_str(&format!("--- a/{old_path}\n+++ b/{new_path}\n"));
+        }
+        patch.push_str(&str_at(change, "diff"));
+        if !patch.ends_with('\n') {
+            patch.push('\n');
+        }
+    }
+    patch
 }
 
 /// Rewrites GitHub's `` ```suggestion `` into GitLab's ranged
@@ -447,7 +527,7 @@ mod tests {
             },
         ];
         let error = forge
-            .create_review(&reference(), "COMMENT", "", &comments)
+            .create_review(&reference(), "COMMENT", "", &comments, None)
             .unwrap_err();
         assert!(error.contains("posted 1 of 2"), "{error}");
         let calls = forge.runner.calls.lock().unwrap();
@@ -457,12 +537,92 @@ mod tests {
     }
 
     #[test]
+    fn a_commit_review_positions_against_the_parent() {
+        // No diff_refs fetch: the commit supplies the whole position.
+        let forge = GlabForge::with_runner(FakeRunner::new(vec![Ok("{}".into())]));
+        let commit = CommitInfo {
+            sha: "c0ffee".into(),
+            parents: vec!["beef".into(), "other".into()],
+            ..Default::default()
+        };
+        let comments = vec![ReviewComment {
+            path: "a.rs".into(), body: "one".into(), line: 5,
+            side: "RIGHT".into(), start_line: None, start_side: None,
+        }];
+        forge
+            .create_review(&reference(), "COMMENT", "", &comments, Some(&commit))
+            .unwrap();
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert!(calls[0].0[1].ends_with("/discussions"));
+        let body: Value = serde_json::from_str(calls[0].1.as_ref().unwrap()).unwrap();
+        assert_eq!(body["position"]["base_sha"], "beef");
+        assert_eq!(body["position"]["start_sha"], "beef");
+        assert_eq!(body["position"]["head_sha"], "c0ffee");
+    }
+
+    #[test]
+    fn a_parentless_commit_refuses_rather_than_guessing() {
+        let forge = GlabForge::with_runner(FakeRunner::new(vec![]));
+        let commit = CommitInfo { sha: "c0ffee".into(), ..Default::default() };
+        let comments = vec![ReviewComment {
+            path: "a.rs".into(), body: "one".into(), line: 5,
+            side: "RIGHT".into(), start_line: None, start_side: None,
+        }];
+        let error = forge
+            .create_review(&reference(), "COMMENT", "", &comments, Some(&commit))
+            .unwrap_err();
+        assert!(error.contains("no parent"), "{error}");
+        assert!(forge.runner.calls.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn commits_come_back_oldest_first() {
+        let forge = GlabForge::with_runner(FakeRunner::new(vec![Ok(r#"[
+            {"id": "b2", "parent_ids": ["a1"], "title": "Second", "author_name": "Bo",
+             "authored_date": "d2"},
+            {"id": "a1", "parent_ids": ["base"], "title": "First", "author_name": "Al",
+             "created_at": "d1"}
+        ]"#
+        .into())]));
+        let list = forge.commits(&reference()).unwrap();
+        let shas: Vec<_> = list.commits.iter().map(|c| c.sha.as_str()).collect();
+        assert_eq!(shas, ["a1", "b2"]);
+        assert_eq!(list.commits[0].date, "d1");
+        assert_eq!(list.commits[1].author, "Bo");
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(
+            calls[0].0[1],
+            "projects/group%2Fsub%2Frepo/merge_requests/42/commits?per_page=100"
+        );
+    }
+
+    #[test]
+    fn commit_diff_reconstructs_headers() {
+        let forge = GlabForge::with_runner(FakeRunner::new(vec![Ok(r#"[
+            {"old_path": "a.rs", "new_path": "a.rs", "diff": "@@ -1 +1 @@\n-x\n+y\n"}
+        ]"#
+        .into())]));
+        let patch = forge.commit_diff(&reference(), "c0ffee").unwrap();
+        assert!(patch.starts_with("diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n"));
+        assert_eq!(prchum_core::diff::parse(&patch, 4).unwrap().len(), 1);
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(
+            calls[0].0[1],
+            "projects/group%2Fsub%2Frepo/repository/commits/c0ffee/diff?per_page=100"
+        );
+
+        let forge = GlabForge::with_runner(FakeRunner::new(vec![Ok("[]".into())]));
+        assert!(forge.commit_diff(&reference(), "c0ffee").is_err());
+    }
+
+    #[test]
     fn approve_and_request_changes_map() {
         let forge = GlabForge::with_runner(FakeRunner::new(vec![
             Ok("{}".into()), // approve
             Ok("{}".into()), // summary note
         ]));
-        forge.create_review(&reference(), "APPROVE", "ship it", &[]).unwrap();
+        forge.create_review(&reference(), "APPROVE", "ship it", &[], None).unwrap();
         let calls = forge.runner.calls.lock().unwrap();
         assert!(calls[0].0[1].ends_with("/approve"));
         assert!(calls[1].1.as_ref().unwrap().contains("ship it"));
@@ -470,7 +630,7 @@ mod tests {
 
         let forge = GlabForge::with_runner(FakeRunner::new(vec![Ok("{}".into())]));
         forge
-            .create_review(&reference(), "REQUEST_CHANGES", "needs work", &[])
+            .create_review(&reference(), "REQUEST_CHANGES", "needs work", &[], None)
             .unwrap();
         let calls = forge.runner.calls.lock().unwrap();
         assert!(calls[0].1.as_ref().unwrap().contains("Changes requested"));
