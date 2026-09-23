@@ -718,7 +718,7 @@ pub unsafe extern "C" fn pc_session_submit(session: *mut PcSession) -> *mut c_ch
         // consistent for its duration, and any concurrent access simply
         // waits (the shell keeps its UI thread away meanwhile).
         let mut inner = session.lock();
-        let plan = submit::plan(inner.draft());
+        let plan = context.plan(inner.draft());
         let outcome = submit::execute(forge.as_ref(), &pr, inner.draft(), &plan);
 
         let posted = outcome.accepted.len();
