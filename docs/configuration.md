@@ -65,7 +65,9 @@ Action names: `open`, `open-pr`, `open-git`, `review-queue`, `export`,
 - `clones` — `owner/repo` → the local clone that holds it
   (`{"perrito666/prchum": "/Users/me/src/prchum"}`), matched
   case-insensitively. Settings (⌘,) manages the list, and Edit File
-  Locally offers to pick one when a repository has none.
+  Locally offers to pick one when a repository has none. A GitHub pull
+  request too large for GitHub to serve whole (past 300 files, or files
+  it will not show) takes the missing parts from this clone.
 - `editor_command` — how to open a file: a URL or a command, with
   `{path}`, `{line}`, and `{dir}` placeholders. Empty means
   `textchum://open?path={path}&line={line}`; `code -g {path}:{line}` and
