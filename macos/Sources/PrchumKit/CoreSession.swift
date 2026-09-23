@@ -562,6 +562,33 @@ public final class CoreSession: @unchecked Sendable {
         }
     }
 
+    // MARK: Reviewed files
+
+    /// Marks or unmarks a file as reviewed. Local only; the mark lapses by
+    /// itself when the file's changes change.
+    @discardableResult
+    public func setFileReviewed(at index: Int, _ reviewed: Bool) -> Bool {
+        pc_session_set_file_reviewed(handle, UInt(index), reviewed)
+    }
+
+    /// Whether the file is marked reviewed against its current changes.
+    public func isFileReviewed(at index: Int) -> Bool {
+        pc_session_file_reviewed(handle, UInt(index))
+    }
+
+    /// The reviewed state of every file, in diff order.
+    public func reviewedFiles() -> [Bool] {
+        guard let json = takeString(pc_session_reviewed_files_json(handle)) else { return [] }
+        return (try? decode([Bool].self, from: json)) ?? []
+    }
+
+    /// The next file not yet reviewed from `index`, wrapping around; the
+    /// current file only when it is the last one left, nil when all are.
+    public func nextUnreviewedFile(from index: Int, forward: Bool = true) -> Int? {
+        let next = pc_session_next_unreviewed(handle, UInt(max(index, 0)), forward)
+        return next < 0 ? nil : Int(next)
+    }
+
     /// Pull-request metadata (PR mode).
     public var pullRequestInfo: PullRequestInfo? {
         guard let json = takeString(pc_session_pr_json(handle)), !json.isEmpty else {

@@ -79,6 +79,9 @@ enum ActionID: String, CaseIterable {
     case previousHunk = "prev-hunk"
     case nextFile = "next-file"
     case previousFile = "prev-file"
+    case nextUnreviewed = "next-unreviewed"
+    case previousUnreviewed = "prev-unreviewed"
+    case toggleReviewed = "toggle-reviewed"
     case chooseCommit = "choose-commit"
     case nextCommit = "next-commit"
     case previousCommit = "prev-commit"
@@ -123,6 +126,9 @@ enum ActionID: String, CaseIterable {
         case .previousHunk: return "Previous Hunk"
         case .nextFile: return "Next File"
         case .previousFile: return "Previous File"
+        case .nextUnreviewed: return "Next Unreviewed File"
+        case .previousUnreviewed: return "Previous Unreviewed File"
+        case .toggleReviewed: return "Mark File as Reviewed"
         case .chooseCommit: return "Review Commit…"
         case .nextCommit: return "Next Commit"
         case .previousCommit: return "Previous Commit"
@@ -171,6 +177,10 @@ enum ActionID: String, CaseIterable {
         case .previousHunk: return #selector(ReviewWindowController.previousHunk(_:))
         case .nextFile: return #selector(ReviewWindowController.nextFile(_:))
         case .previousFile: return #selector(ReviewWindowController.previousFile(_:))
+        case .nextUnreviewed: return #selector(ReviewWindowController.nextUnreviewed(_:))
+        case .previousUnreviewed:
+            return #selector(ReviewWindowController.previousUnreviewed(_:))
+        case .toggleReviewed: return #selector(ReviewWindowController.toggleReviewed(_:))
         case .chooseCommit: return #selector(ReviewWindowController.chooseCommit(_:))
         case .nextCommit: return #selector(ReviewWindowController.nextCommit(_:))
         case .previousCommit: return #selector(ReviewWindowController.previousCommit(_:))
@@ -217,6 +227,9 @@ enum ActionID: String, CaseIterable {
         case .previousHunk: return KeyChord.parse("cmd+alt+up")
         case .nextFile: return KeyChord.parse("cmd+shift+down")
         case .previousFile: return KeyChord.parse("cmd+shift+up")
+        case .nextUnreviewed: return KeyChord.parse("cmd+alt+shift+down")
+        case .previousUnreviewed: return KeyChord.parse("cmd+alt+shift+up")
+        case .toggleReviewed: return KeyChord.parse("cmd+alt+v")
         case .chooseCommit: return KeyChord.parse("cmd+ctrl+c")
         case .nextCommit: return KeyChord.parse("cmd+ctrl+down")
         case .previousCommit: return KeyChord.parse("cmd+ctrl+up")

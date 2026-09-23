@@ -15,6 +15,8 @@ ligne dans le corps).
 | ⌘↓ / ⌘↑ | changement suivant / précédent |
 | ⌥⌘↓ / ⌥⌘↑ | hunk suivant / précédent |
 | ⇧⌘↓ / ⇧⌘↑ | fichier suivant / précédent |
+| ⇧⌥⌘↓ / ⇧⌥⌘↑ | fichier non relu suivant / précédent |
+| ⌥⌘V | marquer le fichier courant comme relu ↔ le démarquer |
 | ⌘F | rechercher dans le diff (la barre de recherche native) |
 | ⌥⌘T | vue unifiée ↔ scindée |
 | ⌥⌘C | contexte complet : le fichier entier avec les hunks superposés |
@@ -30,6 +32,24 @@ côtés d'un changement. Quatorze langages sont intégrés.
 
 En vue scindée, les deux côtés occupent des panneaux parallèles ; le
 panneau où se trouve le curseur décide du côté que vise un commentaire.
+
+## Fichiers relus
+
+⌥⌘V marque comme relu le fichier à l'écran ; la barre latérale met une
+coche devant, atténue son nom et compte la progression en haut — « 3 sur
+12 relus ». Un clic sur la coche fait de même. ⇧⌥⌘↓ va au fichier non
+relu suivant, en revenant au début après la fin de la liste, et ⇧⌥⌘↑ au
+précédent ; quand tous sont marqués, il le dit.
+
+Une marque appartient aux changements sur lesquels elle a été posée. Si
+le diff d'un fichier change — un nouveau push, un arbre de travail
+modifié — la marque tombe et le fichier compte de nouveau comme non
+relu, comme le « Viewed » de GitHub. Un rebase qui ne fait que décaler
+les numéros de ligne garde la marque.
+
+Les marques ne regardent que vous : elles sont enregistrées avec vos
+brouillons et jamais envoyées à la forge. Un document d'échange ne les
+porte pas non plus. Le shell Linux n'a pas encore les marques.
 
 ## Un commit à la fois
 

@@ -514,6 +514,33 @@ bool pc_session_delete_general(struct PcSession *session,
                                uintptr_t local_id_len);
 
 /**
+ * Marks (`reviewed` true) or unmarks the file at `file_index` as
+ * reviewed, and persists. The mark is local — never submitted — and
+ * lapses by itself when the file's changes change. `false` for an
+ * out-of-range index or a failed save.
+ */
+bool pc_session_set_file_reviewed(struct PcSession *session, uintptr_t file_index, bool reviewed);
+
+/**
+ * Whether the file at `file_index` is marked reviewed against its
+ * current changes. `false` for an out-of-range index.
+ */
+bool pc_session_file_reviewed(const struct PcSession *session, uintptr_t file_index);
+
+/**
+ * The reviewed state of every file, in diff order, as a JSON array of
+ * booleans. Release with [`pc_string_free`].
+ */
+char *pc_session_reviewed_files_json(const struct PcSession *session);
+
+/**
+ * The index of the next file not yet reviewed, looking from `from`
+ * forward (or backward) and wrapping around; `from` itself is the answer
+ * only when it is the last one left. -1 when every file is reviewed.
+ */
+int64_t pc_session_next_unreviewed(const struct PcSession *session, uintptr_t from, bool forward);
+
+/**
  * Records (or refreshes) this session in the review history at `dir`.
  * `submitted` also stamps the submission time. `false` on failure.
  */

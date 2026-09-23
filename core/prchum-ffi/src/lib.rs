@@ -1159,6 +1159,75 @@ pub unsafe extern "C" fn pc_session_delete_general(
         .unwrap_or(false)
 }
 
+/// Marks (`reviewed` true) or unmarks the file at `file_index` as
+/// reviewed, and persists. The mark is local — never submitted — and
+/// lapses by itself when the file's changes change. `false` for an
+/// out-of-range index or a failed save.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_set_file_reviewed(
+    session: *mut PcSession,
+    file_index: usize,
+    reviewed: bool,
+) -> bool {
+    let Some(session) = (unsafe { session.as_mut() }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| {
+        session.lock().set_file_reviewed(file_index, reviewed).is_ok()
+    }))
+    .unwrap_or(false)
+}
+
+/// Whether the file at `file_index` is marked reviewed against its
+/// current changes. `false` for an out-of-range index.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_file_reviewed(
+    session: *const PcSession,
+    file_index: usize,
+) -> bool {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return false;
+    };
+    catch_unwind(AssertUnwindSafe(|| session.lock().is_file_reviewed(file_index)))
+        .unwrap_or(false)
+}
+
+/// The reviewed state of every file, in diff order, as a JSON array of
+/// booleans. Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_reviewed_files_json(
+    session: *const PcSession,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        serde_json::to_string(&session.lock().reviewed_files())
+    }));
+    match result {
+        Ok(Ok(json)) => owned_c_string(json),
+        _ => std::ptr::null_mut(),
+    }
+}
+
+/// The index of the next file not yet reviewed, looking from `from`
+/// forward (or backward) and wrapping around; `from` itself is the answer
+/// only when it is the last one left. -1 when every file is reviewed.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_next_unreviewed(
+    session: *const PcSession,
+    from: usize,
+    forward: bool,
+) -> i64 {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return -1;
+    };
+    catch_unwind(AssertUnwindSafe(|| session.lock().next_unreviewed(from, forward)))
+        .ok()
+        .flatten()
+        .map_or(-1, |index| index as i64)
+}
+
 /// Records (or refreshes) this session in the review history at `dir`.
 /// `submitted` also stamps the submission time. `false` on failure.
 #[no_mangle]
@@ -1766,6 +1835,16 @@ mod tests {
         unsafe { pc_string_free(json) };
 
         assert!(unsafe { pc_session_file_json(session, 9) }.is_null());
+
+        assert!(!unsafe { pc_session_file_reviewed(session, 0) });
+        assert_eq!(unsafe { pc_session_next_unreviewed(session, 0, true) }, 0);
+        assert!(unsafe { pc_session_set_file_reviewed(session, 0, true) });
+        assert!(unsafe { pc_session_file_reviewed(session, 0) });
+        assert!(!unsafe { pc_session_set_file_reviewed(session, 9, true) });
+        assert_eq!(unsafe { pc_session_next_unreviewed(session, 0, true) }, -1);
+        let json = unsafe { pc_session_reviewed_files_json(session) };
+        assert_eq!(unsafe { std::ffi::CStr::from_ptr(json) }.to_str().unwrap(), "[true]");
+        unsafe { pc_string_free(json) };
         unsafe { pc_session_free(session) };
     }
 

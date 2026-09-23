@@ -31,6 +31,9 @@ pub struct PrContext {
     /// comments are positioned in that commit's diff and must be
     /// submitted pinned to it.
     pub commit: Option<CommitInfo>,
+    /// A local clone of the repository, for the parts of a large GitHub
+    /// diff the API will not serve; empty when there is none.
+    pub clone: String,
 }
 
 impl PrContext {
@@ -50,7 +53,7 @@ impl PrContext {
                 &self.forgejo_template,
             )),
             ForgeKind::GitLab => Box::new(GlabForge::new()),
-            ForgeKind::GitHub => Box::new(GhForge::new()),
+            ForgeKind::GitHub => Box::new(GhForge::new().with_clone(&self.clone)),
         }
     }
 
@@ -104,6 +107,22 @@ pub fn request_title(reference: &PullRequestRef, pr_title: &str) -> String {
     )
 }
 
+/// A local clone of the request's repository: the one configured for it,
+/// else the checkout the request was opened from when its origin is the
+/// same repository. Empty when there is neither.
+fn local_clone(pr_ref: &PullRequestRef, repo_hint: &str, config: &Config) -> String {
+    let slug = format!("{}/{}", pr_ref.owner, pr_ref.repo);
+    if let Some(clone) = config.clone_for(&slug) {
+        return clone.to_string();
+    }
+    let hint = if repo_hint.is_empty() { "." } else { repo_hint };
+    let mut origin = PullRequestRef::default();
+    let same = resolve_from_origin(&mut origin, hint).is_ok()
+        && origin.host.eq_ignore_ascii_case(&pr_ref.host)
+        && format!("{}/{}", origin.owner, origin.repo).eq_ignore_ascii_case(&slug);
+    if same { hint.to_string() } else { String::new() }
+}
+
 /// Opens `reference` as a session, with the context the shell needs to
 /// submit back to the same forge it came from.
 pub fn open_session(
@@ -131,6 +150,7 @@ pub fn open_session(
 
     let kind = kind_for_host(&pr_ref.host, config.forge_for_host(&pr_ref.host));
     let context = PrContext {
+        clone: local_clone(&pr_ref, repo_hint, config),
         reference: pr_ref,
         kind,
         forgejo_template: config.forgejo_api_command().to_string(),
@@ -253,6 +273,7 @@ mod tests {
             kind: ForgeKind::GitHub,
             forgejo_template: String::new(),
             commit,
+            clone: String::new(),
         }
     }
 

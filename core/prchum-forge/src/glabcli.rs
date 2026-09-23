@@ -13,8 +13,8 @@
 //!   (a retry may repeat those — GitLab has nothing atomic to lean on).
 //! * GitLab positions a discussion on a single line; multi-line
 //!   selections anchor on their end line, and GitHub-style
-//!   ```suggestion fences are rewritten into GitLab's ranged
-//!   ```suggestion:-N+0 form so the whole selection is replaced.
+//!   `` ```suggestion `` fences are rewritten into GitLab's ranged
+//!   `` ```suggestion:-N+0 `` form so the whole selection is replaced.
 //! * A review of one commit positions its discussions on that commit
 //!   against its first parent (`base_sha` = `start_sha` = the parent,
 //!   `head_sha` = the commit), as GitLab's own commit view does.
@@ -383,8 +383,8 @@ fn patch_from_changes(changes: &[Value]) -> String {
     patch
 }
 
-/// Rewrites GitHub's ```suggestion into GitLab's ranged
-/// ```suggestion:-N+0: GitLab's fence is relative to the positioned line
+/// Rewrites GitHub's `` ```suggestion `` into GitLab's ranged
+/// `` ```suggestion:-N+0 ``: GitLab's fence is relative to the positioned line
 /// (the range's end), so without the `-N` only the last line would be
 /// replaced.
 fn adapt_suggestion(body: &str, start_line: Option<u32>, end_line: u32) -> String {
