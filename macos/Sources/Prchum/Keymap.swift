@@ -79,6 +79,9 @@ enum ActionID: String, CaseIterable {
     case previousHunk = "prev-hunk"
     case nextFile = "next-file"
     case previousFile = "prev-file"
+    case chooseCommit = "choose-commit"
+    case nextCommit = "next-commit"
+    case previousCommit = "prev-commit"
     case toggleSidebar = "toggle-sidebar"
     case toggleWrap = "toggle-wrap"
     case toggleLayout = "toggle-layout"
@@ -120,6 +123,9 @@ enum ActionID: String, CaseIterable {
         case .previousHunk: return "Previous Hunk"
         case .nextFile: return "Next File"
         case .previousFile: return "Previous File"
+        case .chooseCommit: return "Review Commit…"
+        case .nextCommit: return "Next Commit"
+        case .previousCommit: return "Previous Commit"
         case .toggleSidebar: return "Toggle Sidebar"
         case .toggleWrap: return "Wrap Lines"
         case .toggleLayout: return "Toggle Split View"
@@ -165,6 +171,9 @@ enum ActionID: String, CaseIterable {
         case .previousHunk: return #selector(ReviewWindowController.previousHunk(_:))
         case .nextFile: return #selector(ReviewWindowController.nextFile(_:))
         case .previousFile: return #selector(ReviewWindowController.previousFile(_:))
+        case .chooseCommit: return #selector(ReviewWindowController.chooseCommit(_:))
+        case .nextCommit: return #selector(ReviewWindowController.nextCommit(_:))
+        case .previousCommit: return #selector(ReviewWindowController.previousCommit(_:))
         case .toggleSidebar: return #selector(NSSplitViewController.toggleSidebar(_:))
         case .toggleWrap: return #selector(ReviewWindowController.toggleWrap(_:))
         case .toggleLayout: return #selector(ReviewWindowController.toggleLayout(_:))
@@ -208,6 +217,9 @@ enum ActionID: String, CaseIterable {
         case .previousHunk: return KeyChord.parse("cmd+alt+up")
         case .nextFile: return KeyChord.parse("cmd+shift+down")
         case .previousFile: return KeyChord.parse("cmd+shift+up")
+        case .chooseCommit: return KeyChord.parse("cmd+ctrl+c")
+        case .nextCommit: return KeyChord.parse("cmd+ctrl+down")
+        case .previousCommit: return KeyChord.parse("cmd+ctrl+up")
         case .toggleSidebar: return KeyChord.parse("cmd+ctrl+s")
         case .toggleWrap: return KeyChord.parse("cmd+alt+w")
         case .toggleLayout: return KeyChord.parse("cmd+alt+t")
