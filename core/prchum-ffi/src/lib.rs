@@ -21,7 +21,7 @@ use prchum_core::diff::Side;
 use prchum_core::review::ReviewEvent;
 use prchum_core::source::GitSpec;
 use prchum_core::{App, Config, Event, Session};
-use prchum_forge::open::{open_session, PrContext};
+use prchum_forge::open::{commit_key, open_commit_session, open_session, request_title, PrContext};
 use prchum_forge::forgejo::ForgejoForge;
 use prchum_forge::ghcli::{GhForge, ProcessRunner};
 use prchum_forge::glabcli::GlabForge;
@@ -298,6 +298,133 @@ pub unsafe extern "C" fn pc_session_new_from_pr(
         }
         Err(_) => {
             unsafe { write_error(error_out, "internal error while opening the pull request") };
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// The commits of a pull-request session's request, oldest first, as
+/// JSON: `{"commits": [{sha, parents, title, author, date, drafts}],
+/// "notice": "…", "drafts": n, "current": "sha"}`.
+///
+/// `drafts` counts what waits in the draft store for each commit's own
+/// review, and at the top level for the whole request's; `notice` is
+/// non-empty when the forge withheld commits (GitHub lists at most 250);
+/// `current` is the commit this session reviews, empty for the whole
+/// request.
+///
+/// A blocking forge call — run it off the UI thread. Null with
+/// `error_out` set on failure, or for a session that is not a pull
+/// request. Release with [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_commits_json(
+    session: *const PcSession,
+    error_out: *mut *mut c_char,
+) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(context) = session.pr.as_ref() else {
+        unsafe { write_error(error_out, "this session has no pull request") };
+        return std::ptr::null_mut();
+    };
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        // Fetched before taking the session's lock: the network is slow
+        // and nothing here needs the session until the counting.
+        let list = context.forge().commits(&context.reference)?;
+        let request_key = context.request_key();
+        let inner = session.lock();
+        let commits: Vec<serde_json::Value> = list
+            .commits
+            .iter()
+            .map(|commit| {
+                let mut value = serde_json::to_value(commit).unwrap_or_default();
+                value["drafts"] = serde_json::json!(
+                    inner.draft_count(&commit_key(&request_key, &commit.sha))
+                );
+                value
+            })
+            .collect();
+        Ok::<String, String>(
+            serde_json::json!({
+                "commits": commits,
+                "notice": list.notice,
+                "drafts": inner.draft_count(&request_key),
+                "current": context.commit.as_ref().map(|c| c.sha.clone()).unwrap_or_default(),
+            })
+            .to_string(),
+        )
+    }));
+    match result {
+        Ok(Ok(json)) => owned_c_string(json),
+        Ok(Err(message)) => {
+            unsafe { write_error(error_out, &message) };
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            unsafe { write_error(error_out, "internal error while listing commits") };
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// The commit this session reviews, as JSON `{sha, parents, title,
+/// author, date}`; an empty string for a whole-request session or one
+/// that is not a pull request. No network. Release with
+/// [`pc_string_free`].
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_commit_json(session: *const PcSession) -> *mut c_char {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let json = session
+        .pr
+        .as_ref()
+        .and_then(|context| context.commit.as_ref())
+        .and_then(|commit| serde_json::to_string(commit).ok())
+        .unwrap_or_default();
+    owned_c_string(json)
+}
+
+/// Opens one commit of a pull-request session's request as a session of
+/// its own — its own drafts, its submission pinned to the commit — or,
+/// for an empty `sha`, the whole request again. `session` may itself be
+/// on a commit, and is left as it is.
+///
+/// `sha` must be a full sha from [`pc_session_commits_json`]; one that is
+/// not among the request's commits is refused. Blocking (the forge is
+/// asked for the commit list, the metadata and the diff) — run it off
+/// the UI thread. Null with `error_out` set on failure.
+#[no_mangle]
+pub unsafe extern "C" fn pc_session_new_from_commit(
+    session: *const PcSession,
+    sha: *const c_char,
+    sha_len: usize,
+    error_out: *mut *mut c_char,
+) -> *mut PcSession {
+    let Some(session) = (unsafe { session.as_ref() }) else {
+        return std::ptr::null_mut();
+    };
+    let Some(sha) = (unsafe { str_from_raw(sha, sha_len) }) else {
+        unsafe { write_error(error_out, "sha is not valid UTF-8") };
+        return std::ptr::null_mut();
+    };
+    let Some(context) = session.pr.as_ref() else {
+        unsafe { write_error(error_out, "this session has no pull request") };
+        return std::ptr::null_mut();
+    };
+    let built = catch_unwind(AssertUnwindSafe(|| open_commit_session(context, sha)));
+    match built {
+        Ok(Ok((inner, pr))) => Box::into_raw(Box::new(PcSession {
+            inner: std::sync::Mutex::new(inner),
+            pr: Some(pr),
+        })),
+        Ok(Err(message)) => {
+            unsafe { write_error(error_out, &message) };
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            unsafe { write_error(error_out, "internal error while opening the commit") };
             std::ptr::null_mut()
         }
     }
@@ -1137,10 +1264,26 @@ pub unsafe extern "C" fn pc_session_record_history(
                 .to_string(),
             _ => inner.reopen_hint().to_string(),
         };
+        // A commit review is recorded as its request: the home screen
+        // reopens requests, and the commit's drafts come back when the
+        // commit is picked again from there.
+        let (key, title) = match session.pr.as_ref() {
+            Some(context) if context.commit.is_some() => {
+                let pr_title = serde_json::from_str::<serde_json::Value>(inner.pr_json())
+                    .ok()
+                    .and_then(|pr| pr["title"].as_str().map(str::to_string))
+                    .unwrap_or_default();
+                (
+                    context.request_key(),
+                    request_title(&context.reference, &pr_title),
+                )
+            }
+            _ => (inner.source_key().to_string(), inner.title().to_string()),
+        };
         let entry = prchum_core::history::HistoryEntry {
-            key: inner.source_key().to_string(),
+            key,
             kind: inner.kind().to_string(),
-            title: inner.title().to_string(),
+            title,
             display,
             reopen: inner.reopen_hint().to_string(),
             last_opened: String::new(),
@@ -1408,14 +1551,18 @@ pub unsafe extern "C" fn pc_session_worktree_json(
                     ForgeKind::GitLab => format!("refs/merge-requests/{number}/head"),
                     _ => format!("refs/pull/{number}/head"),
                 };
+                // The request's key and head even from a commit review:
+                // the worktree is the branch's, one per request, and the
+                // history prune removes it by the request's key.
+                let head = metadata["head_oid"].as_str().unwrap_or_default();
                 prchum_core::worktree::ensure(
                     dir,
-                    inner.source_key(),
+                    &context.request_key(),
                     clone,
                     branch,
                     number,
                     &fetch_ref,
-                    inner.head_oid(),
+                    head,
                 )
             }
             _ => Err("this source has no repository to edit in".to_string()),

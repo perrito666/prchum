@@ -181,6 +181,47 @@ struct PcSession *pc_session_new_from_pr(const char *reference,
                                          char **error_out);
 
 /**
+ * The commits of a pull-request session's request, oldest first, as
+ * JSON: `{"commits": [{sha, parents, title, author, date, drafts}],
+ * "notice": "…", "drafts": n, "current": "sha"}`.
+ *
+ * `drafts` counts what waits in the draft store for each commit's own
+ * review, and at the top level for the whole request's; `notice` is
+ * non-empty when the forge withheld commits (GitHub lists at most 250);
+ * `current` is the commit this session reviews, empty for the whole
+ * request.
+ *
+ * A blocking forge call — run it off the UI thread. Null with
+ * `error_out` set on failure, or for a session that is not a pull
+ * request. Release with [`pc_string_free`].
+ */
+char *pc_session_commits_json(const struct PcSession *session, char **error_out);
+
+/**
+ * The commit this session reviews, as JSON `{sha, parents, title,
+ * author, date}`; an empty string for a whole-request session or one
+ * that is not a pull request. No network. Release with
+ * [`pc_string_free`].
+ */
+char *pc_session_commit_json(const struct PcSession *session);
+
+/**
+ * Opens one commit of a pull-request session's request as a session of
+ * its own — its own drafts, its submission pinned to the commit — or,
+ * for an empty `sha`, the whole request again. `session` may itself be
+ * on a commit, and is left as it is.
+ *
+ * `sha` must be a full sha from [`pc_session_commits_json`]; one that is
+ * not among the request's commits is refused. Blocking (the forge is
+ * asked for the commit list, the metadata and the diff) — run it off
+ * the UI thread. Null with `error_out` set on failure.
+ */
+struct PcSession *pc_session_new_from_commit(const struct PcSession *session,
+                                             const char *sha,
+                                             uintptr_t sha_len,
+                                             char **error_out);
+
+/**
  * The whole-file projection of one file — the context view: content
  * fetched through the source (blocking for PR sessions; run off the UI
  * thread on first use), verified against the diff, hunks overlaid. Same
