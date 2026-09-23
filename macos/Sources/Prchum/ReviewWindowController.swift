@@ -73,10 +73,16 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         session.setAuthor(CoreConfig().author)
         comments = session.comments()
         threads = session.threads()
+        sidebarModel.updateReviewed(session.reviewedFiles())
 
         let split = NSSplitViewController()
         let sidebar = NSHostingController(
-            rootView: SidebarView(model: sidebarModel) { [weak self] index in
+            rootView: SidebarView(
+                model: sidebarModel,
+                onToggleReviewed: { [weak self] index in
+                    self?.toggleReviewed(at: index)
+                }
+            ) { [weak self] index in
                 self?.showFile(at: index)
             })
         let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebar)
@@ -249,6 +255,48 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
 
     @objc func previousFile(_ sender: Any?) {
         showFile(at: sidebarModel.selected - 1)
+    }
+
+    @objc func nextUnreviewed(_ sender: Any?) {
+        showUnreviewed(forward: true)
+    }
+
+    @objc func previousUnreviewed(_ sender: Any?) {
+        showUnreviewed(forward: false)
+    }
+
+    /// Reviewed <-> not reviewed, for the file on screen. The mark is local
+    /// and lapses by itself when the file's changes change.
+    @objc func toggleReviewed(_ sender: Any?) {
+        toggleReviewed(at: sidebarModel.selected)
+    }
+
+    private func toggleReviewed(at index: Int) {
+        guard !busy, files.indices.contains(index) else { return }
+        let reviewed = !session.isFileReviewed(at: index)
+        guard session.setFileReviewed(at: index, reviewed) else {
+            presentInfo("The reviewed mark could not be saved.")
+            return
+        }
+        sidebarModel.updateReviewed(session.reviewedFiles())
+    }
+
+    /// Doing nothing when there is nowhere to go would read as a missed
+    /// key press, so both dead ends say so.
+    private func showUnreviewed(forward: Bool) {
+        guard !busy else { return }
+        guard
+            let index = session.nextUnreviewedFile(
+                from: sidebarModel.selected, forward: forward)
+        else {
+            presentInfo("Every file is marked as reviewed.")
+            return
+        }
+        if index == sidebarModel.selected {
+            presentInfo("This is the only file not yet reviewed.")
+            return
+        }
+        showFile(at: index)
     }
 
     @objc func toggleWrap(_ sender: Any?) {
@@ -1107,6 +1155,13 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             return sidebarModel.selected + 1 < files.count
         case #selector(previousFile(_:)):
             return sidebarModel.selected > 0
+        case #selector(nextUnreviewed(_:)), #selector(previousUnreviewed(_:)):
+            return !files.isEmpty
+        case #selector(toggleReviewed(_:)):
+            let reviewed = sidebarModel.rows.indices.contains(sidebarModel.selected)
+                && sidebarModel.rows[sidebarModel.selected].reviewed
+            item.state = reviewed ? .on : .off
+            return !files.isEmpty
         case #selector(toggleWrap(_:)):
             item.state = wrapEnabled ? .on : .off
             return true
@@ -1585,6 +1640,7 @@ final class SidebarModel: ObservableObject {
         let deleted: Int
         var drafts: Int = 0
         var threads: Int = 0
+        var reviewed = false
     }
 
     @Published var rows: [Row]
@@ -1603,6 +1659,22 @@ final class SidebarModel: ObservableObject {
         selected = 0
     }
 
+    /// Takes the core's per-file reviewed state, in diff order.
+    func updateReviewed(_ states: [Bool]) {
+        for index in rows.indices {
+            rows[index].reviewed = states.indices.contains(index) && states[index]
+        }
+    }
+
+    var reviewedCount: Int {
+        rows.filter(\.reviewed).count
+    }
+
+    /// "3 of 12 reviewed", for the sidebar's header.
+    var progress: String {
+        "\(reviewedCount) of \(rows.count) reviewed"
+    }
+
     func updateCounts(drafts: [String: Int], threads: [String: Int]) {
         for index in rows.indices {
             rows[index].drafts = drafts[rows[index].path] ?? 0
@@ -1613,43 +1685,60 @@ final class SidebarModel: ObservableObject {
 
 struct SidebarView: View {
     @ObservedObject var model: SidebarModel
+    let onToggleReviewed: (Int) -> Void
     let onSelect: (Int) -> Void
 
     var body: some View {
-        List(model.rows, selection: selectionBinding) { row in
-            HStack(spacing: 6) {
-                Text(row.glyph)
-                    .font(.system(.caption, design: .monospaced).bold())
-                    .foregroundStyle(glyphColor(row.glyph))
-                    .frame(width: 14)
-                Text(row.path)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-                Spacer(minLength: 4)
-                if row.drafts > 0 {
-                    Text("●\(row.drafts)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.orange)
-                }
-                if row.threads > 0 {
-                    Text("◆\(row.threads)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.purple)
-                }
-                if row.added > 0 {
-                    Text("+\(row.added)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.green)
-                }
-                if row.deleted > 0 {
-                    Text("−\(row.deleted)")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.red)
+        List(selection: selectionBinding) {
+            Section(header: Text(model.progress).monospacedDigit()) {
+                ForEach(model.rows) { row in
+                    rowView(row).tag(row.id)
                 }
             }
-            .tag(row.id)
         }
         .listStyle(.sidebar)
+    }
+
+    private func rowView(_ row: SidebarModel.Row) -> some View {
+        HStack(spacing: 6) {
+            Button {
+                onToggleReviewed(row.id)
+            } label: {
+                Image(systemName: row.reviewed ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(row.reviewed ? Color.green : Color.secondary)
+            }
+            .buttonStyle(.plain)
+            .help(row.reviewed ? "Reviewed (click to unmark)" : "Mark as reviewed")
+            Text(row.glyph)
+                .font(.system(.caption, design: .monospaced).bold())
+                .foregroundStyle(glyphColor(row.glyph))
+                .frame(width: 14)
+            Text(row.path)
+                .lineLimit(1)
+                .truncationMode(.head)
+                .foregroundStyle(row.reviewed ? .secondary : .primary)
+            Spacer(minLength: 4)
+            if row.drafts > 0 {
+                Text("●\(row.drafts)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.orange)
+            }
+            if row.threads > 0 {
+                Text("◆\(row.threads)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.purple)
+            }
+            if row.added > 0 {
+                Text("+\(row.added)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.green)
+            }
+            if row.deleted > 0 {
+                Text("−\(row.deleted)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.red)
+            }
+        }
     }
 
     private var selectionBinding: Binding<Int?> {

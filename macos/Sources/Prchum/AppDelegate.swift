@@ -584,6 +584,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         goMenu.addItem(.separator())
         goMenu.addItem(keymap.menuItem(for: .nextFile))
         goMenu.addItem(keymap.menuItem(for: .previousFile))
+        goMenu.addItem(.separator())
+        goMenu.addItem(keymap.menuItem(for: .nextUnreviewed))
+        goMenu.addItem(keymap.menuItem(for: .previousUnreviewed))
+        goMenu.addItem(keymap.menuItem(for: .toggleReviewed))
 
         let windowItem = NSMenuItem()
         mainMenu.addItem(windowItem)
