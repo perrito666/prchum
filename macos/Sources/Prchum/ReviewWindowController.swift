@@ -47,9 +47,25 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
     private var busy = false
 
     var onClose: ((ReviewWindowController) -> Void)?
+    /// Hands over a session of another commit of the same request (or the
+    /// whole of it) to take this window's place.
+    var onReplaceSession: ((ReviewWindowController, CoreSession) -> Void)?
+
+    /// Read by the toolbar delegate, which is not main-actor isolated;
+    /// fixed for the window's life.
+    nonisolated private let isPullRequest: Bool
+    /// The commit under review; nil for a whole request.
+    private let reviewedCommit: CommitInfo?
+    /// The request's commits, once fetched.
+    private var commitListing: CommitListing?
+    /// Why they could not be fetched, when they could not.
+    private var commitListingError: String?
+    private var commitPopup: NSPopUpButton?
 
     init(session: CoreSession) {
         self.session = session
+        self.isPullRequest = session.isPullRequest
+        self.reviewedCommit = session.reviewedCommit
         self.files = (try? session.files()) ?? []
         self.sidebarModel = SidebarModel(files: files)
         self.diffTextView = Self.makeDiffTextView()
@@ -114,17 +130,27 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         window.setFrameAutosaveName("ReviewWindow")
         window.initialFirstResponder = diffTextView
 
-        let toolbar = NSToolbar(identifier: "review")
+        // Pull requests get a toolbar of their own: an autosaved layout
+        // would otherwise hide the commit picker from anyone who had
+        // saved one before it existed, and non-requests have no use for it.
+        let toolbar = NSToolbar(identifier: isPullRequest ? "review-pr" : "review")
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
         toolbar.allowsUserCustomization = true
         toolbar.autosavesConfiguration = true
         window.toolbar = toolbar
         window.toolbarStyle = .unified
+        if let reviewedCommit {
+            window.subtitle =
+                "One commit: \(reviewedCommit.shortSHA) — comments are pinned to it"
+        }
 
         applyWrap()
         updateBadges()
         showFile(at: 0)
+        if isPullRequest {
+            loadCommits()
+        }
     }
 
     @available(*, unavailable)
@@ -1136,6 +1162,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         if orphaned > 0 {
             counts += "\n⚠ \(orphaned) orphaned comment\(orphaned == 1 ? "" : "s") will NOT be submitted"
         }
+        if let reviewedCommit {
+            counts += "\nThe comments are posted on commit \(reviewedCommit.shortSHA)."
+        }
         alert.informativeText = counts
 
         let accessory = NSStackView()
@@ -1230,6 +1259,12 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             return session.isPullRequest
         case #selector(editFileLocally(_:)):
             return !files.isEmpty && files[sidebarModel.selected].status != .deleted
+        case #selector(chooseCommit(_:)):
+            return isPullRequest
+        case #selector(nextCommit(_:)):
+            return canStepCommit(by: 1)
+        case #selector(previousCommit(_:)):
+            return canStepCommit(by: -1)
         default:
             return true
         }
@@ -1471,6 +1506,201 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         return view
     }
 
+    // MARK: - Commits
+
+    /// Fetches the request's commits in the background; the picker says
+    /// it is loading meanwhile, and nothing else waits for it.
+    private func loadCommits() {
+        let session = self.session
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result: Result<CommitListing, CoreError>
+            do {
+                result = .success(try session.commits())
+            } catch let error as CoreError {
+                result = .failure(error)
+            } catch {
+                result = .failure(CoreError(message: "\(error)"))
+            }
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let listing):
+                    self?.commitListing = listing
+                case .failure(let error):
+                    self?.commitListingError = error.message
+                }
+                self?.rebuildCommitPicker()
+            }
+        }
+    }
+
+    /// The review choices in order: the whole request (empty sha), then
+    /// each commit, oldest first.
+    private var commitChoices: [String] {
+        [""] + (commitListing?.commits.map(\.sha) ?? [])
+    }
+
+    private var currentCommitSHA: String {
+        reviewedCommit?.sha ?? ""
+    }
+
+    /// Picker and keyboard menu share this: one item per choice, the
+    /// current one checked, drafts waiting elsewhere counted.
+    private func makeCommitMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        func add(_ title: String, sha: String, drafts: Int) {
+            let suffix = drafts > 0 ? "  (\(drafts) draft\(drafts == 1 ? "" : "s"))" : ""
+            let item = NSMenuItem(
+                title: title + suffix, action: #selector(pickCommit(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = sha
+            item.state = sha == currentCommitSHA ? .on : .off
+            menu.addItem(item)
+        }
+        func note(_ text: String) {
+            let item = NSMenuItem(title: text, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        }
+        add("All changes", sha: "", drafts: commitListing?.drafts ?? 0)
+        if let listing = commitListing {
+            if !listing.commits.isEmpty {
+                menu.addItem(.separator())
+            }
+            for commit in listing.commits {
+                add("\(commit.shortSHA)  \(commit.title)", sha: commit.sha, drafts: commit.drafts ?? 0)
+            }
+            if !listing.notice.isEmpty {
+                menu.addItem(.separator())
+                note(listing.notice)
+            }
+        } else {
+            if let reviewedCommit {
+                // Until the list arrives the picker still names what is on
+                // screen.
+                add(
+                    "\(reviewedCommit.shortSHA)  \(reviewedCommit.title)",
+                    sha: reviewedCommit.sha, drafts: 0)
+            }
+            menu.addItem(.separator())
+            if let commitListingError {
+                note("Could not list the commits: \(commitListingError)")
+            } else {
+                note("Loading commits…")
+            }
+        }
+        return menu
+    }
+
+    private func makeCommitsToolbarItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: Self.commitsItem)
+        item.label = "Commit"
+        item.paletteLabel = "Commit"
+        item.toolTip = "Review all changes, or one commit (\(ActionID.chooseCommit.title))"
+        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+        popup.controlSize = .regular
+        popup.widthAnchor.constraint(lessThanOrEqualToConstant: 320).isActive = true
+        popup.widthAnchor.constraint(greaterThanOrEqualToConstant: 140).isActive = true
+        (popup.cell as? NSPopUpButtonCell)?.lineBreakMode = .byTruncatingTail
+        item.view = popup
+        commitPopup = popup
+        rebuildCommitPicker()
+        return item
+    }
+
+    private func rebuildCommitPicker() {
+        guard let popup = commitPopup else { return }
+        popup.menu = makeCommitMenu()
+        syncCommitPicker()
+    }
+
+    /// Shows the current review in the picker again, whatever was last
+    /// picked — a pick only takes effect once its session has opened.
+    private func syncCommitPicker() {
+        guard let popup = commitPopup else { return }
+        let current = popup.itemArray.first {
+            ($0.representedObject as? String) == currentCommitSHA
+        }
+        popup.select(current)
+    }
+
+    @objc private func pickCommit(_ sender: NSMenuItem) {
+        guard let sha = sender.representedObject as? String else { return }
+        openCommit(sha)
+    }
+
+    /// Replaces this review with `sha`'s (the whole request for "").
+    /// Drafts need no saving first: every change already persisted.
+    private func openCommit(_ sha: String) {
+        syncCommitPicker()
+        guard sha != currentCommitSHA, !busy else { return }
+        let session = self.session
+        let label =
+            sha.isEmpty
+            ? "Opening all changes…"
+            : "Opening commit \(String(sha.prefix(7)))…"
+        runBusy(message: label) { () -> Result<CoreSession, CoreError> in
+            do {
+                return .success(try CoreSession(commit: sha, of: session))
+            } catch let error as CoreError {
+                return .failure(error)
+            } catch {
+                return .failure(CoreError(message: "\(error)"))
+            }
+        } then: { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let opened):
+                self.onReplaceSession?(self, opened)
+            case .failure(let error):
+                self.presentInfo("Could not open the commit: \(error.message)")
+            }
+        }
+    }
+
+    /// The same choice as the toolbar picker, from the keyboard: the
+    /// menu is navigable with the arrows, type-to-select and Return.
+    @objc func chooseCommit(_ sender: Any?) {
+        guard isPullRequest else {
+            presentInfo("Commits belong to pull requests; this review has none.")
+            return
+        }
+        if let popup = commitPopup, popup.window != nil, !popup.isHiddenOrHasHiddenAncestor {
+            popup.performClick(nil)
+            return
+        }
+        // The picker was removed from the toolbar, or the toolbar hidden.
+        let menu = makeCommitMenu()
+        let selected = menu.items.first {
+            ($0.representedObject as? String) == currentCommitSHA
+        }
+        let origin = NSPoint(x: 24, y: diffScrollView.bounds.height - 24)
+        menu.popUp(positioning: selected, at: origin, in: diffScrollView)
+    }
+
+    @objc func nextCommit(_ sender: Any?) {
+        stepCommit(by: 1)
+    }
+
+    @objc func previousCommit(_ sender: Any?) {
+        stepCommit(by: -1)
+    }
+
+    private func stepCommit(by offset: Int) {
+        let choices = commitChoices
+        guard let index = choices.firstIndex(of: currentCommitSHA),
+            choices.indices.contains(index + offset)
+        else { return }
+        openCommit(choices[index + offset])
+    }
+
+    private func canStepCommit(by offset: Int) -> Bool {
+        guard commitListing != nil,
+            let index = commitChoices.firstIndex(of: currentCommitSHA)
+        else { return false }
+        return commitChoices.indices.contains(index + offset)
+    }
+
     // MARK: - Toolbar
 
     nonisolated private static let toolbarSpecs:
@@ -1515,16 +1745,18 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         .init("navigator"), .init("conversation"), .init("submit"),
     ]
 
+    nonisolated private static let commitsItem = NSToolbarItem.Identifier("commits")
+
     nonisolated func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar)
         -> [NSToolbarItem.Identifier]
     {
-        Self.toolbarOrder
+        isPullRequest ? [Self.commitsItem] + Self.toolbarOrder : Self.toolbarOrder
     }
 
     nonisolated func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar)
         -> [NSToolbarItem.Identifier]
     {
-        Self.toolbarOrder + [.space]
+        Self.toolbarOrder + [.space] + (isPullRequest ? [Self.commitsItem] : [])
     }
 
     nonisolated func toolbar(
@@ -1533,6 +1765,9 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         willBeInsertedIntoToolbar flag: Bool
     ) -> NSToolbarItem? {
         MainActor.assumeIsolated {
+            if identifier == Self.commitsItem {
+                return makeCommitsToolbarItem()
+            }
             guard let (label, symbol, action) = Self.toolbarSpecs[identifier] else {
                 return nil
             }
