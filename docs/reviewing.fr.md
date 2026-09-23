@@ -51,6 +51,39 @@ Les marques ne regardent que vous : elles sont enregistrées avec vos
 brouillons et jamais envoyées à la forge. Un document d'échange ne les
 porte pas non plus. Le shell Linux n'a pas encore les marques.
 
+## Un commit à la fois
+
+La fenêtre d'une pull request porte un sélecteur de commits au début de
+sa barre d'outils : **All changes**, puis chaque commit de la demande,
+du plus ancien au plus récent, sous la forme `abc1234  titre`. Choisir
+un commit remplace la revue, dans la même fenêtre, par les changements
+de ce commit par rapport à son parent ; choisir **All changes** revient
+en arrière. Le titre affiche `owner/repo#N @ abc1234` tant que vous êtes
+sur un commit. (Sur macOS pour l'instant ; le shell Linux n'a pas encore
+le sélecteur.)
+
+| Par défaut | Action |
+| --- | --- |
+| ⌃⌘C | revoir un commit : la même liste en menu, flèches et Retour |
+| ⌃⌘↓ / ⌃⌘↑ | commit suivant / précédent (All changes vient en premier) |
+
+Chaque commit est une revue à part entière. Ses brouillons sont gardés
+à l'écart de ceux de la demande entière et de ceux des autres commits,
+et reviennent quand vous choisissez de nouveau ce commit ; le sélecteur
+compte les brouillons qui attendent sur chacun.
+
+Les commentaires écrits sur un commit sont soumis à la pull request
+**épinglés à ce commit**, comme les publie la vue d'un seul commit de la
+forge elle-même (voir [Forges](forges.md)). Si la forge en refuse un,
+l'erreur s'affiche et les brouillons restent pour une nouvelle
+tentative. Les fils de revue existants ne sont pas dessinés en ligne
+sur un commit — leurs positions appartiennent au diff de la demande
+entière —, mais la conversation est là comme toujours.
+
+GitHub liste au plus 250 commits d'une pull request. Sur une plus
+longue, le sélecteur le signale sous la liste ; les commits suivants se
+revoient quand même dans **All changes**.
+
 ## Commentaires
 
 | Par défaut | Action |

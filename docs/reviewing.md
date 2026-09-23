@@ -49,6 +49,36 @@ Marks are yours alone: they are saved with your drafts and never sent to
 the forge. An exchange document does not carry them either. The Linux
 shell does not have marks yet.
 
+## One commit at a time
+
+A pull request's window has a commit picker at the start of its
+toolbar: **All changes**, then every commit of the request, oldest
+first, as `abc1234  title`. Picking a commit replaces the review in the
+same window with that commit's changes against its parent; picking
+**All changes** goes back. The title shows `owner/repo#N @ abc1234`
+while you are on a commit. (On macOS for now; the Linux shell does not
+have the picker yet.)
+
+| Default | Action |
+| --- | --- |
+| ⌃⌘C | review commit: the same list as a menu, arrows and Return |
+| ⌃⌘↓ / ⌃⌘↑ | next / previous commit (All changes comes first) |
+
+Each commit is a review of its own. Its drafts are kept apart from the
+whole request's and from the other commits', and come back when you
+pick that commit again; the picker counts the drafts waiting on each.
+
+Comments written on a commit are submitted to the pull request **pinned
+to that commit**, the way the forge's own single-commit view posts them
+(see [Forges](forges.md)). If the forge refuses one, the error is shown
+and the drafts stay for a retry. Existing review threads are not drawn
+inline on a commit — their positions belong to the whole request's diff
+— but the conversation is there as always.
+
+GitHub lists at most 250 commits of a pull request. On a longer one the
+picker says so under the list; the later commits can still be reviewed
+in **All changes**.
+
 ## Comments
 
 | Default | Action |

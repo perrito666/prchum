@@ -72,3 +72,22 @@ requested » — dans l'ordre, un échec indiquant combien sont déjà
 publiés. Les blocs de suggestion sont réécrits dans la forme à
 intervalle de GitLab pour que les sélections multilignes remplacent tout
 l'intervalle.
+
+## Revoir un seul commit
+
+Quand vous revoyez un seul commit d'une demande (voir
+[La revue](reviewing.md)), ses commentaires de ligne sont positionnés
+dans le diff de ce commit : ils sont donc soumis épinglés à celui-ci —
+comme les publie la vue d'un seul commit de chaque forge :
+
+| Forge | Commits depuis | Le diff du commit | Épinglé par |
+| --- | --- | --- | --- |
+| GitHub | `pulls/N/commits` | `commits/SHA` en diff | le `commit_id` de la revue |
+| GitLab | `merge_requests/N/commits` | `repository/commits/SHA/diff` | la position de chaque discussion : `base_sha` et `start_sha` le parent, `head_sha` le commit |
+| Forgejo | `pulls/N/commits` | `git/commits/SHA.diff` | le `commit_id` de la revue |
+
+Le diff d'un commit est pris par rapport à son premier parent. Rien
+n'est deviné : si la forge refuse la position d'un commentaire, la
+soumission signale l'erreur et chaque brouillon qu'elle n'a pas accepté
+reste pour une nouvelle tentative. GitHub liste au plus 250 commits
+d'une pull request, et le sélecteur le signale quand il y en a plus.

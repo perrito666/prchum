@@ -64,3 +64,22 @@ note, Approve approves, and Request changes posts a "Changes requested"
 note — in order, with a failure reporting how many were already
 published. Suggestion fences are rewritten into GitLab's ranged form so
 multi-line selections replace the whole range.
+
+## Reviewing one commit
+
+When you review a single commit of a request (see
+[Reviewing](reviewing.md)), its line comments are positioned in that
+commit's diff, so they are submitted pinned to it — the way each
+forge's own single-commit view posts them:
+
+| Forge | Commits from | The commit's diff | Pinned by |
+| --- | --- | --- | --- |
+| GitHub | `pulls/N/commits` | `commits/SHA` as a diff | the review's `commit_id` |
+| GitLab | `merge_requests/N/commits` | `repository/commits/SHA/diff` | each discussion's position: `base_sha` and `start_sha` the parent, `head_sha` the commit |
+| Forgejo | `pulls/N/commits` | `git/commits/SHA.diff` | the review's `commit_id` |
+
+A commit's diff is taken against its first parent. Nothing is guessed:
+if the forge refuses a comment's position, the submission reports the
+error and every draft it did not accept stays for a retry. GitHub lists
+at most 250 commits of a pull request, and says so in the picker when
+there are more.

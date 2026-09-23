@@ -40,6 +40,7 @@ unparseable specs are logged and the default stays.
 Action names: `open`, `open-pr`, `open-git`, `review-queue`, `export`,
 `next-change`, `prev-change`, `next-hunk`, `prev-hunk`, `next-file`,
 `prev-file`, `next-unreviewed`, `prev-unreviewed`, `toggle-reviewed`,
+`choose-commit`, `next-commit`, `prev-commit`,
 `toggle-sidebar`, `toggle-layout`, `toggle-wrap`,
 `toggle-syntax`, `toggle-fold`, `expand-all`, `collapse-all`, `find`,
 `comment`, `edit-comment`, `delete-comment`, `dismiss-comment`,
