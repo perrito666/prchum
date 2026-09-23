@@ -497,6 +497,74 @@ func runSmokeTest() -> Int32 {
             return 1
         }
         print("annotated rendering ok (framed boxes, Markdown, threads, links)")
+
+        // Outdated and resolved threads stay readable: the outdated one
+        // heads the file (its line is gone) and opens in the reader; the
+        // resolved one collapses to a line under its anchor and expands.
+        let moreJSON = #"""
+            [{"id": 9, "path": "src/lib.rs", "side": "RIGHT", "line": null,
+              "original_line": 40, "outdated": true, "resolved": false,
+              "placement": "list_only", "comments": [
+               {"id": 9, "author": "dana", "body": "stale remark",
+                "created_at": "2026-01-01T00:00:00Z", "url": ""}]},
+             {"id": 10, "path": "src/lib.rs", "side": "RIGHT", "line": 1,
+              "outdated": false, "resolved": true, "placement": "collapsed",
+              "comments": [
+               {"id": 10, "author": "carol", "body": "settled question",
+                "created_at": "2026-01-01T00:00:00Z", "url": ""},
+               {"id": 11, "author": "alice", "body": "settled answer",
+                "created_at": "2026-01-01T00:00:00Z", "url": ""}]}]
+            """#
+        let more = try JSONDecoder().decode([ReviewThread].self, from: Data(moreJSON.utf8))
+        guard thread.placement == .inline, !thread.resolved,
+            more[0].placement == .listOnly, more[1].placement == .collapsed,
+            more[0].stateLabels == ["outdated"], more[1].stateLabels == ["resolved"]
+        else {
+            print("FAIL: thread placement/state decoding")
+            return 1
+        }
+        func linkTargets(in rendered: RenderedDiff) -> [String] {
+            var found: [String] = []
+            rendered.text.enumerateAttribute(
+                .link, in: NSRange(location: 0, length: rendered.text.length)
+            ) { value, _, _ in
+                if let value = value as? String { found.append(value) }
+            }
+            return found
+        }
+        let folded = DiffRenderer.render(
+            file: try session.file(at: 0), threads: [thread] + more)
+        let foldedText = folded.text.string
+        let listed = folded.annotations.first { $0.threadID == 9 }
+        let collapsed = folded.annotations.first { $0.threadID == 10 }
+        guard foldedText.hasPrefix("1 outdated thread"),
+            foldedText.contains("◆ outdated · @dana · was L40 · 1 comment — stale remark"),
+            foldedText.contains("◆ resolved · @carol · 2 comments — settled question"),
+            !foldedText.contains("settled answer"),
+            let listed, listed.target == nil,
+            let collapsed, collapsed.target?.side == .right, collapsed.target?.line == 1,
+            // The collapsed box sits under its line, after the file's head.
+            collapsed.range.location > listed.range.location,
+            linkTargets(in: folded).contains("prchum-act://read-thread/9"),
+            linkTargets(in: folded).contains("prchum-act://expand-thread/10")
+        else {
+            print("FAIL: outdated/resolved threads: \(foldedText)")
+            return 1
+        }
+        let opened = DiffRenderer.render(
+            file: try session.file(at: 0), threads: [thread] + more, expandedThreads: [10])
+        let openedText = opened.text.string
+        guard openedText.contains("◆ @carol · 2026-01-01 · resolved"),
+            openedText.contains("settled answer"),
+            linkTargets(in: opened).contains("prchum-act://collapse-thread/10"),
+            linkTargets(in: opened).contains("prchum-act://reply-thread/10"),
+            // The outdated thread never lands on a line of today's diff.
+            !openedText.contains("stale remark\n")
+        else {
+            print("FAIL: expanded resolved thread: \(openedText)")
+            return 1
+        }
+        print("outdated and resolved threads ok (listed, collapsed, expandable)")
     } catch {
         print("FAIL: annotated rendering: \(error)")
         return 1
