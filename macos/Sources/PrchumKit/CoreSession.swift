@@ -351,6 +351,22 @@ public final class CoreSession: @unchecked Sendable {
         self.handle = handle
     }
 
+    /// Opens one commit of `session`'s pull request as a review of its
+    /// own — its own drafts, its submission pinned to the commit — or,
+    /// for an empty `sha`, the whole request again. `sha` is a full sha
+    /// from `commits()`. A blocking network call; create off the main
+    /// thread, then hand over.
+    public init(commit sha: String, of session: CoreSession) throws {
+        var errorOut: UnsafeMutablePointer<CChar>?
+        let handle = withUTF8Pointer(sha) { shaPtr, shaLen in
+            pc_session_new_from_commit(session.handle, shaPtr, UInt(shaLen), &errorOut)
+        }
+        guard let handle else {
+            throw CoreError(message: takeString(errorOut) ?? "could not open the commit")
+        }
+        self.handle = handle
+    }
+
     deinit {
         pc_session_free(handle)
     }

@@ -561,6 +561,27 @@ impl Session {
         }
         Ok(())
     }
+
+    /// How many drafts — line comments and conversation comments — wait
+    /// under `source_key`: this session's own, live, or another source's
+    /// as the attached store holds them (a pull request's commits, each
+    /// a review of its own). Zero without a store or for an unreadable
+    /// file; this is a count to show, not a load.
+    pub fn draft_count(&self, source_key: &str) -> usize {
+        let count = |draft: &DraftReview| draft.comments.len() + draft.general.len();
+        if source_key == self.source_key {
+            return count(&self.draft);
+        }
+        match &self.store {
+            Some(store) => store
+                .load(source_key)
+                .ok()
+                .flatten()
+                .map(|draft| count(&draft))
+                .unwrap_or(0),
+            None => 0,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -614,6 +635,26 @@ mod tests {
             })
             .unwrap();
         assert!(empty.draft().comments.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn draft_counts_read_other_sources_from_the_store() {
+        let dir = std::env::temp_dir().join(format!("prchum-counts-{}", std::process::id()));
+        let dir = dir.to_string_lossy().to_string();
+
+        let mut other = Session::from_patch_keyed("o", PATCH, "other-key".into()).unwrap();
+        other.attach_store(&dir);
+        other.add_comment(0, Side::Right, 2, 2, "one".into()).unwrap();
+        other.add_general("two".into()).unwrap();
+
+        let mut session = Session::from_patch_keyed("s", PATCH, "own-key".into()).unwrap();
+        assert_eq!(session.draft_count("other-key"), 0, "no store, nothing to read");
+        session.attach_store(&dir);
+        assert_eq!(session.draft_count("other-key"), 2);
+        assert_eq!(session.draft_count("missing-key"), 0);
+        session.add_comment(0, Side::Right, 2, 2, "mine".into()).unwrap();
+        assert_eq!(session.draft_count("own-key"), 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
