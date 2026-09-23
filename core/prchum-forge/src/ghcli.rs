@@ -3,10 +3,18 @@
 //! Every call is `gh api [--hostname H] <path> [flags]`; JSON bodies feed
 //! stdin via `--method POST --input -`. The command runner is a trait so
 //! tests script the CLI instead of the network.
+//!
+//! The canonical diff endpoint refuses requests past 300 files (or 20,000
+//! lines). Those fall back to the paginated file list, which carries each
+//! file's patch in the same form — except for files GitHub deems too
+//! large or binary, and past the list's own 3,000-file cap. A local clone,
+//! when one is known, fills those gaps with `git diff`; without one the
+//! file is listed with no content rather than the review failing.
 
 use std::io::Write;
 use std::process::{Command, Stdio};
 
+use prchum_core::source::git_in;
 use serde_json::{json, Value};
 
 use crate::{Comment, Forge, PullRequest, PullRequestRef, ReviewComment, ThreadInfo};
@@ -49,15 +57,19 @@ impl Runner for ProcessRunner {
     }
 }
 
+/// The file list stops here however many pages are requested.
+const FILE_LIST_CAP: usize = 3000;
+
 pub struct GhForge<R: Runner> {
     runner: R,
+    /// A local clone of the repository, for the parts of a large diff the
+    /// API will not serve.
+    clone: Option<String>,
 }
 
 impl GhForge<ProcessRunner> {
     pub fn new() -> Self {
-        Self {
-            runner: ProcessRunner,
-        }
+        Self::with_runner(ProcessRunner)
     }
 }
 
@@ -69,7 +81,16 @@ impl Default for GhForge<ProcessRunner> {
 
 impl<R: Runner> GhForge<R> {
     pub fn with_runner(runner: R) -> Self {
-        Self { runner }
+        Self {
+            runner,
+            clone: None,
+        }
+    }
+
+    /// Names a local clone of the repository; an empty path is none.
+    pub fn with_clone(mut self, clone: &str) -> Self {
+        self.clone = (!clone.is_empty()).then(|| clone.to_string());
+        self
     }
 
     fn api(&self, pr: &PullRequestRef, extra: &[&str], stdin: Option<&[u8]>) -> Result<String, String> {
@@ -86,6 +107,148 @@ impl<R: Runner> GhForge<R> {
     fn repo_path(pr: &PullRequestRef, suffix: &str) -> String {
         format!("repos/{}/{}/{}", pr.owner, pr.repo, suffix)
     }
+
+    /// The diff rebuilt from the paginated file list, for requests the
+    /// diff endpoint refuses as too large.
+    fn diff_from_files(&self, pr: &PullRequestRef) -> Result<String, String> {
+        let path = Self::repo_path(pr, &format!("pulls/{}/files?per_page=100", pr.number));
+        let files = parse_paginated(&self.api(pr, &[&path, "--paginate"], None)?)?;
+
+        let needs_clone = files.len() >= FILE_LIST_CAP
+            || files.iter().any(|file| file["patch"].as_str().is_none());
+        let local = match (&self.clone, needs_clone) {
+            (Some(clone), true) => Some(self.local_revisions(pr, clone)?),
+            _ => None,
+        };
+
+        if files.len() >= FILE_LIST_CAP {
+            // The list is truncated, and nothing says which files it left
+            // out; only the clone knows the whole change.
+            let Some((clone, base, head)) = &local else {
+                return Err(format!(
+                    "the pull request changes more than {FILE_LIST_CAP} files, more than \
+                     GitHub will list — configure a local clone of {}/{} to review it",
+                    pr.owner, pr.repo
+                ));
+            };
+            return local_diff(clone, base, head, &[]);
+        }
+
+        let mut patch = String::new();
+        for file in &files {
+            let new_path = str_at(file, "filename");
+            let old_path = file["previous_filename"]
+                .as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| new_path.clone());
+            let header = format!("diff --git a/{old_path} b/{new_path}\n");
+            let status = str_at(file, "status");
+
+            if file["patch"].as_str().is_none() {
+                if let Some((clone, base, head)) = &local {
+                    let mut paths = vec![new_path.as_str()];
+                    if old_path != new_path {
+                        paths.push(old_path.as_str());
+                    }
+                    let text = local_diff(clone, base, head, &paths)?;
+                    if !text.is_empty() {
+                        patch.push_str(&text);
+                        continue;
+                    }
+                }
+            }
+
+            patch.push_str(&header);
+            match status.as_str() {
+                "added" => {
+                    patch.push_str("new file mode 100644\n--- /dev/null\n");
+                    patch.push_str(&format!("+++ b/{new_path}\n"));
+                }
+                "removed" => {
+                    patch.push_str("deleted file mode 100644\n");
+                    patch.push_str(&format!("--- a/{old_path}\n+++ /dev/null\n"));
+                }
+                _ => {
+                    if status == "renamed" {
+                        patch.push_str(&format!("rename from {old_path}\nrename to {new_path}\n"));
+                    } else if status == "copied" {
+                        patch.push_str(&format!("copy from {old_path}\ncopy to {new_path}\n"));
+                    }
+                    patch.push_str(&format!("--- a/{old_path}\n+++ b/{new_path}\n"));
+                }
+            }
+            if let Some(body) = file["patch"].as_str() {
+                patch.push_str(body);
+                if !patch.ends_with('\n') {
+                    patch.push('\n');
+                }
+            }
+        }
+        if patch.is_empty() {
+            return Err("the pull request has no changes".to_string());
+        }
+        Ok(patch)
+    }
+
+    /// The clone's root and the request's base and head commits, fetched
+    /// into the clone when it does not have them. Fetching by commit
+    /// writes no refs, so the clone's branches are left as they were.
+    fn local_revisions(
+        &self,
+        pr: &PullRequestRef,
+        clone: &str,
+    ) -> Result<(String, String, String), String> {
+        let root = git_in(clone, &["rev-parse", "--show-toplevel"])
+            .map_err(|_| format!("{clone} is not a git repository"))?
+            .trim()
+            .to_string();
+        let path = Self::repo_path(pr, &format!("pulls/{}", pr.number));
+        let value = parse_json(&self.api(pr, &[&path], None)?)?;
+        let base = value["base"]["sha"].as_str().unwrap_or_default().to_string();
+        let head = value["head"]["sha"].as_str().unwrap_or_default().to_string();
+        if base.is_empty() || head.is_empty() {
+            return Err("the pull request names no base or head commit".to_string());
+        }
+        let has = |oid: &str| {
+            git_in(&root, &["cat-file", "-e", &format!("{oid}^{{commit}}")]).is_ok()
+        };
+        if !has(&base) || !has(&head) {
+            // The head may live on a fork; the pull ref reaches it anyway.
+            let pull_ref = format!("refs/pull/{}/head", pr.number);
+            git_in(&root, &["fetch", "--quiet", "--no-tags", "origin", &base, &pull_ref])
+                .map_err(|error| format!("could not fetch the pull request into {root}: {error}"))?;
+        }
+        Ok((root, base, head))
+    }
+}
+
+/// `git diff base...head` in the clone — the merge-base comparison GitHub
+/// shows — limited to `paths` when any are given.
+fn local_diff(clone: &str, base: &str, head: &str, paths: &[&str]) -> Result<String, String> {
+    let range = format!("{base}...{head}");
+    let literal: Vec<String> = paths.iter().map(|path| format!(":(literal){path}")).collect();
+    let mut args = vec![
+        "-c",
+        "core.quotePath=false",
+        "diff",
+        "-M",
+        "--no-color",
+        "--no-ext-diff",
+        &range,
+    ];
+    if !literal.is_empty() {
+        args.push("--");
+        args.extend(literal.iter().map(String::as_str));
+    }
+    git_in(clone, &args)
+}
+
+/// True when the diff endpoint refused the request for its size — the
+/// case the file list exists for.
+fn is_too_large(error: &str) -> bool {
+    error.contains("exceeded the maximum")
+        || error.contains("too_large")
+        || error.contains("HTTP 406")
 }
 
 impl<R: Runner> Forge for GhForge<R> {
@@ -109,7 +272,10 @@ impl<R: Runner> Forge for GhForge<R> {
 
     fn diff(&self, pr: &PullRequestRef) -> Result<String, String> {
         let path = Self::repo_path(pr, &format!("pulls/{}", pr.number));
-        self.api(pr, &[&path, "-H", "Accept: application/vnd.github.v3.diff"], None)
+        match self.api(pr, &[&path, "-H", "Accept: application/vnd.github.v3.diff"], None) {
+            Err(error) if is_too_large(&error) => self.diff_from_files(pr),
+            other => other,
+        }
     }
 
     fn threads(&self, pr: &PullRequestRef) -> Result<Vec<ThreadInfo>, String> {
@@ -430,6 +596,115 @@ mod tests {
         assert!(map["https://github.com/user-attachments/assets/abc-123"].contains("jwt=tok"));
         assert!(attachment_map(body, "").is_empty());
         assert!(attachment_map("no attachments", html).is_empty());
+    }
+
+    const TOO_LARGE: &str = "gh api repos/o/r/pulls/7: Sorry, the diff exceeded the maximum \
+        number of files (300). Consider using 'List pull requests files' API or locally \
+        cloning the repository instead. (HTTP 406)";
+
+    #[test]
+    fn a_diff_too_large_for_the_endpoint_is_rebuilt_from_the_file_list() {
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Err(TOO_LARGE.into()),
+            Ok(r#"[
+                {"filename": "a.rs", "status": "modified",
+                 "patch": "@@ -1 +1 @@\n-x\n+y"},
+                {"filename": "new.rs", "previous_filename": "old.rs", "status": "renamed",
+                 "patch": "@@ -1 +1 @@\n-a\n+b"}
+            ][
+                {"filename": "born.rs", "status": "added", "patch": "@@ -0,0 +1 @@\n+hi"},
+                {"filename": "big.bin", "status": "modified"}
+            ]"#
+            .into()),
+        ]));
+        let patch = forge.diff(&reference()).unwrap();
+        let files = prchum_core::diff::parse(&patch, 4).unwrap();
+        assert_eq!(files.len(), 4);
+        assert_eq!(files[1].status, prchum_core::diff::FileStatus::Renamed);
+        assert_eq!(files[1].old_path, "old.rs");
+        assert_eq!(files[2].status, prchum_core::diff::FileStatus::Added);
+        // No patch and no clone: listed, with nothing to show.
+        assert_eq!(files[3].new_path, "big.bin");
+        assert!(files[3].hunks.is_empty());
+        let calls = forge.runner.calls.lock().unwrap();
+        assert_eq!(calls[1].0, vec!["api", "repos/o/r/pulls/7/files?per_page=100", "--paginate"]);
+    }
+
+    #[test]
+    fn other_diff_failures_are_not_retried() {
+        let forge = GhForge::with_runner(FakeRunner::new(vec![Err("HTTP 404".into())]));
+        assert_eq!(forge.diff(&reference()).unwrap_err(), "HTTP 404");
+        assert_eq!(forge.runner.calls.lock().unwrap().len(), 1);
+    }
+
+    /// A repository with a base commit and a head commit that changes a
+    /// text file and adds a binary one: `(dir, base, head)`.
+    fn scratch_clone() -> (std::path::PathBuf, String, String) {
+        let dir = std::env::temp_dir().join(format!(
+            "prchum-gh-{}-{}",
+            std::process::id(),
+            prchum_core::util::new_local_id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let repo = dir.to_string_lossy().to_string();
+        let run = |args: &[&str]| git_in(&repo, args).unwrap();
+        run(&["init", "-q", "-b", "main"]);
+        run(&["config", "user.name", "Test"]);
+        run(&["config", "user.email", "test@example.com"]);
+        std::fs::write(dir.join("huge.txt"), "one\ntwo\n").unwrap();
+        run(&["add", "."]);
+        run(&["commit", "-q", "-m", "base"]);
+        let base = run(&["rev-parse", "HEAD"]).trim().to_string();
+        std::fs::write(dir.join("huge.txt"), "one\nchanged\n").unwrap();
+        std::fs::write(dir.join("logo.png"), [0u8, 159, 146, 150]).unwrap();
+        run(&["add", "."]);
+        run(&["commit", "-q", "-m", "head"]);
+        let head = run(&["rev-parse", "HEAD"]).trim().to_string();
+        (dir, base, head)
+    }
+
+    #[test]
+    fn a_local_clone_fills_the_patches_the_list_leaves_out() {
+        let (dir, base, head) = scratch_clone();
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Err(TOO_LARGE.into()),
+            Ok(r#"[
+                {"filename": "huge.txt", "status": "modified"},
+                {"filename": "logo.png", "status": "added"}
+            ]"#
+            .into()),
+            Ok(format!(r#"{{"base": {{"sha": "{base}"}}, "head": {{"sha": "{head}"}}}}"#)),
+        ]))
+        .with_clone(&dir.to_string_lossy());
+        let patch = forge.diff(&reference()).unwrap();
+        let files = prchum_core::diff::parse(&patch, 4).unwrap();
+        assert_eq!(files.len(), 2);
+        assert!(patch.contains("+changed"));
+        assert!(files[1].is_binary);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_truncated_file_list_needs_the_clone() {
+        let entry = r#"{"filename": "f", "status": "modified", "patch": "@@ -1 +1 @@\n-a\n+b"}"#;
+        let list = format!("[{}]", vec![entry; FILE_LIST_CAP].join(","));
+
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Err(TOO_LARGE.into()),
+            Ok(list.clone()),
+        ]));
+        assert!(forge.diff(&reference()).unwrap_err().contains("local clone"));
+
+        let (dir, base, head) = scratch_clone();
+        let forge = GhForge::with_runner(FakeRunner::new(vec![
+            Err(TOO_LARGE.into()),
+            Ok(list),
+            Ok(format!(r#"{{"base": {{"sha": "{base}"}}, "head": {{"sha": "{head}"}}}}"#)),
+        ]))
+        .with_clone(&dir.to_string_lossy());
+        let files = prchum_core::diff::parse(&forge.diff(&reference()).unwrap(), 4).unwrap();
+        assert_eq!(files.len(), 2);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
