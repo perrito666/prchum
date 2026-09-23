@@ -9,7 +9,7 @@
 use prchum_core::diff::Side;
 use prchum_core::review::{DraftReview, DraftState, ReviewEvent};
 
-use crate::{Forge, PullRequestRef, ReviewComment};
+use crate::{CommitInfo, Forge, PullRequestRef, ReviewComment};
 
 /// What a submission would send, and what it deliberately skips.
 pub struct SubmissionPlan {
@@ -21,6 +21,10 @@ pub struct SubmissionPlan {
     pub generals: Vec<(String, String)>,
     pub skipped_dismissed: usize,
     pub skipped_orphaned: usize,
+    /// The commit the line comments were written against, when the
+    /// review is of one commit rather than the whole request. The review
+    /// is pinned to it; replies and conversation comments need no pin.
+    pub commit: Option<CommitInfo>,
 }
 
 impl SubmissionPlan {
@@ -38,6 +42,7 @@ pub fn plan(draft: &DraftReview) -> SubmissionPlan {
         generals: Vec::new(),
         skipped_dismissed: 0,
         skipped_orphaned: 0,
+        commit: None,
     };
     for comment in &draft.comments {
         match comment.state {
@@ -117,7 +122,7 @@ pub fn execute(
             event_name(draft.event),
             &draft.summary,
             &comments,
-            None,
+            plan.commit.as_ref(),
         ) {
             return SubmitOutcome {
                 accepted,
@@ -213,9 +218,18 @@ mod tests {
     /// A forge that accepts `ok` calls, then fails.
     struct FlakyForge {
         remaining_ok: Mutex<usize>,
+        /// The commit each review was pinned to.
+        pinned: Mutex<Vec<Option<String>>>,
     }
 
     impl FlakyForge {
+        fn new(ok: usize) -> Self {
+            Self {
+                remaining_ok: Mutex::new(ok),
+                pinned: Mutex::new(Vec::new()),
+            }
+        }
+
         fn take(&self) -> Result<(), String> {
             let mut remaining = self.remaining_ok.lock().unwrap();
             if *remaining == 0 {
@@ -251,8 +265,12 @@ mod tests {
             _: &str,
             _: &str,
             _: &[ReviewComment],
-            _: Option<&crate::CommitInfo>,
+            commit: Option<&CommitInfo>,
         ) -> Result<(), String> {
+            self.pinned
+                .lock()
+                .unwrap()
+                .push(commit.map(|c| c.sha.clone()));
             self.take()
         }
         fn reply(&self, _: &PullRequestRef, _: i64, _: &str) -> Result<(), String> {
@@ -275,9 +293,7 @@ mod tests {
 
         // Review succeeds, the reply fails: the review's comments are
         // accepted, the reply and the general are not.
-        let forge = FlakyForge {
-            remaining_ok: Mutex::new(1),
-        };
+        let forge = FlakyForge::new(1);
         let submission = plan(&draft);
         let outcome = execute(&forge, &PullRequestRef::default(), &draft, &submission);
         assert_eq!(outcome.accepted.len(), 1);
@@ -296,12 +312,35 @@ mod tests {
     fn empty_plan_with_a_summary_still_reviews() {
         let mut draft = DraftReview::default();
         draft.summary = "just words".into();
-        let forge = FlakyForge {
-            remaining_ok: Mutex::new(1),
-        };
+        let forge = FlakyForge::new(1);
         let submission = plan(&draft);
         assert!(submission.is_empty());
         let outcome = execute(&forge, &PullRequestRef::default(), &draft, &submission);
         assert!(outcome.error.is_none());
+        assert_eq!(*forge.pinned.lock().unwrap(), vec![None]);
+    }
+
+    #[test]
+    fn a_commit_plan_pins_the_review_and_stays_retry_safe() {
+        let draft = draft_with(&[DraftState::Active, DraftState::Active]);
+        let commit = CommitInfo {
+            sha: "c0ffee".into(),
+            parents: vec!["beef".into()],
+            ..Default::default()
+        };
+        let mut submission = plan(&draft);
+        submission.commit = Some(commit.clone());
+
+        // A rejected review (a forge refusing a position, say) accepts
+        // nothing, so every draft stays for the retry.
+        let forge = FlakyForge::new(0);
+        let outcome = execute(&forge, &PullRequestRef::default(), &draft, &submission);
+        assert!(outcome.accepted.is_empty());
+        assert!(outcome.error.unwrap().contains("could not submit the review"));
+
+        let forge = FlakyForge::new(1);
+        let outcome = execute(&forge, &PullRequestRef::default(), &draft, &submission);
+        assert_eq!(outcome.accepted.len(), 2);
+        assert_eq!(*forge.pinned.lock().unwrap(), vec![Some("c0ffee".to_string())]);
     }
 }

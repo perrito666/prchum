@@ -5,6 +5,7 @@
 //! and conversation, and the content provider the context view reads
 //! through are all one decision, and a second copy would drift.
 
+use prchum_core::review::DraftReview;
 use prchum_core::session::Session;
 use prchum_core::Config;
 
@@ -12,7 +13,7 @@ use crate::refs::{parse_ref, resolve_from_origin, PullRequestRef};
 use crate::forgejo::ForgejoForge;
 use crate::ghcli::{GhForge, ProcessRunner};
 use crate::glabcli::GlabForge;
-use crate::{kind_for_host, Forge, ForgeKind};
+use crate::{kind_for_host, submit, CommitInfo, Forge, ForgeKind};
 
 /// What submission needs to reach the same forge the session came from.
 #[derive(Clone)]
@@ -21,9 +22,22 @@ pub struct PrContext {
     pub kind: ForgeKind,
     /// Forgejo transport template (empty = the built-in default).
     pub forgejo_template: String,
+    /// Set when the session reviews one commit of the request; its line
+    /// comments are positioned in that commit's diff and must be
+    /// submitted pinned to it.
+    pub commit: Option<CommitInfo>,
 }
 
 impl PrContext {
+    /// The submission plan for `draft`, pinned to the session's commit
+    /// when it has one. Submission goes through here so that a commit
+    /// review cannot be posted against the whole request's diff.
+    pub fn plan(&self, draft: &DraftReview) -> submit::SubmissionPlan {
+        let mut plan = submit::plan(draft);
+        plan.commit = self.commit.clone();
+        plan
+    }
+
     pub fn forge(&self) -> Box<dyn Forge> {
         match self.kind {
             ForgeKind::Forgejo => Box::new(ForgejoForge::with_runner(
@@ -82,6 +96,7 @@ pub fn open_session(
         reference: pr_ref.clone(),
         kind,
         forgejo_template: config.forgejo_api_command().to_string(),
+        commit: None,
     };
 
     let forge = context.forge();
@@ -142,4 +157,37 @@ pub fn open_session(
         forge.file_content(&provider_ref, path, &head)
     }));
     Ok((session, context))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn context(commit: Option<CommitInfo>) -> PrContext {
+        PrContext {
+            reference: PullRequestRef {
+                host: "github.com".into(),
+                owner: "o".into(),
+                repo: "r".into(),
+                number: 7,
+            },
+            kind: ForgeKind::GitHub,
+            forgejo_template: String::new(),
+            commit,
+        }
+    }
+
+    #[test]
+    fn the_plan_carries_the_sessions_commit() {
+        let mut draft = DraftReview::default();
+        draft.add_general("hello".into());
+        assert!(context(None).plan(&draft).commit.is_none());
+        let commit = CommitInfo {
+            sha: "c0ffee".into(),
+            ..Default::default()
+        };
+        let plan = context(Some(commit.clone())).plan(&draft);
+        assert_eq!(plan.commit, Some(commit));
+        assert_eq!(plan.generals.len(), 1);
+    }
 }
