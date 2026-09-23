@@ -31,6 +31,38 @@ lados de un cambio. Se incluyen catorce lenguajes.
 En la vista dividida los dos lados van en paneles paralelos; el panel
 donde está el cursor decide a qué lado apunta un comentario.
 
+## Un commit a la vez
+
+La ventana de un pull request tiene un selector de commits al principio
+de la barra: **All changes**, y después cada commit del pedido, del más
+antiguo al más reciente, como `abc1234  título`. Elegir un commit
+reemplaza la revisión, en la misma ventana, por los cambios de ese
+commit respecto de su padre; elegir **All changes** vuelve atrás. El
+título muestra `owner/repo#N @ abc1234` mientras estás en un commit.
+(Por ahora en macOS; el shell de Linux todavía no tiene el selector.)
+
+| Por defecto | Acción |
+| --- | --- |
+| ⌃⌘C | revisar un commit: la misma lista como menú, flechas y Retorno |
+| ⌃⌘↓ / ⌃⌘↑ | commit siguiente / anterior (All changes va primero) |
+
+Cada commit es una revisión propia. Sus borradores se guardan aparte de
+los del pedido entero y de los de los otros commits, y vuelven cuando
+eliges ese commit otra vez; el selector cuenta los borradores que
+esperan en cada uno.
+
+Los comentarios escritos sobre un commit se envían al pull request
+**fijados a ese commit**, como los publica la vista de un solo commit
+de la propia forja (ver [Forjas](forges.md)). Si la forja rechaza uno,
+se muestra el error y los borradores se quedan para reintentar. Los
+hilos de revisión existentes no se dibujan en línea sobre un commit —
+sus posiciones pertenecen al diff del pedido entero—, pero la
+conversación está ahí como siempre.
+
+GitHub lista como mucho 250 commits de un pull request. En uno más
+largo el selector lo avisa debajo de la lista; los commits posteriores
+se pueden revisar igual en **All changes**.
+
 ## Comentarios
 
 | Por defecto | Acción |
