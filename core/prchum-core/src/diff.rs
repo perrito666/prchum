@@ -110,6 +110,37 @@ impl FileDiff {
         }
         (added, deleted)
     }
+
+    /// A fingerprint of what this file's diff says, for marks that must
+    /// lapse when the change they were made against changes.
+    ///
+    /// Covers the paths, the status, and every hunk line's kind and
+    /// verbatim text. Hunk headers are left out on purpose: a rebase that
+    /// only shifts line numbers leaves the change the reviewer read intact.
+    /// A boundary per hunk is kept, so regrouping lines is still a change.
+    pub fn fingerprint(&self) -> String {
+        let status = serde_json::to_string(&self.status).unwrap_or_default();
+        let mut data = Vec::new();
+        for part in [self.old_path.as_str(), self.new_path.as_str(), status.as_str()] {
+            data.extend_from_slice(part.as_bytes());
+            data.push(0);
+        }
+        data.push(u8::from(self.is_binary));
+        for hunk in &self.hunks {
+            data.push(b'@');
+            for line in &hunk.lines {
+                data.push(match line.kind {
+                    LineKind::Context => b' ',
+                    LineKind::Addition => b'+',
+                    LineKind::Deletion => b'-',
+                    LineKind::Meta => b'\\',
+                });
+                data.extend_from_slice(line.raw_text().as_bytes());
+                data.push(b'\n');
+            }
+        }
+        crate::util::fnv64_hex(&data)
+    }
 }
 
 /// Columns a tab expands to in display text.

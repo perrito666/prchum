@@ -6,6 +6,7 @@
 //! * Orphaned comments are kept and never submitted; a human repositions.
 //! * Drafts persist per stable source key, atomically, on every change.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -93,6 +94,13 @@ pub struct DraftReview {
     pub summary: String,
     #[serde(default)]
     pub event: ReviewEvent,
+    /// Files the reviewer marked as reviewed: display path → the file's
+    /// diff fingerprint when it was marked. A mark counts only while the
+    /// fingerprint still matches, so a changed file asks to be read again;
+    /// entries that lapse or name files no longer in the diff are inert.
+    /// Local bookkeeping only — nothing here is ever submitted.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub reviewed: BTreeMap<String, String>,
 }
 
 impl DraftReview {

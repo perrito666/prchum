@@ -43,12 +43,14 @@ barra de herramientas y el diff.
 ![Una ventana de revisión](images/review-window-light.png#only-light)
 ![Una ventana de revisión](images/review-window-dark.png#only-dark)
 
-La barra lateral cuenta adiciones y borrados por archivo, y marca los
-archivos que llevan comentarios. ⌘↓ y ⌘↑ recorren los cambios, ⌥⌘↓ y
-⌥⌘↑ los hunks, ⇧⌘↓ y ⇧⌘↑ los archivos. El coloreado de sintaxis hace una
-pasada de tree-sitter por cada lado de cada hunk, así que una
-construcción de varias líneas colorea bien tanto en el texto viejo como
-en el nuevo.
+La barra lateral cuenta adiciones y borrados por archivo, marca los
+archivos que llevan comentarios y pone un visto a los que marcaste como
+revisados (⌥⌘V; ⇧⌥⌘↓ va al siguiente que falta — ver
+[La revisión](reviewing.md#archivos-revisados)). ⌘↓ y ⌘↑ recorren los
+cambios, ⌥⌘↓ y ⌥⌘↑ los hunks, ⇧⌘↓ y ⇧⌘↑ los archivos. El coloreado de
+sintaxis hace una pasada de tree-sitter por cada lado de cada hunk, así
+que una construcción de varias líneas colorea bien tanto en el texto
+viejo como en el nuevo.
 
 Abrir un pull request se ve igual: la barra de título nombra la
 solicitud en lugar de la comparación.

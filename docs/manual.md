@@ -43,11 +43,14 @@ diff.
 ![A review window](images/review-window-light.png#only-light)
 ![A review window](images/review-window-dark.png#only-dark)
 
-The sidebar counts additions and deletions per file, and marks files
-that carry comments. ⌘↓ and ⌘↑ step through changes, ⌥⌘↓ and ⌥⌘↑ through
-hunks, ⇧⌘↓ and ⇧⌘↑ through files. Syntax coloring runs one tree-sitter
-pass per side of each hunk, so a construct that spans several lines
-colors correctly on both the old and the new text.
+The sidebar counts additions and deletions per file, marks files that
+carry comments, and checks off the files you have marked as reviewed
+(⌥⌘V; ⇧⌥⌘↓ goes to the next one left — see
+[Reviewing](reviewing.md#reviewed-files)). ⌘↓ and ⌘↑ step through
+changes, ⌥⌘↓ and ⌥⌘↑ through hunks, ⇧⌘↓ and ⇧⌘↑ through files. Syntax
+coloring runs one tree-sitter pass per side of each hunk, so a construct
+that spans several lines colors correctly on both the old and the new
+text.
 
 Opening a pull request looks the same — the title bar names the request
 instead of the comparison.
