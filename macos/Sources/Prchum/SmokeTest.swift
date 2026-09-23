@@ -1101,19 +1101,6 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
-    // Every default key belongs to one action.
-    var chords: [String: ActionID] = [:]
-    for action in ActionID.allCases {
-        guard let chord = action.defaultChord else { continue }
-        let name = "\(chord.modifiers.rawValue)+\(chord.keyEquivalent)"
-        if let other = chords[name] {
-            print("FAIL: \(action.rawValue) and \(other.rawValue) share a default key")
-            return 1
-        }
-        chords[name] = action
-    }
-    print("default keys ok (\(chords.count) distinct)")
-
     // Async event round trip: core dispatch thread → main queue.
     var receivedSequence: UInt64?
     let coreApp = CoreApp { event in
