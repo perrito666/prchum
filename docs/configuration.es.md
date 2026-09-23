@@ -70,7 +70,9 @@ lives in the Keymap source.
 - `clones` — `owner/repo` → el clon local que lo contiene
   (`{"perrito666/prchum": "/Users/yo/src/prchum"}`), sin distinguir
   mayúsculas. Settings (⌘,) gestiona la lista, y Edit File Locally
-  ofrece elegir uno cuando el repositorio no lo tiene.
+  ofrece elegir uno cuando el repositorio no lo tiene. Una pull request
+  de GitHub demasiado grande para que GitHub la sirva entera (más de 300
+  archivos, o archivos que no muestra) toma de este clon lo que falta.
 - `editor_command` — cómo abrir un archivo: una URL o un comando, con
   `{path}`, `{line}` y `{dir}`. Vacío significa
   `textchum://open?path={path}&line={line}`; `code -g {path}:{line}` y
