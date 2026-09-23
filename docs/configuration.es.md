@@ -45,7 +45,7 @@ Nombres de acción: `open`, `open-pr`, `open-git`, `review-queue`,
 `next-file`, `prev-file`, `toggle-sidebar`, `toggle-layout`,
 `toggle-wrap`, `toggle-syntax`, `toggle-fold`, `expand-all`,
 `collapse-all`, `find`, `comment`, `edit-comment`, `delete-comment`,
-`dismiss-comment`, `reply`, `open-at-caret`, `suggest`, `comments`,
+`dismiss-comment`, `reply`, `open-at-caret`, `toggle-thread`, `suggest`, `comments`,
 `general`, `toggle-context`, `toggle-fold`, `expand-all`,
 `collapse-all`… — every menu item names its action; the full list
 lives in the Keymap source.
