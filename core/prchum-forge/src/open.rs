@@ -214,7 +214,12 @@ fn build_session(forge: &dyn Forge, context: &PrContext) -> Result<Session, Stri
             // out rather than guessed at; the conversation still shows.
             (forge.commit_diff(pr_ref, &commit.sha)?, Vec::new())
         }
-        None => (forge.diff(pr_ref)?, forge.threads(pr_ref)?),
+        None => {
+            let diff = forge.diff(pr_ref)?;
+            let mut threads = forge.threads(pr_ref)?;
+            crate::place_threads(&mut threads);
+            (diff, threads)
+        }
     };
     // Conversation comments are display data; failure to fetch them must
     // not block the review.

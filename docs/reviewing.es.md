@@ -94,6 +94,8 @@ se pueden revisar igual en **All changes**.
 | ⌥⌘↩ | sugerir un cambio: el código seleccionado prellenado en un bloque ```suggestion |
 | ⌘R | responder — al hilo del servidor o a la conversación del borrador |
 | ⌘L | el navegador de la revisión: cada borrador e hilo; Retorno salta |
+| ⌥↩ | abrir la conversación del cursor en su propio lector |
+| ⇧⌘T | desplegar ↔ plegar el hilo resuelto del cursor |
 | ⌃⌘E | editar el archivo actual localmente (véase abajo) |
 
 Una selección debe caer en un solo lado, al estilo de GitHub: un bloque
@@ -101,6 +103,31 @@ de cambios se ancla a la DERECHA (los borrados simplemente no forman
 parte de ese lado) y una selección de solo borrados se ancla a la
 IZQUIERDA. Los borradores se marcan con `●` en el margen, con la nota en
 línea; los hilos existentes del servidor, con `◆`.
+
+### Hilos desactualizados y resueltos
+
+Un hilo está **desactualizado** (*outdated*) cuando el código sobre el
+que se escribió ha cambiado desde entonces, de modo que ya no cae en
+ninguna línea del diff. En lugar de dibujarlo junto al código que hoy
+tenga ese número de línea, prchum lista los hilos desactualizados al
+principio de su archivo, uno por línea — autor, la línea en la que
+estaba, el comienzo del comentario. **Read…** (o ⌥↩ sobre esa línea)
+abre la conversación completa en el lector, donde todavía se puede
+responder.
+
+Un hilo **resuelto** (*resolved*) que sigue en una línea se pliega a
+una sola línea debajo de ella. **Expand**, o ⇧⌘T con el cursor encima,
+lo muestra completo; **Collapse** o ⇧⌘T de nuevo lo vuelve a plegar.
+⌥↩ lo abre en el lector sin desplegarlo.
+
+El navegador de la revisión (⌘L) lista ambos, marcados como *outdated*
+o *resolved*; Retorno salta a un hilo que tiene línea y abre el que no
+la tiene. El contador `◆` de la barra lateral los incluye.
+
+Resolver y reabrir hilos queda en manos del servidor. GitHub informa de
+la resolución solo a través de su API GraphQL; si esa consulta falla,
+los hilos se muestran completos en lugar de impedir que se abra la
+revisión.
 
 Descartar no es borrar: el veredicto viaja con la revisión — es la
 información que más necesita el otro lado de una conversación — pero un

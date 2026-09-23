@@ -180,6 +180,14 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             if let thread = threads.first(where: { String($0.id) == id }) {
                 promptThreadReply(thread)
             }
+        case "read-thread":
+            if let thread = threads.first(where: { String($0.id) == id }) {
+                openThreadReader(thread)
+            }
+        case "expand-thread", "collapse-thread":
+            if let thread = threads.first(where: { String($0.id) == id }) {
+                setThread(thread.id, expanded: verb == "expand-thread")
+            }
         case "reply-draft":
             promptForText(title: "Reply", button: "Reply") { [weak self] body in
                 guard let self else { return }
@@ -617,39 +625,71 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
 
     private var threadReader: ThreadReaderWindowController?
 
+    /// Resolved threads the reviewer has opened up inline; the rest stay
+    /// one line. Per window, not saved: collapsing is a way of reading.
+    private var expandedThreads: Set<Int64> = []
+
+    /// A host thread in its own reader — the only way to read one whose
+    /// line is gone from today's diff.
+    private func openThreadReader(_ thread: ReviewThread) {
+        let session = self.session
+        // The thread's own file: the navigator opens threads from any.
+        let fileIndex =
+            files.firstIndex(where: { $0.displayPath == thread.path }) ?? sidebarModel.selected
+        let states = thread.stateLabels
+        let reader = ThreadReaderWindowController(
+            title: "Thread — \(thread.path)"
+                + (states.isEmpty ? "" : " (\(states.joined(separator: ", ")))"),
+            snippet: "",
+            reload: {
+                thread.comments.map {
+                    .init(
+                        author: $0.author, date: $0.createdAt, body: $0.body,
+                        replyIndex: nil, editable: false,
+                        imageMap: $0.imageMap ?? [:])
+                }
+            },
+            onReply: { [weak self] body in
+                _ = try? session.addComment(
+                    fileIndex: fileIndex,
+                    side: thread.side,
+                    startLine: thread.line ?? thread.originalLine ?? 1,
+                    endLine: thread.line ?? thread.originalLine ?? 1,
+                    body: body,
+                    replyTo: thread.id)
+                self?.refreshReviewState()
+            },
+            onEdit: nil,
+            onDelete: nil)
+        reader.onClose = { [weak self] in self?.threadReader = nil }
+        threadReader = reader
+        reader.showWindow(nil)
+    }
+
+    /// Expands the collapsed resolved thread at the caret, or collapses
+    /// it again.
+    @objc func toggleResolvedThread(_ sender: Any?) {
+        guard let thread = threadAtCaret(), thread.placement == .collapsed else {
+            presentInfo("Put the cursor on a resolved thread.")
+            return
+        }
+        setThread(thread.id, expanded: !expandedThreads.contains(thread.id))
+    }
+
+    private func setThread(_ id: Int64, expanded: Bool) {
+        if expanded {
+            expandedThreads.insert(id)
+        } else {
+            expandedThreads.remove(id)
+        }
+        refreshReviewState()
+    }
+
     /// Opens the conversation under the caret: a host thread's reader, or
     /// the draft's own travelling conversation with per-item edit/delete.
     @objc func openAtCaret(_ sender: Any?) {
         if let thread = threadAtCaret() {
-            let session = self.session
-            let fileIndex = sidebarModel.selected
-            let reader = ThreadReaderWindowController(
-                title: "Thread — \(thread.path)"
-                    + (thread.outdated ? " (outdated)" : ""),
-                snippet: "",
-                reload: {
-                    thread.comments.map {
-                        .init(
-                            author: $0.author, date: $0.createdAt, body: $0.body,
-                            replyIndex: nil, editable: false,
-                            imageMap: $0.imageMap ?? [:])
-                    }
-                },
-                onReply: { [weak self] body in
-                    _ = try? session.addComment(
-                        fileIndex: fileIndex,
-                        side: thread.side,
-                        startLine: thread.line ?? thread.originalLine ?? 1,
-                        endLine: thread.line ?? thread.originalLine ?? 1,
-                        body: body,
-                        replyTo: thread.id)
-                    self?.refreshReviewState()
-                },
-                onEdit: nil,
-                onDelete: nil)
-            reader.onClose = { [weak self] in self?.threadReader = nil }
-            threadReader = reader
-            reader.showWindow(nil)
+            openThreadReader(thread)
             return
         }
         guard let draft = draftAtCaret() else {
@@ -841,19 +881,25 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
                     line: location.endLine))
         }
         for thread in threads {
-            guard let line = thread.line ?? thread.originalLine else { continue }
             let author = thread.comments.first?.author ?? ""
+            // A thread with no current line is listed at the line it was
+            // written against, and opens rather than jumps: today's diff
+            // has different code at that number.
+            let listOnly = thread.placement == .listOnly
+            let shownLine = listOnly ? thread.originalLine : thread.line
+            let lineText = shownLine.map { listOnly ? " was L\($0)" : " L\($0)" } ?? ""
+            let states = thread.stateLabels
             entries.append(
                 .init(
-                    location: "\(thread.path) L\(line) (\(thread.side.rawValue))"
-                        + (thread.outdated ? " (outdated)" : ""),
-                    kind: "◆ thread",
+                    location: "\(thread.path)\(lineText) (\(thread.side.rawValue))",
+                    kind: states.isEmpty ? "◆ thread" : "◆ " + states.joined(separator: ", "),
                     preview: "@\(author): "
                         + (thread.comments.first?.body
                             .split(separator: "\n").first.map(String.init) ?? ""),
                     path: thread.path,
                     side: thread.side,
-                    line: line))
+                    line: listOnly ? nil : thread.line,
+                    threadID: thread.id))
         }
         guard !entries.isEmpty else {
             presentInfo("No comments or threads yet.")
@@ -862,7 +908,14 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         let list = CommentListWindowController(
             title: "Review Navigator", entries: entries
         ) { [weak self] entry in
-            self?.jump(toPath: entry.path, side: entry.side, line: entry.line)
+            guard let self else { return }
+            if let line = entry.line {
+                self.jump(toPath: entry.path, side: entry.side, line: line)
+            } else if let id = entry.threadID,
+                let thread = self.threads.first(where: { $0.id == id })
+            {
+                self.openThreadReader(thread)
+            }
         }
         list.onClose = { [weak self] in self?.commentList = nil }
         commentList = list
@@ -1199,6 +1252,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             return draftAtCaret() != nil
         case #selector(replyAtCursor(_:)):
             return threadAtCaret() != nil || draftAtCaret() != nil
+        case #selector(toggleResolvedThread(_:)):
+            return threadAtCaret()?.placement == .collapsed
         case #selector(showPRInfo(_:)), #selector(submitReview(_:)),
             #selector(submitApprove(_:)), #selector(submitRequestChanges(_:)):
             return session.isPullRequest
@@ -1267,7 +1322,8 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
         guard let target = caretTarget() else { return nil }
         let path = files[sidebarModel.selected].displayPath
         return threads.first {
-            $0.path == path && $0.side == target.side && $0.line == target.line
+            $0.path == path && $0.placement != .listOnly && $0.side == target.side
+                && $0.line == target.line
         }
     }
 
@@ -1395,6 +1451,7 @@ final class ReviewWindowController: NSWindowController, NSWindowDelegate,
             file: file,
             comments: comments.filter { $0.location.path == path },
             threads: threads.filter { $0.path == path },
+            expandedThreads: expandedThreads,
             highlights: highlights,
             mode: syntaxMode,
             // Fold indexes belong to the real diff's hunks, not the
@@ -2049,6 +2106,18 @@ enum SyntaxPalette {
     }
 }
 
+extension ReviewThread {
+    /// What sets the thread apart from a live one, for its labels. A
+    /// thread the core lists only has lost its line, which is what
+    /// "outdated" means to a reader whatever the host called it.
+    var stateLabels: [String] {
+        var labels: [String] = []
+        if outdated || placement == .listOnly { labels.append("outdated") }
+        if resolved { labels.append("resolved") }
+        return labels
+    }
+}
+
 /// Builds the attributed text for one file's unified diff, with marker
 /// gutters (● drafts, ◆ threads) and inline preview boxes.
 enum DiffRenderer {
@@ -2064,8 +2133,9 @@ enum DiffRenderer {
         let commentID: String?
         let threadID: Int64?
         /// The (side, line) the box anchors to, so caret actions work
-        /// inside it.
-        let target: (side: DiffSide, line: Int)
+        /// inside it. Nil for a thread listed above the hunks: it anchors
+        /// to no line of today's diff.
+        let target: (side: DiffSide, line: Int)?
     }
 
     @MainActor
@@ -2073,6 +2143,7 @@ enum DiffRenderer {
         file: DiffFile,
         comments: [DraftComment] = [],
         threads: [ReviewThread] = [],
+        expandedThreads: Set<Int64> = [],
         highlights: [[[HighlightSpan]]]? = nil,
         mode: SyntaxMode = .syntax,
         foldedHunks: Set<Int> = [],
@@ -2197,8 +2268,66 @@ enum DiffRenderer {
             record(box)
         }
 
+        /// A thread reduced to one framed line: state, author, size, and
+        /// the start of what was said, with the links that open it.
+        func appendThreadSummary(
+            _ thread: ReviewThread, detail: String, links: [(title: String, url: String)],
+            record: (NSRange) -> Void
+        ) {
+            let boxStart = result.length
+            let summaryFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+            let root = thread.comments.first
+            let count = thread.comments.count
+            var text = "◆ " + thread.stateLabels.joined(separator: ", ")
+            text += " · @\(root?.author ?? "")\(detail)"
+            text += " · \(count) comment\(count == 1 ? "" : "s")"
+            if let first = root?.body.split(separator: "\n").first {
+                let preview = first.count > 60 ? String(first.prefix(60)) + "…" : String(first)
+                text += " — \(preview)"
+            }
+            let line = NSMutableAttributedString(
+                string: text,
+                attributes: [.font: summaryFont, .foregroundColor: NSColor.secondaryLabelColor])
+            for link in links {
+                line.append(NSAttributedString(string: "   ", attributes: [.font: summaryFont]))
+                line.append(
+                    NSAttributedString(
+                        string: link.title,
+                        attributes: [
+                            .font: summaryFont,
+                            .link: link.url,
+                            .foregroundColor: NSColor.linkColor,
+                        ]))
+            }
+            line.append(NSAttributedString(string: "\n"))
+            let style = NSMutableParagraphStyle()
+            style.firstLineHeadIndent = 24
+            style.headIndent = 38
+            style.paragraphSpacingBefore = 2
+            line.addAttribute(
+                .paragraphStyle, value: style, range: NSRange(location: 0, length: line.length))
+            result.append(line)
+            let box = NSRange(location: boxStart, length: result.length - boxStart)
+            result.addAttribute(.backgroundColor, value: boxTint, range: box)
+            record(box)
+        }
+
         func appendAnnotations(side: DiffSide, line: Int) {
-            for thread in threads where thread.side == side && thread.line == line {
+            for thread in threads
+            where thread.placement != .listOnly && thread.side == side && thread.line == line {
+                let expanded = expandedThreads.contains(thread.id)
+                if thread.placement == .collapsed, !expanded {
+                    appendThreadSummary(
+                        thread, detail: "",
+                        links: [("Expand", "prchum-act://expand-thread/\(thread.id)")]
+                    ) { range in
+                        annotations.append(
+                            Annotation(
+                                range: range, commentID: nil, threadID: thread.id,
+                                target: (side, line)))
+                    }
+                    continue
+                }
                 var items: [(mark: String, markColor: NSColor, author: String,
                              date: String, note: String, body: String, indent: CGFloat)] = []
                 for (index, comment) in thread.comments.enumerated() {
@@ -2207,15 +2336,18 @@ enum DiffRenderer {
                         markColor: .systemPurple,
                         author: comment.author,
                         date: comment.createdAt,
-                        note: "",
+                        note: index == 0 && thread.resolved ? " · resolved" : "",
                         body: comment.body,
                         indent: index == 0 ? 24 : 44
                     ))
                 }
-                appendCommentBox(
-                    items: items,
-                    links: [("Reply…", "prchum-act://reply-thread/\(thread.id)")]
-                ) { range in
+                var links: [(title: String, url: String)] = [
+                    ("Reply…", "prchum-act://reply-thread/\(thread.id)")
+                ]
+                if thread.placement == .collapsed {
+                    links.append(("Collapse", "prchum-act://collapse-thread/\(thread.id)"))
+                }
+                appendCommentBox(items: items, links: links) { range in
                     annotations.append(
                         Annotation(
                             range: range,
@@ -2274,17 +2406,42 @@ enum DiffRenderer {
             }
             let hasThread = threads.contains { thread in
                 let line = thread.side == .left ? oldLine : newLine
-                return line != nil && thread.line == line
+                return thread.placement != .listOnly && line != nil && thread.line == line
             }
             if hasDraft { return "●" }
             if hasThread { return "◆" }
             return " "
         }
 
+        // Threads whose line is gone head the file, one line each: the
+        // diff has nowhere to put them, and a reviewer should not have to
+        // open the navigator to learn they exist.
+        let listOnly = threads.filter { $0.placement == .listOnly }
+        if !listOnly.isEmpty {
+            let count = listOnly.count
+            append(
+                "\(count) outdated thread\(count == 1 ? "" : "s")"
+                    + " — the code \(count == 1 ? "it was" : "they were") on has changed\n",
+                color: .secondaryLabelColor)
+            for thread in listOnly {
+                appendThreadSummary(
+                    thread,
+                    detail: thread.originalLine.map { " · was L\($0)" } ?? "",
+                    links: [("Read…", "prchum-act://read-thread/\(thread.id)")]
+                ) { range in
+                    annotations.append(
+                        Annotation(
+                            range: range, commentID: nil, threadID: thread.id, target: nil))
+                }
+            }
+            append("\n", color: .labelColor)
+        }
+
         if file.isBinary {
             append("Binary file — nothing to show.\n", color: .secondaryLabelColor)
             return RenderedDiff(
-                text: result, hunkRanges: [], changeRanges: [], lineRefs: [], annotations: [])
+                text: result, hunkRanges: [], changeRanges: [], lineRefs: [],
+                annotations: annotations)
         }
         if file.status == .renamed {
             append("renamed \(file.oldPath) → \(file.newPath)\n\n", color: .secondaryLabelColor)
