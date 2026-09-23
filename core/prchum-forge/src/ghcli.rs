@@ -29,8 +29,6 @@ pub const GITHUB_COMMIT_LIST_LIMIT: usize = 250;
 
 const RESOLVED_THREADS_QUERY: &str = "query($owner: String!, $name: String!, $number: Int!, $cursor: String) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100, after: $cursor) { nodes { isResolved comments(first: 1) { nodes { databaseId } } } pageInfo { hasNextPage endCursor } } } } }";
 
-const RESOLVED_THREADS_QUERY: &str = "query($owner: String!, $name: String!, $number: Int!, $cursor: String) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100, after: $cursor) { nodes { isResolved comments(first: 1) { nodes { databaseId } } } pageInfo { hasNextPage endCursor } } } } }";
-
 /// Runs a CLI and returns stdout; nonzero exit is an error carrying stderr.
 pub trait Runner: Send + Sync {
     fn run(&self, program: &str, args: &[String], stdin: Option<&[u8]>) -> Result<String, String>;
