@@ -51,8 +51,53 @@ pub struct ThreadInfo {
     /// The historical position, for listing outdated threads.
     pub original_line: Option<u32>,
     pub outdated: bool,
+    /// Marked resolved on the host. False when the host cannot say, so
+    /// a thread whose state is unknown is shown in full.
+    pub resolved: bool,
+    /// Where a shell shows the thread; see [`ThreadInfo::decide_placement`].
+    /// Set once, when the review opens, so every shell reads the same
+    /// answer instead of restating the rule.
+    pub placement: Placement,
     /// Root first, replies after.
     pub comments: Vec<Comment>,
+}
+
+/// How a shell presents a host thread.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Placement {
+    /// In full, under its current line.
+    #[default]
+    Inline,
+    /// Under its current line as a one-line summary the reviewer can
+    /// expand.
+    Collapsed,
+    /// Nowhere in today's diff: the line it was written against is gone,
+    /// so it is listed and read on its own. Drawing it at its original
+    /// line number would put it beside code it was never about.
+    ListOnly,
+}
+
+impl ThreadInfo {
+    /// Outdated wins over resolved: a resolved thread whose line is gone
+    /// has nowhere to collapse into.
+    pub fn decide_placement(&self) -> Placement {
+        if self.outdated || self.line.is_none() {
+            Placement::ListOnly
+        } else if self.resolved {
+            Placement::Collapsed
+        } else {
+            Placement::Inline
+        }
+    }
+}
+
+/// Settles every thread's placement; called once on the way into the
+/// session.
+pub fn place_threads(threads: &mut [ThreadInfo]) {
+    for thread in threads {
+        thread.placement = thread.decide_placement();
+    }
 }
 
 /// Pull-request metadata.
@@ -125,5 +170,43 @@ pub fn kind_for_host(host: &str, configured: Option<&str>) -> ForgeKind {
         ForgeKind::GitLab
     } else {
         ForgeKind::GitHub
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn thread(line: Option<u32>, outdated: bool, resolved: bool) -> ThreadInfo {
+        ThreadInfo {
+            line,
+            original_line: Some(4),
+            outdated,
+            resolved,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn placement_follows_line_then_resolution() {
+        assert_eq!(thread(Some(4), false, false).decide_placement(), Placement::Inline);
+        assert_eq!(thread(Some(4), false, true).decide_placement(), Placement::Collapsed);
+        assert_eq!(thread(None, true, false).decide_placement(), Placement::ListOnly);
+        assert_eq!(thread(None, true, true).decide_placement(), Placement::ListOnly);
+        // A host that keeps a line but calls the thread outdated is
+        // believed: the line no longer means what it did.
+        assert_eq!(thread(Some(4), true, false).decide_placement(), Placement::ListOnly);
+    }
+
+    #[test]
+    fn placement_travels_as_snake_case_and_defaults_when_absent() {
+        let mut threads = vec![thread(None, true, true)];
+        place_threads(&mut threads);
+        let json = serde_json::to_string(&threads).unwrap();
+        assert!(json.contains(r#""placement":"list_only""#), "{json}");
+        assert!(json.contains(r#""resolved":true"#), "{json}");
+        let old: ThreadInfo = serde_json::from_str(r#"{"id": 1, "line": 3}"#).unwrap();
+        assert!(!old.resolved);
+        assert_eq!(old.placement, Placement::Inline);
     }
 }
