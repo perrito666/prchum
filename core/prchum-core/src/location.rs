@@ -17,11 +17,11 @@ const ANCHOR_CONTEXT: usize = 3;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ContextAnchor {
     pub hunk_header: String,
-    /// Up to [`ANCHOR_CONTEXT`] lines before the anchor, on the same side.
+    /// Up to `ANCHOR_CONTEXT` lines before the anchor, on the same side.
     pub before: Vec<String>,
     /// The anchored line's display text.
     pub anchor_text: String,
-    /// Up to [`ANCHOR_CONTEXT`] lines after the anchor, on the same side.
+    /// Up to `ANCHOR_CONTEXT` lines after the anchor, on the same side.
     pub after: Vec<String>,
     /// Stable hash of before + anchor + after, joined by newlines.
     pub content_hash: String,
