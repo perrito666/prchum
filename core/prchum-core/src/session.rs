@@ -191,6 +191,11 @@ impl Session {
     pub fn attach_store(&mut self, dir: &str) -> Option<String> {
         let store = DraftStore::new(dir);
         let warning = if self.exchange_path.is_some() {
+            // Reviewed marks are local and never written into the exchange
+            // document, so the store is where they live; take only those.
+            if let Ok(Some(saved)) = store.load(&self.source_key) {
+                self.draft.reviewed = saved.reviewed;
+            }
             None
         } else {
             match store.load(&self.source_key) {
@@ -220,7 +225,10 @@ impl Session {
             self.draft.head_oid = self.head_oid.clone();
             // Don't litter the store with empty drafts for merely-opened
             // sessions; the first real change persists everything.
-            if !self.draft.comments.is_empty() || !self.draft.general.is_empty() {
+            if !self.draft.comments.is_empty()
+                || !self.draft.general.is_empty()
+                || !self.draft.reviewed.is_empty()
+            {
                 let _ = self.persist();
             }
         }
@@ -534,6 +542,67 @@ impl Session {
         self.persist()
     }
 
+    /// Marks or unmarks the file at `file_index` as reviewed; persists.
+    ///
+    /// The mark records the file's current diff fingerprint, so it lapses
+    /// on its own when the file's changes change.
+    pub fn set_file_reviewed(&mut self, file_index: usize, reviewed: bool) -> Result<(), String> {
+        let file = self
+            .files
+            .get(file_index)
+            .ok_or_else(|| "no such file".to_string())?;
+        let path = file.display_path().to_string();
+        if reviewed {
+            let fingerprint = file.fingerprint();
+            self.draft.reviewed.insert(path, fingerprint);
+        } else {
+            self.draft.reviewed.remove(&path);
+        }
+        self.persist()
+    }
+
+    /// Whether the file at `file_index` carries a mark made against the
+    /// diff as it is now. Out of range is simply not reviewed.
+    pub fn is_file_reviewed(&self, file_index: usize) -> bool {
+        self.files
+            .get(file_index)
+            .is_some_and(|file| self.is_reviewed(file))
+    }
+
+    fn is_reviewed(&self, file: &FileDiff) -> bool {
+        self.draft
+            .reviewed
+            .get(file.display_path())
+            .is_some_and(|fingerprint| *fingerprint == file.fingerprint())
+    }
+
+    /// The reviewed state of every file, in diff order.
+    pub fn reviewed_files(&self) -> Vec<bool> {
+        self.files.iter().map(|file| self.is_reviewed(file)).collect()
+    }
+
+    /// The next file not yet reviewed, looking from `from` in the given
+    /// direction and wrapping around. `from` itself is considered last,
+    /// so it is the answer only when it is the one file left; `None` means
+    /// every file is reviewed. A `from` past the end starts at the edge.
+    pub fn next_unreviewed(&self, from: usize, forward: bool) -> Option<usize> {
+        let count = self.files.len();
+        if count == 0 {
+            return None;
+        }
+        let reviewed = self.reviewed_files();
+        let from = from.min(count - 1);
+        (1..=count)
+            .map(|step| {
+                if forward {
+                    (from + step) % count
+                } else {
+                    (from + count - step % count) % count
+                }
+            })
+            .find(|&index| !reviewed[index])
+    }
+
     /// The draft comments as JSON (array of comments with locations).
     pub fn comments_json(&self) -> String {
         serde_json::to_string(&self.draft.comments).unwrap_or_else(|_| "[]".to_string())
@@ -641,6 +710,123 @@ mod tests {
         assert!(rewritten.contains("because a was wrong"), "{rewritten}");
         assert!(rewritten.starts_with("{\n  \"leanreview_review\": 1"), "{rewritten}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    const THREE: &str = "diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n@@ -1 +1 @@\n-a\n+A\n\
+diff --git a/b.rs b/b.rs\n--- a/b.rs\n+++ b/b.rs\n@@ -1 +1 @@\n-b\n+B\n\
+diff --git a/c.rs b/c.rs\n--- a/c.rs\n+++ b/c.rs\n@@ -1 +1 @@\n-c\n+C\n";
+
+    fn temp_dir(tag: &str) -> String {
+        std::env::temp_dir()
+            .join(format!("prchum-{tag}-{}", std::process::id()))
+            .to_string_lossy()
+            .to_string()
+    }
+
+    #[test]
+    fn reviewed_marks_persist_and_resume() {
+        let dir = temp_dir("reviewed");
+        let key = "reviewed-key".to_string();
+        let mut session = Session::from_patch_keyed("t", THREE, key.clone()).unwrap();
+        session.attach_store(&dir);
+        assert_eq!(session.reviewed_files(), vec![false, false, false]);
+
+        session.set_file_reviewed(1, true).unwrap();
+        assert!(session.is_file_reviewed(1));
+        assert!(!session.is_file_reviewed(0));
+        assert!(!session.is_file_reviewed(9));
+        assert!(session.set_file_reviewed(9, true).is_err());
+
+        let mut resumed = Session::from_patch_keyed("t", THREE, key.clone()).unwrap();
+        resumed.attach_store(&dir);
+        assert_eq!(resumed.reviewed_files(), vec![false, true, false]);
+
+        resumed.set_file_reviewed(1, false).unwrap();
+        let mut again = Session::from_patch_keyed("t", THREE, key).unwrap();
+        again.attach_store(&dir);
+        assert_eq!(again.reviewed_files(), vec![false, false, false]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_changed_file_loses_its_mark() {
+        let dir = temp_dir("reviewed-change");
+        let key = "reviewed-change-key".to_string();
+        let mut session = Session::from_patch_keyed("t", THREE, key.clone()).unwrap();
+        session.attach_store(&dir);
+        session.set_file_reviewed(0, true).unwrap();
+        session.set_file_reviewed(1, true).unwrap();
+
+        // Same source, but b.rs now says something else.
+        let changed = THREE.replace("+B\n", "+Bee\n");
+        let mut reopened = Session::from_patch_keyed("t", &changed, key.clone()).unwrap();
+        reopened.attach_store(&dir);
+        assert_eq!(reopened.reviewed_files(), vec![true, false, false]);
+
+        // Only line numbers moved: the change read is the same one.
+        let shifted = THREE.replace("@@ -1 +1 @@\n-a", "@@ -10 +12 @@\n-a");
+        let mut rebased = Session::from_patch_keyed("t", &shifted, key).unwrap();
+        rebased.attach_store(&dir);
+        assert!(rebased.is_file_reviewed(0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn next_unreviewed_wraps_and_skips() {
+        let mut session = Session::from_patch("t", THREE).unwrap();
+        assert_eq!(session.next_unreviewed(0, true), Some(1));
+        assert_eq!(session.next_unreviewed(2, true), Some(0));
+        assert_eq!(session.next_unreviewed(0, false), Some(2));
+
+        session.set_file_reviewed(1, true).unwrap();
+        assert_eq!(session.next_unreviewed(0, true), Some(2));
+        assert_eq!(session.next_unreviewed(2, false), Some(0));
+        assert_eq!(session.next_unreviewed(1, true), Some(2));
+
+        // The current file is the answer only when nothing else is left.
+        session.set_file_reviewed(2, true).unwrap();
+        assert_eq!(session.next_unreviewed(0, true), Some(0));
+        assert_eq!(session.next_unreviewed(0, false), Some(0));
+        assert_eq!(session.next_unreviewed(1, true), Some(0));
+
+        session.set_file_reviewed(0, true).unwrap();
+        assert_eq!(session.next_unreviewed(0, true), None);
+        assert_eq!(session.next_unreviewed(0, false), None);
+        assert_eq!(session.next_unreviewed(99, true), None);
+    }
+
+    #[test]
+    fn marks_stay_out_of_the_exchange_document() {
+        let dir = temp_dir("reviewed-exch");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = std::path::Path::new(&dir).join("loop.review.json");
+        std::fs::write(
+            &path,
+            r#"{"leanreview_review": 1, "title": "loop", "patch": ["--- a/x.rs", "+++ b/x.rs", "@@ -1,2 +1,2 @@", " context", "-a", "+b"], "comments": []}"#,
+        )
+        .unwrap();
+        let store = std::path::Path::new(&dir).join("drafts");
+        let store = store.to_string_lossy();
+
+        let mut session = Session::from_patch_file(&path.to_string_lossy()).unwrap();
+        session.attach_store(&store);
+        session.set_file_reviewed(0, true).unwrap();
+        let written = std::fs::read_to_string(&path).unwrap();
+        assert!(!written.contains("reviewed"), "{written}");
+
+        let mut reopened = Session::from_patch_file(&path.to_string_lossy()).unwrap();
+        reopened.attach_store(&store);
+        assert!(reopened.is_file_reviewed(0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn old_drafts_load_and_empty_marks_stay_out_of_the_file() {
+        let old: DraftReview =
+            serde_json::from_str(r#"{"source_key": "k", "comments": []}"#).unwrap();
+        assert!(old.reviewed.is_empty());
+        let json = serde_json::to_string(&old).unwrap();
+        assert!(!json.contains("reviewed"), "{json}");
     }
 
     #[test]
