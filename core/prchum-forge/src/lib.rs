@@ -130,6 +130,87 @@ pub struct ReviewComment {
     pub start_side: Option<String>,
 }
 
+/// One commit of a pull request, as the request's commit list shows it.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CommitInfo {
+    pub sha: String,
+    /// First parent first; a merge commit has more than one.
+    pub parents: Vec<String>,
+    /// The first line of the message.
+    pub title: String,
+    pub author: String,
+    pub date: String,
+}
+
+impl CommitInfo {
+    /// The abbreviation the forges' own UIs show.
+    pub fn short_sha(&self) -> &str {
+        self.sha.get(..7).unwrap_or(&self.sha)
+    }
+
+    /// What the commit's changes are measured against.
+    pub fn first_parent(&self) -> Option<&str> {
+        self.parents.first().map(String::as_str)
+    }
+}
+
+/// A request's commits, oldest first, and anything the forge withheld.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct CommitList {
+    pub commits: Vec<CommitInfo>,
+    /// Non-empty when the list is known or suspected to be incomplete
+    /// (GitHub stops at 250 commits); the shell shows it.
+    pub notice: String,
+}
+
+/// Puts commits in history order, parents before children, whatever
+/// order the forge answered in (GitHub lists oldest first, GitLab newest
+/// first). Parents outside the list are ignored; ties keep input order.
+pub fn oldest_first(commits: Vec<CommitInfo>) -> Vec<CommitInfo> {
+    use std::collections::{HashMap, HashSet};
+    let index: HashMap<&str, usize> = commits
+        .iter()
+        .enumerate()
+        .map(|(position, commit)| (commit.sha.as_str(), position))
+        .collect();
+    let mut order = Vec::with_capacity(commits.len());
+    let mut done: HashSet<usize> = HashSet::new();
+    // Iterative depth-first walk emitting parents before the child: a
+    // long history must not exhaust the stack.
+    for start in 0..commits.len() {
+        let mut stack = vec![(start, false)];
+        while let Some((position, expanded)) = stack.pop() {
+            if done.contains(&position) {
+                continue;
+            }
+            if expanded {
+                done.insert(position);
+                order.push(position);
+                continue;
+            }
+            stack.push((position, true));
+            for parent in commits[position].parents.iter().rev() {
+                if let Some(&parent_position) = index.get(parent.as_str()) {
+                    if !done.contains(&parent_position) {
+                        stack.push((parent_position, false));
+                    }
+                }
+            }
+        }
+    }
+    let mut slots: Vec<Option<CommitInfo>> = commits.into_iter().map(Some).collect();
+    order
+        .into_iter()
+        .filter_map(|position| slots[position].take())
+        .collect()
+}
+
+/// The first line of a commit message.
+pub(crate) fn first_line(message: &str) -> String {
+    message.lines().next().unwrap_or_default().trim().to_string()
+}
+
 /// Host-agnostic operations the UI depends on. Everything returns a plain
 /// error string; the shell shows it and the draft survives.
 pub trait Forge {
@@ -138,13 +219,21 @@ pub trait Forge {
     fn diff(&self, pr: &PullRequestRef) -> Result<String, String>;
     fn threads(&self, pr: &PullRequestRef) -> Result<Vec<ThreadInfo>, String>;
     fn general_comments(&self, pr: &PullRequestRef) -> Result<Vec<Comment>, String>;
+    /// The request's commits, oldest first.
+    fn commits(&self, pr: &PullRequestRef) -> Result<CommitList, String>;
+    /// One commit's changes against its first parent, as a unified diff.
+    fn commit_diff(&self, pr: &PullRequestRef, sha: &str) -> Result<String, String>;
     /// One atomic review: the event, the summary, and every line comment.
+    /// With `commit`, the line comments are positioned in that commit's
+    /// diff rather than the whole request's — the forge's own
+    /// single-commit view.
     fn create_review(
         &self,
         pr: &PullRequestRef,
         event: &str,
         summary: &str,
         comments: &[ReviewComment],
+        commit: Option<&CommitInfo>,
     ) -> Result<(), String>;
     /// A reply into an existing thread, by root comment id.
     fn reply(&self, pr: &PullRequestRef, comment_id: i64, body: &str) -> Result<(), String>;
@@ -187,6 +276,14 @@ mod tests {
         }
     }
 
+    fn commit(sha: &str, parents: &[&str]) -> CommitInfo {
+        CommitInfo {
+            sha: sha.to_string(),
+            parents: parents.iter().map(|p| p.to_string()).collect(),
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn placement_follows_line_then_resolution() {
         assert_eq!(thread(Some(4), false, false).decide_placement(), Placement::Inline);
@@ -208,5 +305,35 @@ mod tests {
         let old: ThreadInfo = serde_json::from_str(r#"{"id": 1, "line": 3}"#).unwrap();
         assert!(!old.resolved);
         assert_eq!(old.placement, Placement::Inline);
+    }
+
+    fn shas(commits: &[CommitInfo]) -> Vec<&str> {
+        commits.iter().map(|c| c.sha.as_str()).collect()
+    }
+
+    #[test]
+    fn history_order_regardless_of_the_forge_order() {
+        let oldest = vec![commit("a", &["base"]), commit("b", &["a"]), commit("c", &["b"])];
+        assert_eq!(shas(&oldest_first(oldest.clone())), ["a", "b", "c"]);
+        let newest: Vec<_> = oldest.into_iter().rev().collect();
+        assert_eq!(shas(&oldest_first(newest)), ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn merges_follow_both_parents() {
+        let commits = vec![
+            commit("m", &["a", "side"]),
+            commit("side", &["base"]),
+            commit("a", &["base"]),
+        ];
+        assert_eq!(shas(&oldest_first(commits)), ["a", "side", "m"]);
+    }
+
+    #[test]
+    fn short_sha_and_first_line() {
+        assert_eq!(commit("0123456789", &[]).short_sha(), "0123456");
+        assert_eq!(commit("abc", &[]).short_sha(), "abc");
+        assert_eq!(first_line("Fix it\n\nBecause."), "Fix it");
+        assert_eq!(first_line(""), "");
     }
 }

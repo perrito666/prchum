@@ -282,6 +282,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func adopt(session: CoreSession) {
+        let controller = makeReviewController(session: session)
+        home?.close()
+        controller.showWindow(nil)
+    }
+
+    private func makeReviewController(session: CoreSession) -> ReviewWindowController {
         session.recordHistory()
         let controller = ReviewWindowController(session: session)
         controller.onClose = { [weak self] closed in
@@ -290,9 +296,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // so the quit-on-last-window check already sees home open.
             self?.returnToHomeIfEmpty()
         }
+        controller.onReplaceSession = { [weak self] old, session in
+            self?.replace(old, with: session)
+        }
         windows.append(controller)
-        home?.close()
+        return controller
+    }
+
+    /// Another commit of the same request (or the whole of it) takes the
+    /// old window's place: same frame, and the old one closes only once
+    /// the new one is on screen, so the app never looks empty meanwhile.
+    private func replace(_ old: ReviewWindowController, with session: CoreSession) {
+        let controller = makeReviewController(session: session)
+        if let frame = old.window?.frame {
+            controller.window?.setFrame(frame, display: false)
+        }
         controller.showWindow(nil)
+        old.close()
+        // The name was still the old window's when the new one asked.
+        controller.window?.setFrameAutosaveName("ReviewWindow")
     }
 
     private func presentOpenFailure(_ title: String, _ error: Error) {
@@ -589,6 +611,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         goMenu.addItem(keymap.menuItem(for: .nextUnreviewed))
         goMenu.addItem(keymap.menuItem(for: .previousUnreviewed))
         goMenu.addItem(keymap.menuItem(for: .toggleReviewed))
+        goMenu.addItem(keymap.menuItem(for: .chooseCommit))
+        goMenu.addItem(keymap.menuItem(for: .nextCommit))
+        goMenu.addItem(keymap.menuItem(for: .previousCommit))
 
         let windowItem = NSMenuItem()
         mainMenu.addItem(windowItem)

@@ -117,18 +117,13 @@ pub fn send<F>(
     F: Fn(submit::SubmitOutcome) + 'static,
 {
     let (sender, receiver) = std::sync::mpsc::channel();
-    let reference = context.reference.clone();
-    let kind = context.kind;
-    let template = context.forgejo_template.clone();
+    let context = context.clone();
 
     std::thread::spawn(move || {
-        let context = PrContext {
-            reference: reference.clone(),
-            kind,
-            forgejo_template: template,
-        };
-        let plan = submit::plan(&draft);
-        let outcome = submit::execute(&*context.forge(), &reference, &draft, &plan);
+        // The context's plan, not submit::plan: a review of one commit
+        // must go out pinned to that commit.
+        let plan = context.plan(&draft);
+        let outcome = submit::execute(&*context.forge(), &context.reference, &draft, &plan);
         let _ = sender.send(outcome);
     });
 

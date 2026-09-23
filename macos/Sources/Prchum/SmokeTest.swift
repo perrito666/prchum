@@ -955,6 +955,152 @@ func runSmokeTest() -> Int32 {
         return 1
     }
 
+    // Commit review: a pull request opened through a scripted `gh` on the
+    // PATH (no network), one of its commits opened as a review of its
+    // own, drafts kept apart, and the submission pinned to the commit.
+    do {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prchum-smoke-commit-\(ProcessInfo.processInfo.processIdentifier)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let first = String(repeating: "1", count: 40)
+        let second = String(repeating: "2", count: 40)
+        func write(_ name: String, _ text: String) throws {
+            try text.write(
+                to: dir.appendingPathComponent(name), atomically: true, encoding: .utf8)
+        }
+        let commitDiff = """
+            diff --git a/b.txt b/b.txt
+            --- a/b.txt
+            +++ b/b.txt
+            @@ -1,2 +1,2 @@
+             keep
+            -old
+            +new
+
+            """
+        try write("commit.diff", commitDiff)
+        try write(
+            "pr.diff",
+            """
+            diff --git a/a.txt b/a.txt
+            --- a/a.txt
+            +++ b/a.txt
+            @@ -1 +1 @@
+            -x
+            +y
+
+            """ + commitDiff)
+        try write(
+            "pr.json",
+            """
+            {"number": 7, "state": "open", "title": "Smoke request", "body": "",
+             "user": {"login": "al"}, "html_url": "https://github.com/o/r/pull/7",
+             "head": {"sha": "\(second)", "ref": "feat"}, "base": {"ref": "main"}}
+            """)
+        // Newest first on purpose: the core puts them in history order.
+        try write(
+            "commits.json",
+            """
+            [{"sha": "\(second)", "parents": [{"sha": "\(first)"}],
+              "commit": {"message": "Second\\n\\nbody", "author": {"name": "Bo", "date": "d2"}}},
+             {"sha": "\(first)", "parents": [{"sha": "\(String(repeating: "0", count: 40))"}],
+              "commit": {"message": "First", "author": {"name": "Al", "date": "d1"}}}]
+            """)
+        try write(
+            "gh",
+            """
+            #!/bin/sh
+            dir="$(dirname "$0")"
+            case "$*" in
+              *pulls/7/commits*) cat "$dir/commits.json" ;;
+              *repos/o/r/commits/*) cat "$dir/commit.diff" ;;
+              *pulls/7/comments*|*issues/7/comments*) echo '[]' ;;
+              *pulls/7/reviews*) cat > "$dir/review.json"; echo '{}' ;;
+              *vnd.github.v3.diff*) cat "$dir/pr.diff" ;;
+              *pulls/7*) cat "$dir/pr.json" ;;
+              *) echo "unexpected: $*" >&2; exit 1 ;;
+            esac
+
+            """)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755], ofItemAtPath: dir.appendingPathComponent("gh").path)
+        let configPath = dir.appendingPathComponent("config.json").path
+        try "{}".write(toFile: configPath, atomically: true, encoding: .utf8)
+        let drafts = dir.appendingPathComponent("drafts").path
+
+        let savedPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
+        setenv("PATH", "\(dir.path):\(savedPath)", 1)
+        defer { setenv("PATH", savedPath, 1) }
+
+        let whole = try CoreSession(pullRequest: "o/r#7", configPath: configPath)
+        whole.attachStore(directory: drafts)
+        let listing = try whole.commits()
+        guard listing.commits.map(\.sha) == [first, second],
+            listing.commits[1].title == "Second", listing.notice.isEmpty,
+            listing.current.isEmpty, whole.reviewedCommit == nil
+        else {
+            print("FAIL: commit listing: \(listing)")
+            return 1
+        }
+
+        let one = try CoreSession(commit: second, of: whole)
+        one.attachStore(directory: drafts)
+        guard one.title == "o/r#7 @ 2222222: Second", one.reviewedCommit?.sha == second,
+            try one.files().map(\.displayPath) == ["b.txt"], one.threads().isEmpty,
+            one.isPullRequest
+        else {
+            print("FAIL: commit session: \(one.title)")
+            return 1
+        }
+        try one.addComment(fileIndex: 0, side: .right, startLine: 2, endLine: 2, body: "here")
+        let counted = try whole.commits()
+        guard counted.commits[1].drafts == 1, counted.commits[0].drafts == 0,
+            counted.drafts == 0, whole.comments().isEmpty
+        else {
+            print("FAIL: drafts are not kept per commit: \(counted)")
+            return 1
+        }
+
+        // Back to the whole request, from the commit.
+        let again = try CoreSession(commit: "", of: one)
+        guard again.reviewedCommit == nil, again.title == "o/r#7: Smoke request",
+            again.fileCount == 2
+        else {
+            print("FAIL: back to all changes: \(again.title)")
+            return 1
+        }
+
+        let result = try one.submit()
+        let posted = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: dir.appendingPathComponent("review.json")))
+            as? [String: Any]
+        let comments = posted?["comments"] as? [[String: Any]]
+        guard result.posted == 1, result.error == nil,
+            posted?["commit_id"] as? String == second,
+            comments?.first?["line"] as? Int == 2, comments?.first?["path"] as? String == "b.txt"
+        else {
+            print("FAIL: commit submission: \(result), \(String(describing: posted))")
+            return 1
+        }
+        let resumed = try CoreSession(commit: second, of: whole)
+        resumed.attachStore(directory: drafts)
+        guard resumed.comments().isEmpty else {
+            print("FAIL: a submitted commit draft came back")
+            return 1
+        }
+
+        do {
+            _ = try CoreSession(commit: String(repeating: "9", count: 40), of: whole)
+            print("FAIL: a sha outside the request opened")
+            return 1
+        } catch {}
+        print("commit review ok (listing, own drafts, back to all, pinned submission)")
+    } catch {
+        print("FAIL: commit review: \(error)")
+        return 1
+    }
+
     // Async event round trip: core dispatch thread → main queue.
     var receivedSequence: UInt64?
     let coreApp = CoreApp { event in

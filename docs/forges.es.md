@@ -71,3 +71,22 @@ nota, Approve aprueba y Request changes publica una nota de «Changes
 requested» — en orden, y un fallo informa cuántos se publicaron ya. Los
 bloques de sugerencia se reescriben a la forma con rango de GitLab para
 que las selecciones multilínea reemplacen el rango completo.
+
+## Revisar un solo commit
+
+Cuando revisas un solo commit de un pedido (ver
+[La revisión](reviewing.md)), sus comentarios de línea están
+posicionados en el diff de ese commit, así que se envían fijados a él —
+como los publica la vista de un solo commit de cada forja:
+
+| Forja | Commits desde | El diff del commit | Fijado por |
+| --- | --- | --- | --- |
+| GitHub | `pulls/N/commits` | `commits/SHA` como diff | el `commit_id` de la revisión |
+| GitLab | `merge_requests/N/commits` | `repository/commits/SHA/diff` | la posición de cada discusión: `base_sha` y `start_sha` el padre, `head_sha` el commit |
+| Forgejo | `pulls/N/commits` | `git/commits/SHA.diff` | el `commit_id` de la revisión |
+
+El diff de un commit se toma respecto de su primer padre. Nada se
+adivina: si la forja rechaza la posición de un comentario, el envío
+informa el error y cada borrador que no aceptó se queda para
+reintentar. GitHub lista como mucho 250 commits de un pull request, y
+el selector lo avisa cuando hay más.
