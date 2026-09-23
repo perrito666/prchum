@@ -71,7 +71,8 @@ pub fn open_session(
     let forge = context.forge();
     let metadata = forge.pull_request(&pr_ref)?;
     let diff = forge.diff(&pr_ref)?;
-    let threads = forge.threads(&pr_ref)?;
+    let mut threads = forge.threads(&pr_ref)?;
+    crate::place_threads(&mut threads);
     // Conversation comments are display data; failure to fetch them must
     // not block the review.
     let generals = forge.general_comments(&pr_ref).unwrap_or_default();

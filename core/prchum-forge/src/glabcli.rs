@@ -167,6 +167,10 @@ impl<R: Runner> Forge for GlabForge<R> {
                 start_line: None,
                 original_line: None,
                 outdated: false,
+                // Resolution lives on the notes; the root speaks for the
+                // discussion, which GitLab resolves as a whole.
+                resolved: root["resolved"].as_bool().unwrap_or(false),
+                placement: Default::default(),
                 comments: notes.iter().map(note_comment).collect(),
             });
         }
@@ -483,6 +487,25 @@ mod tests {
             "```suggestion:-0+0\nx\n```"
         );
         assert_eq!(adapt_suggestion("plain body", Some(1), 2), "plain body");
+    }
+
+    #[test]
+    fn threads_carry_the_root_notes_resolution() {
+        let forge = GlabForge::with_runner(FakeRunner::new(vec![Ok(r#"[
+            {"id": "a", "notes": [{"id": 1, "body": "open", "resolvable": true,
+                "resolved": false, "author": {"username": "x"}, "created_at": "t",
+                "position": {"position_type": "text", "new_line": 5, "new_path": "a.rs"}}]},
+            {"id": "b", "notes": [{"id": 2, "body": "done", "resolvable": true,
+                "resolved": true, "author": {"username": "x"}, "created_at": "t",
+                "position": {"position_type": "text", "new_line": 9, "new_path": "a.rs"}}]},
+            {"id": "c", "notes": [{"id": 3, "body": "no field",
+                "author": {"username": "x"}, "created_at": "t",
+                "position": {"position_type": "text", "old_line": 2, "old_path": "a.rs"}}]}
+        ]"#
+        .into())]));
+        let threads = forge.threads(&reference()).unwrap();
+        let resolved: Vec<bool> = threads.iter().map(|t| t.resolved).collect();
+        assert_eq!(resolved, vec![false, true, false]);
     }
 
     #[test]
